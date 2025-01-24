@@ -21,6 +21,7 @@ type User {
   company: Company
   createdAt: Int!
   updatedAt: Int!
+  birthday: String
 }
 
 """The roles a user can have in the system"""
@@ -235,7 +236,13 @@ input ConfirmSignupInputDto {
   password: String!
   phone: Float!
   companyName: String!
+  birthday: DateTime!
 }
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
 
 input ConfirmPasswordInputDto {
   email: String!
