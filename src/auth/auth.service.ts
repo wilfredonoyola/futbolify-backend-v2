@@ -111,10 +111,10 @@ export class AuthService {
     });
     const response = await this.client.send(command);
 
-    // Assign user to "admins" group in Cognito
+    // Assign user to "users" group in Cognito
     const groupCommand = new AdminAddUserToGroupCommand({
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-      GroupName: "admins", // Assign the ADMIN role in Cognito
+      GroupName: "users", // Assign the USERS role in Cognito
       Username: email,
     });
     await this.client.send(groupCommand);
