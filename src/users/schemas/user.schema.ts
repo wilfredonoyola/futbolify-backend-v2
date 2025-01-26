@@ -38,10 +38,6 @@ export class User extends Document {
   @Field()
   phone: string;
 
-  @Prop({ required: false })
-  @Field({ nullable: true })
-  password?: string;
-
   @Prop({ type: [String], enum: UserRole, default: [UserRole.USER] })
   @Field(() => [UserRole])
   roles: UserRole[];
