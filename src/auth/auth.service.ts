@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 import {
   CognitoIdentityProviderClient,
   SignUpCommand,
@@ -12,24 +12,20 @@ import {
   ConfirmForgotPasswordCommand,
   ResendConfirmationCodeCommand,
   AdminDeleteUserCommand,
-} from '@aws-sdk/client-cognito-identity-provider';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User, UserDocument, UserRole } from 'src/users/schemas/user.schema';
-import * as jwt from 'jsonwebtoken';
-import { CompanyService } from 'src/company/company.service';
-import { ConfirmSignupInputDto } from './dto';
-import { CurrentUserPayload } from './current-user-payload.interface';
+} from "@aws-sdk/client-cognito-identity-provider";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { User, UserDocument, UserRole } from "src/users/schemas/user.schema";
+import * as jwt from "jsonwebtoken";
+import { ConfirmSignupInputDto } from "./dto";
+import { CurrentUserPayload } from "./current-user-payload.interface";
 
 @Injectable()
 export class AuthService {
   private client: CognitoIdentityProviderClient;
   private clientId: string;
 
-  constructor(
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
-    private readonly companyService: CompanyService,
-  ) {
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {
     this.client = new CognitoIdentityProviderClient({
       region: process.env.AWS_COGNITO_REGION,
       credentials: {
@@ -63,22 +59,22 @@ export class AuthService {
     const user = await this.userModel.findOne({ email });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new Error("User not found");
     }
 
     // Map roles from Cognito token to UserRole enum
-    const cognitoRoles = decodedToken['cognito:groups'] || [];
+    const cognitoRoles = decodedToken["cognito:groups"] || [];
     const mappedCognitoRoles: UserRole[] =
       this.mapCognitoGroupsToUserRoles(cognitoRoles);
 
     // Validate that at least one Cognito role matches the roles in the database
     const hasValidRole = mappedCognitoRoles.some((role) =>
-      user.roles.includes(role),
+      user.roles.includes(role)
     );
 
     if (!hasValidRole) {
       throw new Error(
-        'User roles from Cognito do not match with the database roles',
+        "User roles from Cognito do not match with the database roles"
       );
     }
 
@@ -93,11 +89,11 @@ export class AuthService {
   private mapCognitoGroupsToUserRoles(groups: string[]): UserRole[] {
     return groups.map((group) => {
       switch (group) {
-        case 'admins':
+        case "admins":
           return UserRole.ADMIN;
-        case 'super_admins':
+        case "super_admins":
           return UserRole.SUPER_ADMIN;
-        case 'users':
+        case "users":
           return UserRole.USER;
         default:
           throw new Error(`Unrecognized group: ${group}`);
@@ -111,21 +107,21 @@ export class AuthService {
       ClientId: this.clientId,
       Username: email,
       Password: password,
-      UserAttributes: [{ Name: 'email', Value: email }],
+      UserAttributes: [{ Name: "email", Value: email }],
     });
     const response = await this.client.send(command);
 
     // Assign user to "admins" group in Cognito
     const groupCommand = new AdminAddUserToGroupCommand({
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-      GroupName: 'admins', // Assign the ADMIN role in Cognito
+      GroupName: "admins", // Assign the ADMIN role in Cognito
       Username: email,
     });
     await this.client.send(groupCommand);
 
     return {
       message:
-        'Verification code sent to your email. Please confirm to complete registration.',
+        "Verification code sent to your email. Please confirm to complete registration.",
       userSub: response.UserSub, // User ID in Cognito
     };
   }
@@ -145,7 +141,7 @@ export class AuthService {
   async confirmForgotPassword(
     email: string,
     verificationCode: string,
-    newPassword: string,
+    newPassword: string
   ): Promise<boolean> {
     const command = new ConfirmForgotPasswordCommand({
       ClientId: this.clientId,
@@ -178,23 +174,14 @@ export class AuthService {
     });
     await this.client.send(confirmCommand);
 
-    // Crear la empresa usando CompanyService
-    const company = await this.companyService.create({
-      name: input.companyName, // Usar el nombre de la empresa proporcionado
-    });
-
     // Crear el usuario en MongoDB con rol ADMIN
     const createdUser = new this.userModel({
       ...input,
-      company: company.companyId,
       isOnboardingCompleted: false,
-      roles: [UserRole.ADMIN], // Se asigna rol ADMIN por defecto
+      roles: [UserRole.USER], // Se asigna rol ADMIN por defecto
     });
 
     await createdUser.save();
-
-    // Actualizar la lista de miembros de la empresa
-    await this.companyService.addMember(company.companyId, createdUser.id);
 
     // Iniciar sesión automáticamente después de la confirmación
     const loginCommand = new InitiateAuthCommand({
@@ -211,7 +198,7 @@ export class AuthService {
     const decodedToken = jwt.decode(idToken) as any;
 
     // Mapear roles desde Cognito
-    const cognitoRoles = decodedToken['cognito:groups'] || [];
+    const cognitoRoles = decodedToken["cognito:groups"] || [];
     const mappedCognitoRoles: UserRole[] =
       this.mapCognitoGroupsToUserRoles(cognitoRoles);
 
@@ -228,17 +215,17 @@ export class AuthService {
     password: string,
     phone: number,
     role: UserRole,
-    user: CurrentUserPayload,
+    user: CurrentUserPayload
   ): Promise<any> {
     // Create user in Cognito without requiring email confirmation
     const command = new AdminCreateUserCommand({
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID, // User Pool ID
       Username: email,
       UserAttributes: [
-        { Name: 'email', Value: email },
-        { Name: 'email_verified', Value: 'true' }, // Mark email as verified
+        { Name: "email", Value: email },
+        { Name: "email_verified", Value: "true" }, // Mark email as verified
       ],
-      MessageAction: 'SUPPRESS', // Suppress the welcome email
+      MessageAction: "SUPPRESS", // Suppress the welcome email
     });
     await this.client.send(command);
 
@@ -251,12 +238,12 @@ export class AuthService {
     });
     await this.client.send(setPasswordCommand);
 
-    let groupName = 'users';
+    let groupName = "users";
 
     if (role === UserRole.SUPER_ADMIN) {
-      groupName = 'super_admins';
+      groupName = "super_admins";
     } else if (role === UserRole.ADMIN) {
-      groupName = 'admins';
+      groupName = "admins";
     }
 
     const groupCommand = new AdminAddUserToGroupCommand({
@@ -271,7 +258,6 @@ export class AuthService {
       email,
       phone,
       name,
-      company: user.company._id,
       roles: [role],
     });
     await createdUser.save();

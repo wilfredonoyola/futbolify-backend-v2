@@ -7,12 +7,10 @@ import { UsersModule } from '../users/users.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserSchema } from 'src/users/schemas/user.schema';
 import { AwsCognitoAuthStrategy } from './strategies/jwt-auth.strategy';
-import { CompanyModule } from 'src/company/company.module';
 
 @Module({
   imports: [
     forwardRef(() => UsersModule),
-    forwardRef(() => CompanyModule), // Ya estás importando el módulo de Company
     MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
     PassportModule,
     JwtModule.register({

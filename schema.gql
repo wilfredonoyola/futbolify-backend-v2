@@ -2,25 +2,10 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type Company {
-  companyId: ID!
-  name: String!
-  address: String
-  members: [User]
-  createdAt: Int!
-  updatedAt: Int!
-}
-
-type User {
-  userId: ID!
-  email: String!
-  phone: String!
-  password: String
-  roles: [UserRole!]!
+type SigninOutputDto {
+  access_token: String!
   isOnboardingCompleted: Boolean!
-  company: Company
-  createdAt: Int!
-  updatedAt: Int!
+  roles: [UserRole!]!
 }
 
 """The roles a user can have in the system"""
@@ -28,12 +13,6 @@ enum UserRole {
   USER
   ADMIN
   SUPER_ADMIN
-}
-
-type SigninOutputDto {
-  access_token: String!
-  isOnboardingCompleted: Boolean!
-  roles: [UserRole!]!
 }
 
 type UserOutputDto {
@@ -44,153 +23,9 @@ type UserOutputDto {
   roles: [UserRole!]!
 }
 
-type CompanyOutput {
-  companyId: ID!
-  name: String
-  address: String
-  createdAt: Int!
-  updatedAt: Int!
-}
-
-type CategoryOutput {
-  categoryId: ID!
-  name: String
-  description: String
-  createdAt: Int!
-  updatedAt: Int!
-}
-
-type InventoryOutput {
-  inventoryId: ID!
-  name: String!
-  quantity: Int!
-  description: String
-  sku: String
-  price: Float!
-  purchasePrice: Float
-  status: InventoryStatus
-  category: CategoryOutput
-  createdAt: Int!
-  updatedAt: Int!
-  expirationDate: Int
-}
-
-enum InventoryStatus {
-  ACTIVE
-  OUT_OF_STOCK
-}
-
-type ServiceOutput {
-  serviceId: ID!
-  name: String!
-  description: String
-  price: Float!
-  category: CategoryOutput
-  createdAt: Int!
-  updatedAt: Int!
-}
-
-type OrderItem {
-  id: String!
-  name: String!
-  type: ItemType!
-  price: Float!
-  quantity: Int!
-  discount: Float
-  createdAt: Int!
-  total: Float!
-}
-
-"""Indica si un ítem es un producto o un servicio"""
-enum ItemType {
-  PRODUCT
-  SERVICE
-}
-
-type Item {
-  id: ID!
-  name: String!
-  price: Float!
-  quantity: Int!
-  category: CategoryOutput
-  type: String!
-}
-
-type OrderItemOutput {
-  id: ID!
-  name: String!
-  type: ItemType!
-  price: Float!
-  quantity: Int!
-  discount: Float
-}
-
-type OrderOutput {
-  id: ID!
-  companyId: ID!
-  items: [OrderItemOutput!]!
-  total: Float!
-  createdAt: Int!
-  updatedAt: Int!
-}
-
-type MostSoldItem {
-  _id: String!
-  name: String!
-  totalSold: Float!
-  price: Float!
-  type: String!
-}
-
-type WeekOutput {
-  weekNumber: Int!
-  days: [[OrderOutput!]!]!
-}
-
-type OrdersGroupedByPeriodsOutput {
-  daily: [[OrderOutput!]!]!
-  weekly: [[OrderOutput!]!]!
-  monthly: [[OrderOutput!]!]!
-}
-
-type CustomDateRangeOutput {
-  weeklyDate: [WeekOutput!]!
-  mostSoldItems: [MostSoldItem!]
-  totalRevenue: Float
-  totalOrders: Int
-  totalProductsSold: Float
-  totalServicesSold: Float
-  averageSalesValue: Float
-}
-
-type InvoiceOutput {
-  id: String!
-  items: [OrderItem!]!
-  total: Float!
-  createdAt: Float!
-  updatedAt: Float!
-}
-
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
-  companies: [CompanyOutput!]!
-  company(companyId: String!): CompanyOutput!
-  inventories: [InventoryOutput!]!
-  inventory(inventoryId: String!): InventoryOutput!
-  services: [ServiceOutput!]!
-  service(serviceId: String!): ServiceOutput!
-  categories: [CategoryOutput!]!
-  category(categoryId: String!): CategoryOutput!
-  getAllItems: [Item!]!
-  getOrderById(orderId: String!): OrderOutput!
-  getOrders: [OrderOutput!]!
-  getOrdersByDateRange(startDate: String!, endDate: String!): [OrderOutput!]!
-  getOrdersByCustomDateRange(startDate: String!, endDate: String!): CustomDateRangeOutput!
-  getOrdersByPeriods(year: Float, month: Float, week: Float): OrdersGroupedByPeriodsOutput!
-  todayInvoices(date: String!): [OrderOutput!]!
-  getLastMonthInvoices: [OrderOutput!]!
-  getInvoices: [InvoiceOutput!]!
 }
 
 type Mutation {
@@ -203,20 +38,6 @@ type Mutation {
   addUser(userInput: AddUserInputDto!): UserOutputDto!
   updateUser(id: String!, updateUserInput: UpdateUserInput!): UserOutputDto!
   removeUser(id: String!): Boolean!
-  createCompany(createCompanyInput: CreateCompanyInput!): CompanyOutput!
-  updateCompany(companyId: String!, updateCompanyInput: UpdateCompanyInput!): CompanyOutput!
-  removeCompany(companyId: String!): CompanyOutput!
-  createInventory(createInventoryInput: CreateInventoryInput!): InventoryOutput!
-  updateInventory(inventoryId: String!, updateInventoryInput: UpdateInventoryInput!): InventoryOutput!
-  removeInventory(inventoryId: String!): InventoryOutput!
-  createService(createServiceInput: CreateServiceInput!): ServiceOutput!
-  updateService(serviceId: String!, updateServiceInput: UpdateServiceInput!): ServiceOutput!
-  removeService(serviceId: String!): ServiceOutput!
-  createCategory(createCategoryInput: CreateCategoryInput!): CategoryOutput!
-  updateCategory(categoryId: String!, updateCategoryInput: UpdateCategoryInput!): CategoryOutput!
-  removeCategory(categoryId: String!): CategoryOutput!
-  processOrder(input: ProcessOrderInput!): Boolean!
-  excludeInvoices(excludeInvoiceIds: [String!], excludeProducts: [ExcludeProductInput!]): Boolean!
 }
 
 input SigninInputDto {
@@ -234,8 +55,14 @@ input ConfirmSignupInputDto {
   verificationCode: String!
   password: String!
   phone: Float!
-  companyName: String!
+  fullName: String!
+  birthday: DateTime!
 }
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
 
 input ConfirmPasswordInputDto {
   email: String!
@@ -254,88 +81,4 @@ input AddUserInputDto {
 input UpdateUserInput {
   roles: [UserRole!]
   name: String
-}
-
-input CreateCompanyInput {
-  """Optional ID for the company"""
-  companyId: ID
-  name: String!
-  address: String
-}
-
-input UpdateCompanyInput {
-  """Optional ID for the company"""
-  companyId: ID
-  name: String
-  address: String
-  id: Int!
-}
-
-input CreateInventoryInput {
-  name: String!
-  quantity: Int!
-  description: String
-  sku: String
-  price: Float
-  purchasePrice: Float
-  status: InventoryStatus
-  expirationDate: Int
-  categoryId: String
-}
-
-input UpdateInventoryInput {
-  name: String
-  quantity: Int
-  description: String
-  sku: String
-  price: Float
-  purchasePrice: Float
-  status: InventoryStatus
-  expirationDate: Int
-  categoryId: String
-}
-
-input CreateServiceInput {
-  name: String!
-  description: String
-  price: Float!
-  categoryId: String
-}
-
-input UpdateServiceInput {
-  name: String
-  description: String
-  price: Float
-  categoryId: String
-}
-
-input CreateCategoryInput {
-  name: String!
-  description: String
-}
-
-input UpdateCategoryInput {
-  name: String
-  description: String
-}
-
-input ProcessOrderInput {
-  items: [OrderItemInput!]!
-  total: Float!
-}
-
-input OrderItemInput {
-  id: String!
-  name: String!
-  type: ItemType!
-  price: Float!
-  quantity: Int!
-  discount: Float
-  createdAt: Int
-  total: Float
-}
-
-input ExcludeProductInput {
-  invoiceId: String!
-  productorserviceId: String!
 }
