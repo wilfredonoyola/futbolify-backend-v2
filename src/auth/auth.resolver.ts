@@ -1,8 +1,15 @@
-import { Resolver, Mutation, Args } from '@nestjs/graphql';
-import { AuthService } from './auth.service';
-import { UseGuards, SetMetadata } from '@nestjs/common';
-import { UserRole } from 'src/users/schemas/user.schema';
-import { RolesGuard } from './roles.guard';
+/** @format */
+
+import { Resolver, Mutation, Args } from "@nestjs/graphql";
+import { AuthService } from "./auth.service";
+import {
+  UseGuards,
+  SetMetadata,
+  HttpException,
+  HttpStatus,
+} from "@nestjs/common";
+import { UserRole } from "src/users/schemas/user.schema";
+import { RolesGuard } from "./roles.guard";
 import {
   ConfirmSignupInputDto,
   ConfirmPasswordInputDto,
@@ -10,13 +17,13 @@ import {
   SignupInputDto,
   SigninOutputDto,
   AddUserInputDto,
-} from './dto';
-import { UserOutputDto } from 'src/users/dto';
-import { CurrentUser } from './current-user.decorator';
-import { CurrentUserPayload } from './current-user-payload.interface';
-import { GqlAuthGuard } from './gql-auth.guard';
+} from "./dto";
+import { UserOutputDto } from "src/users/dto";
+import { CurrentUser } from "./current-user.decorator";
+import { CurrentUserPayload } from "./current-user-payload.interface";
+import { GqlAuthGuard } from "./gql-auth.guard";
 
-export const Roles = (...roles: UserRole[]) => SetMetadata('roles', roles);
+export const Roles = (...roles: UserRole[]) => SetMetadata("roles", roles);
 
 @Resolver()
 export class AuthResolver {
@@ -24,17 +31,17 @@ export class AuthResolver {
 
   @Mutation(() => SigninOutputDto)
   async signin(
-    @Args('userInput') userInput: SigninInputDto,
+    @Args("userInput") userInput: SigninInputDto
   ): Promise<SigninOutputDto> {
     const login = await this.authService.login(
       userInput.email,
-      userInput.password,
+      userInput.password
     );
     return login;
   }
 
   @Mutation(() => Boolean)
-  async Signup(@Args('userInput') userInput: SignupInputDto): Promise<boolean> {
+  async Signup(@Args("userInput") userInput: SignupInputDto): Promise<boolean> {
     try {
       await this.authService.register(userInput.email, userInput.password);
       return true;
@@ -45,7 +52,7 @@ export class AuthResolver {
 
   @Mutation(() => SigninOutputDto)
   async ConfirmSignup(
-    @Args('confirmInput') confirmInput: ConfirmSignupInputDto,
+    @Args("confirmInput") confirmInput: ConfirmSignupInputDto
   ): Promise<SigninOutputDto> {
     const confirm = await this.authService.confirmRegistration(confirmInput);
     return {
@@ -56,24 +63,24 @@ export class AuthResolver {
   }
 
   @Mutation(() => Boolean)
-  async forgotPassword(@Args('email') email: string): Promise<boolean> {
+  async forgotPassword(@Args("email") email: string): Promise<boolean> {
     return await this.authService.forgotPassword(email);
   }
 
   @Mutation(() => Boolean)
   async confirmForgotPassword(
-    @Args({ name: 'userInput', type: () => ConfirmPasswordInputDto })
-    userInput: ConfirmPasswordInputDto,
+    @Args({ name: "userInput", type: () => ConfirmPasswordInputDto })
+    userInput: ConfirmPasswordInputDto
   ): Promise<boolean> {
     return await this.authService.confirmForgotPassword(
       userInput.email,
       userInput.verificationCode,
-      userInput.newPassword,
+      userInput.newPassword
     );
   }
 
   @Mutation(() => Boolean)
-  async resendVerificationCode(@Args('email') email: string): Promise<boolean> {
+  async resendVerificationCode(@Args("email") email: string): Promise<boolean> {
     return await this.authService.resendVerificationCode(email);
   }
 
@@ -82,9 +89,9 @@ export class AuthResolver {
   @UseGuards(GqlAuthGuard)
   @UseGuards(RolesGuard)
   async addUser(
-    @Args({ name: 'userInput', type: () => AddUserInputDto })
+    @Args({ name: "userInput", type: () => AddUserInputDto })
     userInput: AddUserInputDto,
-    @CurrentUser() user: CurrentUserPayload,
+    @CurrentUser() user: CurrentUserPayload
   ): Promise<UserOutputDto> {
     const createdUser = await this.authService.addUser(
       userInput.email,
@@ -92,7 +99,7 @@ export class AuthResolver {
       userInput.password,
       userInput.phone,
       userInput.role,
-      user,
+      user
     );
     return this.mapUserToDto(createdUser);
   }
@@ -101,9 +108,19 @@ export class AuthResolver {
     return {
       id: user._id.toString(),
       email: user.email,
-      name: user.name, // Asegúrate de incluir el campo name aquí
+      name: user.name,
       phone: user.phone,
       roles: user.roles as UserRole[],
     };
+  }
+  @Mutation(() => String)
+  async googleSignin(@Args("idToken") idToken: string): Promise<string> {
+    try {
+      const verifiedToken = await this.authService.validateGoogleToken(idToken);
+
+      return `Usuario autenticado: ${verifiedToken.email}`;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.UNAUTHORIZED);
+    }
   }
 }

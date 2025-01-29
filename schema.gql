@@ -36,6 +36,7 @@ type Mutation {
   confirmForgotPassword(userInput: ConfirmPasswordInputDto!): Boolean!
   resendVerificationCode(email: String!): Boolean!
   addUser(userInput: AddUserInputDto!): UserOutputDto!
+  googleSignin(idToken: String!): String!
   updateUser(id: String!, updateUserInput: UpdateUserInput!): UserOutputDto!
   removeUser(id: String!): Boolean!
 }

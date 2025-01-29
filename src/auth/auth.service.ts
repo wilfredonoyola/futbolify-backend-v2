@@ -1,4 +1,6 @@
-import { Injectable } from "@nestjs/common";
+/** @format */
+
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import {
   CognitoIdentityProviderClient,
   SignUpCommand,
@@ -12,6 +14,7 @@ import {
   ConfirmForgotPasswordCommand,
   ResendConfirmationCodeCommand,
   AdminDeleteUserCommand,
+  AdminGetUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
@@ -19,11 +22,14 @@ import { User, UserDocument, UserRole } from "src/users/schemas/user.schema";
 import * as jwt from "jsonwebtoken";
 import { ConfirmSignupInputDto } from "./dto";
 import { CurrentUserPayload } from "./current-user-payload.interface";
+import axios from "axios";
+import { OAuth2Client } from "google-auth-library";
 
 @Injectable()
 export class AuthService {
   private client: CognitoIdentityProviderClient;
   private clientId: string;
+  private googleClient: OAuth2Client;
 
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {
     this.client = new CognitoIdentityProviderClient({
@@ -34,6 +40,7 @@ export class AuthService {
       },
     });
     this.clientId = process.env.AWS_COGNITO_CLIENT_ID;
+    this.googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   }
   async deleteUser(email: string): Promise<void> {
     const command = new AdminDeleteUserCommand({
@@ -62,12 +69,10 @@ export class AuthService {
       throw new Error("User not found");
     }
 
-    // Map roles from Cognito token to UserRole enum
     const cognitoRoles = decodedToken["cognito:groups"] || [];
     const mappedCognitoRoles: UserRole[] =
       this.mapCognitoGroupsToUserRoles(cognitoRoles);
 
-    // Validate that at least one Cognito role matches the roles in the database
     const hasValidRole = mappedCognitoRoles.some((role) =>
       user.roles.includes(role)
     );
@@ -85,7 +90,6 @@ export class AuthService {
     };
   }
 
-  // Method to map Cognito groups to the UserRole enum
   private mapCognitoGroupsToUserRoles(groups: string[]): UserRole[] {
     return groups.map((group) => {
       switch (group) {
@@ -102,7 +106,6 @@ export class AuthService {
   }
 
   async register(email: string, password: string): Promise<any> {
-    // Start the registration process in Cognito
     const command = new SignUpCommand({
       ClientId: this.clientId,
       Username: email,
@@ -111,10 +114,9 @@ export class AuthService {
     });
     const response = await this.client.send(command);
 
-    // Assign user to "users" group in Cognito
     const groupCommand = new AdminAddUserToGroupCommand({
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-      GroupName: "users", // Assign the USERS role in Cognito
+      GroupName: "users",
       Username: email,
     });
     await this.client.send(groupCommand);
@@ -122,11 +124,10 @@ export class AuthService {
     return {
       message:
         "Verification code sent to your email. Please confirm to complete registration.",
-      userSub: response.UserSub, // User ID in Cognito
+      userSub: response.UserSub,
     };
   }
 
-  // Method to initiate the forgot password process
   async forgotPassword(email: string): Promise<boolean> {
     const command = new ForgotPasswordCommand({
       ClientId: this.clientId,
@@ -137,7 +138,6 @@ export class AuthService {
     return true;
   }
 
-  // Method to confirm the new password using the verification code
   async confirmForgotPassword(
     email: string,
     verificationCode: string,
@@ -154,7 +154,6 @@ export class AuthService {
     return true;
   }
 
-  // Method to resend the confirmation code
   async resendVerificationCode(email: string): Promise<boolean> {
     const command = new ResendConfirmationCodeCommand({
       ClientId: this.clientId,
@@ -166,7 +165,6 @@ export class AuthService {
   }
 
   async confirmRegistration(input: ConfirmSignupInputDto): Promise<any> {
-    // Confirmar el código de verificación en Cognito
     const confirmCommand = new ConfirmSignUpCommand({
       ClientId: this.clientId,
       Username: input.email,
@@ -174,16 +172,14 @@ export class AuthService {
     });
     await this.client.send(confirmCommand);
 
-    // Crear el usuario en MongoDB con rol ADMIN
     const createdUser = new this.userModel({
       ...input,
       isOnboardingCompleted: false,
-      roles: [UserRole.USER], // Se asigna rol ADMIN por defecto
+      roles: [UserRole.USER],
     });
 
     await createdUser.save();
 
-    // Iniciar sesión automáticamente después de la confirmación
     const loginCommand = new InitiateAuthCommand({
       AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
       ClientId: this.clientId,
@@ -197,7 +193,6 @@ export class AuthService {
     const idToken = response.AuthenticationResult?.IdToken;
     const decodedToken = jwt.decode(idToken) as any;
 
-    // Mapear roles desde Cognito
     const cognitoRoles = decodedToken["cognito:groups"] || [];
     const mappedCognitoRoles: UserRole[] =
       this.mapCognitoGroupsToUserRoles(cognitoRoles);
@@ -217,24 +212,22 @@ export class AuthService {
     role: UserRole,
     user: CurrentUserPayload
   ): Promise<any> {
-    // Create user in Cognito without requiring email confirmation
     const command = new AdminCreateUserCommand({
-      UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID, // User Pool ID
+      UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
       Username: email,
       UserAttributes: [
         { Name: "email", Value: email },
-        { Name: "email_verified", Value: "true" }, // Mark email as verified
+        { Name: "email_verified", Value: "true" },
       ],
-      MessageAction: "SUPPRESS", // Suppress the welcome email
+      MessageAction: "SUPPRESS",
     });
     await this.client.send(command);
 
-    // Set the user's password
     const setPasswordCommand = new AdminSetUserPasswordCommand({
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
       Username: email,
       Password: password,
-      Permanent: true, // Password is set as permanent
+      Permanent: true,
     });
     await this.client.send(setPasswordCommand);
 
@@ -253,7 +246,6 @@ export class AuthService {
     });
     await this.client.send(groupCommand);
 
-    // Save the user in your database with the specified role
     const createdUser = new this.userModel({
       email,
       phone,
@@ -263,5 +255,67 @@ export class AuthService {
     await createdUser.save();
 
     return createdUser;
+  }
+  async validateGoogleToken(idToken: string): Promise<any> {
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+
+      const payload = ticket.getPayload();
+
+      const email = payload?.email;
+      const name = payload?.name || "Usuario Google";
+      const picture = payload?.picture || "";
+
+      if (!email) {
+        throw new Error("El token de Google no contiene un email válido.");
+      }
+
+      try {
+        await this.client.send(
+          new AdminGetUserCommand({
+            UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+            Username: email,
+          })
+        );
+      } catch (error) {
+        const createUserCommand = new AdminCreateUserCommand({
+          UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+          Username: email,
+          UserAttributes: [
+            { Name: "email", Value: email },
+            { Name: "email_verified", Value: "true" },
+            { Name: "name", Value: name },
+            { Name: "picture", Value: picture },
+          ],
+          MessageAction: "SUPPRESS",
+        });
+
+        await this.client.send(createUserCommand);
+        console.log("✅ Usuario creado exitosamente en Cognito.");
+      }
+
+      let user = await this.userModel.findOne({ email });
+      if (!user) {
+        user = new this.userModel({
+          email,
+          name,
+          picture,
+          isOnboardingCompleted: false,
+          roles: [UserRole.USER],
+        });
+        await user.save();
+      } else {
+      }
+
+      return { email, name, picture };
+    } catch (error) {
+      throw new HttpException(
+        "Token inválido, expirado o error al procesar usuario",
+        HttpStatus.UNAUTHORIZED
+      );
+    }
   }
 }

@@ -1,3 +1,5 @@
+/** @format */
+
 import { registerEnumType, Field, ObjectType, ID, Int } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document } from "mongoose";
@@ -34,7 +36,7 @@ export class User extends Document {
   @Field({ nullable: true })
   birthday?: Date;
 
-  @Prop({ required: true })
+  @Prop({ required: false })
   @Field()
   phone: string;
 
