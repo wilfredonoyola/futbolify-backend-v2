@@ -266,8 +266,8 @@ export class AuthService {
       const payload = ticket.getPayload();
 
       const email = payload?.email;
-      const name = payload?.name || "Usuario Google";
-      const picture = payload?.picture || "";
+      const userName = payload?.name || "Usuario Google";
+      const avatar = payload?.picture || "";
 
       if (!email) {
         throw new Error("El token de Google no contiene un email válido.");
@@ -287,33 +287,32 @@ export class AuthService {
           UserAttributes: [
             { Name: "email", Value: email },
             { Name: "email_verified", Value: "true" },
-            { Name: "name", Value: name },
-            { Name: "picture", Value: picture },
+            { Name: "name", Value: userName },
+            { Name: "picture", Value: avatar },
           ],
           MessageAction: "SUPPRESS",
         });
 
         await this.client.send(createUserCommand);
-        console.log("✅ Usuario creado exitosamente en Cognito.");
       }
 
       let user = await this.userModel.findOne({ email });
+
       if (!user) {
         user = new this.userModel({
           email,
-          name,
-          picture,
-          isOnboardingCompleted: false,
+          userName,
+          avatar,
           roles: [UserRole.USER],
         });
         await user.save();
       } else {
       }
 
-      return { email, name, picture };
+      return { email, userName, avatar };
     } catch (error) {
       throw new HttpException(
-        "Token inválido, expirado o error al procesar usuario",
+        "Token inválido o error al procesar usuario",
         HttpStatus.UNAUTHORIZED
       );
     }

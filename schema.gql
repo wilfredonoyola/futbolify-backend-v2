@@ -23,6 +23,12 @@ type UserOutputDto {
   roles: [UserRole!]!
 }
 
+type GoogleSigninResponse {
+  email: String!
+  userName: String!
+  avatar: String!
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
@@ -36,7 +42,7 @@ type Mutation {
   confirmForgotPassword(userInput: ConfirmPasswordInputDto!): Boolean!
   resendVerificationCode(email: String!): Boolean!
   addUser(userInput: AddUserInputDto!): UserOutputDto!
-  googleSignin(idToken: String!): String!
+  googleSignin(idToken: String!): GoogleSigninResponse!
   updateUser(id: String!, updateUserInput: UpdateUserInput!): UserOutputDto!
   removeUser(id: String!): Boolean!
 }
@@ -56,7 +62,7 @@ input ConfirmSignupInputDto {
   verificationCode: String!
   password: String!
   phone: Float!
-  fullName: String!
+  userName: String!
   birthday: DateTime!
 }
 

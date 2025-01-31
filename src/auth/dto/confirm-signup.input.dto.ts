@@ -1,3 +1,5 @@
+/** @format */
+
 import { Field, InputType } from "@nestjs/graphql";
 
 @InputType()
@@ -15,7 +17,7 @@ export class ConfirmSignupInputDto {
   phone: number;
 
   @Field()
-  fullName: string;
+  userName: string;
 
   @Field(() => Date)
   birthday: Date;

@@ -22,6 +22,7 @@ import { UserOutputDto } from "src/users/dto";
 import { CurrentUser } from "./current-user.decorator";
 import { CurrentUserPayload } from "./current-user-payload.interface";
 import { GqlAuthGuard } from "./gql-auth.guard";
+import { GoogleSigninResponse } from "./dto/google-signin-response-output";
 
 export const Roles = (...roles: UserRole[]) => SetMetadata("roles", roles);
 
@@ -113,12 +114,18 @@ export class AuthResolver {
       roles: user.roles as UserRole[],
     };
   }
-  @Mutation(() => String)
-  async googleSignin(@Args("idToken") idToken: string): Promise<string> {
+  @Mutation(() => GoogleSigninResponse)
+  async googleSignin(
+    @Args("idToken") idToken: string
+  ): Promise<GoogleSigninResponse> {
     try {
       const verifiedToken = await this.authService.validateGoogleToken(idToken);
 
-      return `Usuario autenticado: ${verifiedToken.email}`;
+      return {
+        email: verifiedToken.email,
+        userName: verifiedToken.userName,
+        avatar: verifiedToken.avatar,
+      };
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.UNAUTHORIZED);
     }

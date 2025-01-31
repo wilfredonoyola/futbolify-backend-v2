@@ -56,8 +56,13 @@ export class User extends Document {
   @Field(() => Int)
   updatedAt: number;
 
+  @Prop({ required: true, unique: true })
+  @Field()
+  userName: string;
+
   @Prop({ required: false })
-  fullName?: string;
+  @Field({ nullable: true }) // Agregar el campo avatar con URL
+  avatar?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
