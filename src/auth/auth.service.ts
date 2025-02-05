@@ -266,13 +266,23 @@ export class AuthService {
       const payload = ticket.getPayload();
 
       const email = payload?.email;
-      const userName = payload?.name || "Usuario Google";
+      let userName = payload?.name || "UsuarioGoogle";
       const avatar = payload?.picture || "";
       const googleId = payload?.sub;
       const authProvider = "google";
 
       if (!email) {
-        throw new Error("El token de Google no contiene un email válido.");
+        throw new HttpException(
+          "El token de Google no contiene un email válido",
+          HttpStatus.UNAUTHORIZED
+        );
+      }
+      userName = userName.replace(/\s+/g, "_").toLowerCase();
+
+      let existingUserName = await this.userModel.findOne({ userName });
+
+      if (existingUserName) {
+        userName = `${userName}_${Math.floor(Math.random() * 10000)}`;
       }
 
       try {
@@ -313,15 +323,16 @@ export class AuthService {
       } else {
         if (!user.googleId) {
           user.googleId = googleId;
-          await user.save();
         }
         if (!user.authProvider) {
           user.authProvider = authProvider;
         }
+        await user.save();
       }
 
       return { email, userName, avatar };
     } catch (error) {
+      console.error("Error en validateGoogleToken:", error);
       throw new HttpException(
         "Token inválido o error al procesar usuario",
         HttpStatus.UNAUTHORIZED
