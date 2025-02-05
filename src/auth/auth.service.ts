@@ -268,6 +268,8 @@ export class AuthService {
       const email = payload?.email;
       const userName = payload?.name || "Usuario Google";
       const avatar = payload?.picture || "";
+      const googleId = payload?.sub;
+      const authProvider = "google";
 
       if (!email) {
         throw new Error("El token de Google no contiene un email válido.");
@@ -303,10 +305,19 @@ export class AuthService {
           email,
           userName,
           avatar,
+          googleId,
+          authProvider,
           roles: [UserRole.USER],
         });
         await user.save();
       } else {
+        if (!user.googleId) {
+          user.googleId = googleId;
+          await user.save();
+        }
+        if (!user.authProvider) {
+          user.authProvider = authProvider;
+        }
       }
 
       return { email, userName, avatar };
