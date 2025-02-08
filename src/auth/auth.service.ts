@@ -24,6 +24,7 @@ import { ConfirmSignupInputDto } from "./dto";
 import { CurrentUserPayload } from "./current-user-payload.interface";
 import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
+import { UpdateProfileInputDto } from "./dto/update-profile-input.dto";
 
 @Injectable()
 export class AuthService {
@@ -277,6 +278,7 @@ export class AuthService {
           HttpStatus.UNAUTHORIZED
         );
       }
+
       userName = userName.replace(/\s+/g, "_").toLowerCase();
 
       let existingUserName = await this.userModel.findOne({ userName });
@@ -285,6 +287,7 @@ export class AuthService {
         userName = `${userName}_${Math.floor(Math.random() * 10000)}`;
       }
 
+      let isUserInCognito = true;
       try {
         await this.client.send(
           new AdminGetUserCommand({
@@ -293,6 +296,10 @@ export class AuthService {
           })
         );
       } catch (error) {
+        isUserInCognito = false;
+      }
+
+      if (!isUserInCognito) {
         const createUserCommand = new AdminCreateUserCommand({
           UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
           Username: email,
@@ -317,25 +324,56 @@ export class AuthService {
           avatar,
           googleId,
           authProvider,
+          isProfileCompleted: false,
           roles: [UserRole.USER],
         });
+
         await user.save();
-      } else {
-        if (!user.googleId) {
-          user.googleId = googleId;
-        }
-        if (!user.authProvider) {
-          user.authProvider = authProvider;
-        }
-        await user.save();
+
+        return {
+          email,
+          userName,
+          avatar,
+          isProfileCompleted: false,
+        };
       }
 
-      return { email, userName, avatar };
+      return {
+        email: user.email,
+        userName: user.userName,
+        avatar: user.avatar,
+        isProfileCompleted: user.isProfileCompleted,
+      };
     } catch (error) {
-      console.error("Error en validateGoogleToken:", error);
       throw new HttpException(
         "Token inválido o error al procesar usuario",
         HttpStatus.UNAUTHORIZED
+      );
+    }
+  }
+
+  async completeProfile(
+    email: string,
+    updateData: UpdateProfileInputDto
+  ): Promise<boolean> {
+    try {
+      const user = await this.userModel.findOne({ email });
+      if (!user) {
+        throw new HttpException("Usuario no encontrado.", HttpStatus.NOT_FOUND);
+      }
+      user.userName = updateData.userName;
+      user.birthday = updateData.birthday;
+      user.phone = updateData.phone || null;
+      user.password = updateData.password;
+      user.isProfileCompleted = true;
+
+      await user.save();
+
+      return true;
+    } catch (error) {
+      throw new HttpException(
+        "Error al completar el perfil.",
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }

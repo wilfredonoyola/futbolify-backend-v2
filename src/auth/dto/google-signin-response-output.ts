@@ -12,4 +12,7 @@ export class GoogleSigninResponse {
 
   @Field()
   avatar: string;
+
+  @Field()
+  isProfileCompleted: boolean;
 }

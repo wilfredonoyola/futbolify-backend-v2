@@ -27,6 +27,7 @@ type GoogleSigninResponse {
   email: String!
   userName: String!
   avatar: String!
+  isProfileCompleted: Boolean!
 }
 
 type Query {
@@ -43,6 +44,7 @@ type Mutation {
   resendVerificationCode(email: String!): Boolean!
   addUser(userInput: AddUserInputDto!): UserOutputDto!
   googleSignin(idToken: String!): GoogleSigninResponse!
+  completeProfile(updateProfileInput: UpdateProfileInputDto!): Boolean!
   updateUser(id: String!, updateUserInput: UpdateUserInput!): UserOutputDto!
   removeUser(id: String!): Boolean!
 }
@@ -83,6 +85,14 @@ input AddUserInputDto {
   phone: Float!
   role: UserRole
   name: String
+}
+
+input UpdateProfileInputDto {
+  userName: String!
+  birthday: DateTime!
+  phone: String
+  password: String!
+  idToken: String!
 }
 
 input UpdateUserInput {

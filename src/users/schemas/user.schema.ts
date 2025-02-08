@@ -71,6 +71,12 @@ export class User extends Document {
   @Prop({ required: false })
   @Field({ nullable: true })
   authProvider?: string;
+
+  @Prop({ default: false })
+  isProfileCompleted: boolean;
+
+  @Prop({ required: false })
+  password?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

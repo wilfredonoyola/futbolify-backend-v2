@@ -23,6 +23,7 @@ import { CurrentUser } from "./current-user.decorator";
 import { CurrentUserPayload } from "./current-user-payload.interface";
 import { GqlAuthGuard } from "./gql-auth.guard";
 import { GoogleSigninResponse } from "./dto/google-signin-response-output";
+import { UpdateProfileInputDto } from "./dto/update-profile-input.dto";
 
 export const Roles = (...roles: UserRole[]) => SetMetadata("roles", roles);
 
@@ -125,7 +126,33 @@ export class AuthResolver {
         email: verifiedToken.email,
         userName: verifiedToken.userName,
         avatar: verifiedToken.avatar,
+        isProfileCompleted: verifiedToken.isProfileCompleted,
       };
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.UNAUTHORIZED);
+    }
+  }
+
+  @Mutation(() => Boolean)
+  async completeProfile(
+    @Args("updateProfileInput") updateProfileInput: UpdateProfileInputDto
+  ): Promise<boolean> {
+    try {
+      const verifiedUser = await this.authService.validateGoogleToken(
+        updateProfileInput.idToken
+      );
+
+      if (!verifiedUser || !verifiedUser.email) {
+        throw new HttpException(
+          "Usuario no autenticado.",
+          HttpStatus.UNAUTHORIZED
+        );
+      }
+
+      return await this.authService.completeProfile(
+        verifiedUser.email,
+        updateProfileInput
+      );
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.UNAUTHORIZED);
     }
