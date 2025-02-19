@@ -1,5 +1,3 @@
-/** @format */
-
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import {
   CognitoIdentityProviderClient,
