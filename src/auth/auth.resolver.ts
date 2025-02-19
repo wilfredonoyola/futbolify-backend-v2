@@ -58,6 +58,7 @@ export class AuthResolver {
     return {
       isOnboardingCompleted: confirm.isOnboardingCompleted,
       access_token: confirm.access_token,
+      avatarUrl: confirm.avatarUrl,
       roles: confirm.roles,
     }
   }
@@ -123,7 +124,7 @@ export class AuthResolver {
       return {
         email: verifiedToken.email,
         userName: verifiedToken.userName,
-        avatar: verifiedToken.avatar,
+        avatarUrl: verifiedToken.avatarUrl,
         isProfileCompleted: verifiedToken.isProfileCompleted,
       }
     } catch (error) {

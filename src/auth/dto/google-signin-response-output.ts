@@ -1,18 +1,18 @@
 /** @format */
 
-import { ObjectType, Field } from "@nestjs/graphql";
+import { ObjectType, Field } from '@nestjs/graphql'
 
 @ObjectType()
 export class GoogleSigninResponse {
   @Field()
-  email: string;
+  email: string
 
   @Field()
-  userName: string;
+  userName: string
+
+  @Field({ nullable: true })
+  avatarUrl: string
 
   @Field()
-  avatar: string;
-
-  @Field()
-  isProfileCompleted: boolean;
+  isProfileCompleted: boolean
 }

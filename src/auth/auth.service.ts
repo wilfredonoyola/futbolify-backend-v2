@@ -85,6 +85,7 @@ export class AuthService {
     }
 
     return {
+      avatarUrl: user.avatarUrl,
       access_token: idToken,
       isOnboardingCompleted: user.isOnboardingCompleted,
       roles: mappedCognitoRoles,
@@ -268,7 +269,7 @@ export class AuthService {
 
       const email = payload?.email
       let userName = payload?.name || 'UsuarioGoogle'
-      const avatar = payload?.picture || ''
+      const avatarUrl = payload?.picture || ''
       const googleId = payload?.sub
       const authProvider = 'google'
 
@@ -307,7 +308,7 @@ export class AuthService {
             { Name: 'email', Value: email },
             { Name: 'email_verified', Value: 'true' },
             { Name: 'name', Value: userName },
-            { Name: 'picture', Value: avatar },
+            { Name: 'picture', Value: avatarUrl },
           ],
           MessageAction: 'SUPPRESS',
         })
@@ -321,7 +322,7 @@ export class AuthService {
         user = new this.userModel({
           email,
           userName,
-          avatar,
+          avatarUrl,
           googleId,
           authProvider,
           isProfileCompleted: false,
@@ -333,7 +334,7 @@ export class AuthService {
         return {
           email,
           userName,
-          avatar,
+          avatarUrl,
           isProfileCompleted: false,
         }
       }
@@ -341,7 +342,7 @@ export class AuthService {
       return {
         email: user.email,
         userName: user.userName,
-        avatar: user.avatar,
+        avatarUrl: user.avatarUrl,
         isProfileCompleted: user.isProfileCompleted,
       }
     } catch (error) {

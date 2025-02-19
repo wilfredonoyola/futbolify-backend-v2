@@ -5,6 +5,7 @@
 type SigninOutputDto {
   access_token: String!
   isOnboardingCompleted: Boolean!
+  avatarUrl: String
   roles: [UserRole!]!
 }
 
@@ -26,7 +27,7 @@ type UserOutputDto {
 type GoogleSigninResponse {
   email: String!
   userName: String!
-  avatar: String!
+  avatarUrl: String
   isProfileCompleted: Boolean!
 }
 
