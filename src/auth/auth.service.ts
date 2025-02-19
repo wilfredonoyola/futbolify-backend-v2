@@ -1,6 +1,6 @@
 /** @format */
 
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import {
   CognitoIdentityProviderClient,
   SignUpCommand,
@@ -15,22 +15,22 @@ import {
   ResendConfirmationCodeCommand,
   AdminDeleteUserCommand,
   AdminGetUserCommand,
-} from "@aws-sdk/client-cognito-identity-provider";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
-import { User, UserDocument, UserRole } from "src/users/schemas/user.schema";
-import * as jwt from "jsonwebtoken";
-import { ConfirmSignupInputDto } from "./dto";
-import { CurrentUserPayload } from "./current-user-payload.interface";
-import axios from "axios";
-import { OAuth2Client } from "google-auth-library";
-import { UpdateProfileInputDto } from "./dto/update-profile-input.dto";
+} from '@aws-sdk/client-cognito-identity-provider'
+import { InjectModel } from '@nestjs/mongoose'
+import { Model } from 'mongoose'
+import { User, UserDocument, UserRole } from 'src/users/schemas/user.schema'
+import * as jwt from 'jsonwebtoken'
+import { ConfirmSignupInputDto } from './dto'
+import { CurrentUserPayload } from './current-user-payload.interface'
+import axios from 'axios'
+import { OAuth2Client } from 'google-auth-library'
+import { UpdateProfileInputDto } from './dto/update-profile-input.dto'
 
 @Injectable()
 export class AuthService {
-  private client: CognitoIdentityProviderClient;
-  private clientId: string;
-  private googleClient: OAuth2Client;
+  private client: CognitoIdentityProviderClient
+  private clientId: string
+  private googleClient: OAuth2Client
 
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {
     this.client = new CognitoIdentityProviderClient({
@@ -39,16 +39,16 @@ export class AuthService {
         accessKeyId: process.env.AMZ_ACCESS_KEY_ID,
         secretAccessKey: process.env.AMZ_SECRET_ACCESS_KEY,
       },
-    });
-    this.clientId = process.env.AWS_COGNITO_CLIENT_ID;
-    this.googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    })
+    this.clientId = process.env.AWS_COGNITO_CLIENT_ID
+    this.googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
   }
   async deleteUser(email: string): Promise<void> {
     const command = new AdminDeleteUserCommand({
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
       Username: email,
-    });
-    await this.client.send(command);
+    })
+    await this.client.send(command)
   }
   async login(email: string, password: string): Promise<any> {
     const command = new InitiateAuthCommand({
@@ -58,52 +58,52 @@ export class AuthService {
         USERNAME: email,
         PASSWORD: password,
       },
-    });
-    const response = await this.client.send(command);
+    })
+    const response = await this.client.send(command)
 
-    const idToken = response.AuthenticationResult?.IdToken;
-    const decodedToken = jwt.decode(idToken) as any;
+    const idToken = response.AuthenticationResult?.IdToken
+    const decodedToken = jwt.decode(idToken) as any
 
-    const user = await this.userModel.findOne({ email });
+    const user = await this.userModel.findOne({ email })
 
     if (!user) {
-      throw new Error("User not found");
+      throw new Error('User not found')
     }
 
-    const cognitoRoles = decodedToken["cognito:groups"] || [];
+    const cognitoRoles = decodedToken['cognito:groups'] || []
     const mappedCognitoRoles: UserRole[] =
-      this.mapCognitoGroupsToUserRoles(cognitoRoles);
+      this.mapCognitoGroupsToUserRoles(cognitoRoles)
 
     const hasValidRole = mappedCognitoRoles.some((role) =>
       user.roles.includes(role)
-    );
+    )
 
     if (!hasValidRole) {
       throw new Error(
-        "User roles from Cognito do not match with the database roles"
-      );
+        'User roles from Cognito do not match with the database roles'
+      )
     }
 
     return {
       access_token: idToken,
       isOnboardingCompleted: user.isOnboardingCompleted,
       roles: mappedCognitoRoles,
-    };
+    }
   }
 
   private mapCognitoGroupsToUserRoles(groups: string[]): UserRole[] {
     return groups.map((group) => {
       switch (group) {
-        case "admins":
-          return UserRole.ADMIN;
-        case "super_admins":
-          return UserRole.SUPER_ADMIN;
-        case "users":
-          return UserRole.USER;
+        case 'admins':
+          return UserRole.ADMIN
+        case 'super_admins':
+          return UserRole.SUPER_ADMIN
+        case 'users':
+          return UserRole.USER
         default:
-          throw new Error(`Unrecognized group: ${group}`);
+          throw new Error(`Unrecognized group: ${group}`)
       }
-    });
+    })
   }
 
   async register(email: string, password: string): Promise<any> {
@@ -111,32 +111,32 @@ export class AuthService {
       ClientId: this.clientId,
       Username: email,
       Password: password,
-      UserAttributes: [{ Name: "email", Value: email }],
-    });
-    const response = await this.client.send(command);
+      UserAttributes: [{ Name: 'email', Value: email }],
+    })
+    const response = await this.client.send(command)
 
     const groupCommand = new AdminAddUserToGroupCommand({
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-      GroupName: "users",
+      GroupName: 'users',
       Username: email,
-    });
-    await this.client.send(groupCommand);
+    })
+    await this.client.send(groupCommand)
 
     return {
       message:
-        "Verification code sent to your email. Please confirm to complete registration.",
+        'Verification code sent to your email. Please confirm to complete registration.',
       userSub: response.UserSub,
-    };
+    }
   }
 
   async forgotPassword(email: string): Promise<boolean> {
     const command = new ForgotPasswordCommand({
       ClientId: this.clientId,
       Username: email,
-    });
+    })
 
-    await this.client.send(command);
-    return true;
+    await this.client.send(command)
+    return true
   }
 
   async confirmForgotPassword(
@@ -149,20 +149,20 @@ export class AuthService {
       Username: email,
       ConfirmationCode: verificationCode,
       Password: newPassword,
-    });
+    })
 
-    await this.client.send(command);
-    return true;
+    await this.client.send(command)
+    return true
   }
 
   async resendVerificationCode(email: string): Promise<boolean> {
     const command = new ResendConfirmationCodeCommand({
       ClientId: this.clientId,
       Username: email,
-    });
+    })
 
-    await this.client.send(command);
-    return true;
+    await this.client.send(command)
+    return true
   }
 
   async confirmRegistration(input: ConfirmSignupInputDto): Promise<any> {
@@ -170,16 +170,16 @@ export class AuthService {
       ClientId: this.clientId,
       Username: input.email,
       ConfirmationCode: input.verificationCode,
-    });
-    await this.client.send(confirmCommand);
+    })
+    await this.client.send(confirmCommand)
 
     const createdUser = new this.userModel({
       ...input,
       isOnboardingCompleted: false,
       roles: [UserRole.USER],
-    });
+    })
 
-    await createdUser.save();
+    await createdUser.save()
 
     const loginCommand = new InitiateAuthCommand({
       AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
@@ -188,21 +188,21 @@ export class AuthService {
         USERNAME: input.email,
         PASSWORD: input.password,
       },
-    });
-    const response = await this.client.send(loginCommand);
+    })
+    const response = await this.client.send(loginCommand)
 
-    const idToken = response.AuthenticationResult?.IdToken;
-    const decodedToken = jwt.decode(idToken) as any;
+    const idToken = response.AuthenticationResult?.IdToken
+    const decodedToken = jwt.decode(idToken) as any
 
-    const cognitoRoles = decodedToken["cognito:groups"] || [];
+    const cognitoRoles = decodedToken['cognito:groups'] || []
     const mappedCognitoRoles: UserRole[] =
-      this.mapCognitoGroupsToUserRoles(cognitoRoles);
+      this.mapCognitoGroupsToUserRoles(cognitoRoles)
 
     return {
       isOnboardingCompleted: false,
       access_token: idToken,
       roles: mappedCognitoRoles,
-    };
+    }
   }
 
   async addUser(
@@ -217,86 +217,86 @@ export class AuthService {
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
       Username: email,
       UserAttributes: [
-        { Name: "email", Value: email },
-        { Name: "email_verified", Value: "true" },
+        { Name: 'email', Value: email },
+        { Name: 'email_verified', Value: 'true' },
       ],
-      MessageAction: "SUPPRESS",
-    });
-    await this.client.send(command);
+      MessageAction: 'SUPPRESS',
+    })
+    await this.client.send(command)
 
     const setPasswordCommand = new AdminSetUserPasswordCommand({
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
       Username: email,
       Password: password,
       Permanent: true,
-    });
-    await this.client.send(setPasswordCommand);
+    })
+    await this.client.send(setPasswordCommand)
 
-    let groupName = "users";
+    let groupName = 'users'
 
     if (role === UserRole.SUPER_ADMIN) {
-      groupName = "super_admins";
+      groupName = 'super_admins'
     } else if (role === UserRole.ADMIN) {
-      groupName = "admins";
+      groupName = 'admins'
     }
 
     const groupCommand = new AdminAddUserToGroupCommand({
       UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
       GroupName: groupName,
       Username: email,
-    });
-    await this.client.send(groupCommand);
+    })
+    await this.client.send(groupCommand)
 
     const createdUser = new this.userModel({
       email,
       phone,
       name,
       roles: [role],
-    });
-    await createdUser.save();
+    })
+    await createdUser.save()
 
-    return createdUser;
+    return createdUser
   }
   async validateGoogleToken(idToken: string): Promise<any> {
     try {
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
         audience: process.env.GOOGLE_CLIENT_ID,
-      });
+      })
 
-      const payload = ticket.getPayload();
+      const payload = ticket.getPayload()
 
-      const email = payload?.email;
-      let userName = payload?.name || "UsuarioGoogle";
-      const avatar = payload?.picture || "";
-      const googleId = payload?.sub;
-      const authProvider = "google";
+      const email = payload?.email
+      let userName = payload?.name || 'UsuarioGoogle'
+      const avatar = payload?.picture || ''
+      const googleId = payload?.sub
+      const authProvider = 'google'
 
       if (!email) {
         throw new HttpException(
-          "El token de Google no contiene un email válido",
+          'Google token does not contain a valid email',
           HttpStatus.UNAUTHORIZED
-        );
+        )
       }
 
-      userName = userName.replace(/\s+/g, "_").toLowerCase();
+      userName = userName.replace(/\s+/g, '_').toLowerCase()
 
-      let existingUserName = await this.userModel.findOne({ userName });
+      let existingUserName = await this.userModel.findOne({ userName })
 
       if (existingUserName) {
-        userName = `${userName}_${Math.floor(Math.random() * 10000)}`;
+        userName = `${userName}_${Math.floor(Math.random() * 10000)}`
       }
 
-      let isUserInCognito = true;
+      let isUserInCognito = true
       try {
         await this.client.send(
           new AdminGetUserCommand({
             UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
             Username: email,
           })
-        );
+        )
       } catch (error) {
-        isUserInCognito = false;
+        isUserInCognito = false
       }
 
       if (!isUserInCognito) {
@@ -304,18 +304,18 @@ export class AuthService {
           UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
           Username: email,
           UserAttributes: [
-            { Name: "email", Value: email },
-            { Name: "email_verified", Value: "true" },
-            { Name: "name", Value: userName },
-            { Name: "picture", Value: avatar },
+            { Name: 'email', Value: email },
+            { Name: 'email_verified', Value: 'true' },
+            { Name: 'name', Value: userName },
+            { Name: 'picture', Value: avatar },
           ],
-          MessageAction: "SUPPRESS",
-        });
+          MessageAction: 'SUPPRESS',
+        })
 
-        await this.client.send(createUserCommand);
+        await this.client.send(createUserCommand)
       }
 
-      let user = await this.userModel.findOne({ email });
+      let user = await this.userModel.findOne({ email })
 
       if (!user) {
         user = new this.userModel({
@@ -326,16 +326,16 @@ export class AuthService {
           authProvider,
           isProfileCompleted: false,
           roles: [UserRole.USER],
-        });
+        })
 
-        await user.save();
+        await user.save()
 
         return {
           email,
           userName,
           avatar,
           isProfileCompleted: false,
-        };
+        }
       }
 
       return {
@@ -343,12 +343,12 @@ export class AuthService {
         userName: user.userName,
         avatar: user.avatar,
         isProfileCompleted: user.isProfileCompleted,
-      };
+      }
     } catch (error) {
       throw new HttpException(
-        "Token inválido o error al procesar usuario",
+        'Invalid token or error processing user',
         HttpStatus.UNAUTHORIZED
-      );
+      )
     }
   }
 
@@ -357,24 +357,23 @@ export class AuthService {
     updateData: UpdateProfileInputDto
   ): Promise<boolean> {
     try {
-      const user = await this.userModel.findOne({ email });
+      const user = await this.userModel.findOne({ email })
       if (!user) {
-        throw new HttpException("Usuario no encontrado.", HttpStatus.NOT_FOUND);
+        throw new HttpException('User not found.', HttpStatus.NOT_FOUND)
       }
-      user.userName = updateData.userName;
-      user.birthday = updateData.birthday;
-      user.phone = updateData.phone || null;
-      user.password = updateData.password;
-      user.isProfileCompleted = true;
+      user.userName = updateData.userName
+      user.birthday = updateData.birthday
+      user.phone = updateData.phone || null
+      user.isProfileCompleted = true
 
-      await user.save();
+      await user.save()
 
-      return true;
+      return true
     } catch (error) {
       throw new HttpException(
-        "Error al completar el perfil.",
+        'Error completing profile.',
         HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      )
     }
   }
 }
