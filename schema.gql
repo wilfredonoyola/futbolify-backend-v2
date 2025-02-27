@@ -58,12 +58,6 @@ input SigninInputDto {
 input SignupInputDto {
   email: String!
   password: String!
-}
-
-input ConfirmSignupInputDto {
-  email: String!
-  verificationCode: String!
-  password: String!
   phone: Float!
   userName: String!
   birthday: DateTime!
@@ -73,6 +67,12 @@ input ConfirmSignupInputDto {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+input ConfirmSignupInputDto {
+  verificationCode: String!
+  password: String!
+  email: String!
+}
 
 input ConfirmPasswordInputDto {
   email: String!

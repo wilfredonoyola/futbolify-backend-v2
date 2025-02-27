@@ -1,16 +1,12 @@
 /** @format */
 
 import { InputType, Field } from "@nestjs/graphql";
-import {
-  IsNotEmpty,
-  MinLength,
-  IsOptional,
-  IsDateString,
-  IsPhoneNumber,
-} from "class-validator";
+import { Prop } from "@nestjs/mongoose";
+import { IsOptional } from "class-validator";
 
 @InputType()
 export class UpdateProfileInputDto {
+  @Prop({ required: true, unique: true })
   @Field()
   userName: string;
 
