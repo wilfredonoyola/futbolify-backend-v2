@@ -6,8 +6,19 @@ import { Field, InputType } from "@nestjs/graphql";
 export class ConfirmSignupInputDto {
   @Field()
   verificationCode: string;
+
   @Field()
   password: string;
+
+  @Field()
+  phone: number;
+
+  @Field()
+  userName: string;
+
+  @Field(() => Date)
+  birthday: Date;
+
   @Field()
   email: string;
 }

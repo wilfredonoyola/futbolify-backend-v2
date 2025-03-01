@@ -1,11 +1,6 @@
 /** @format */
 
-import {
-  ConflictException,
-  HttpException,
-  HttpStatus,
-  Injectable,
-} from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import {
   CognitoIdentityProviderClient,
   SignUpCommand,

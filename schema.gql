@@ -71,6 +71,9 @@ scalar DateTime
 input ConfirmSignupInputDto {
   verificationCode: String!
   password: String!
+  phone: Float!
+  userName: String!
+  birthday: DateTime!
   email: String!
 }
 
