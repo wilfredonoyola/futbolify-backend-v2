@@ -31,9 +31,30 @@ type GoogleSigninResponse {
   isProfileCompleted: Boolean!
 }
 
+type MatchOutputDto {
+  id: Int!
+  homeTeam: String!
+  awayTeam: String!
+  minute: Int
+  scoreHome: Int!
+  scoreAway: Int!
+  shots: Int
+  shotsOnTarget: Int
+  dangerousAttacks: Int
+  corners: Int
+  status: MatchStatus!
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
+  liveMatches: [MatchOutputDto!]!
 }
 
 type Mutation {
