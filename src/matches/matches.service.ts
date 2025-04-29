@@ -16,7 +16,6 @@ import { ConfigService } from '@nestjs/config'
 @Injectable()
 export class MatchesService {
   private readonly logger = new Logger(MatchesService.name)
-  private readonly requestConcurrency = 5
 
   constructor(
     private readonly cacheService: CacheService,
@@ -58,7 +57,6 @@ export class MatchesService {
     return dto
   }
 
-  // ✅ NUEVO método auxiliar para calcular estado simple del partido
   private calculateSimpleState(
     minute: number,
     scoreHome: number,
@@ -89,7 +87,7 @@ export class MatchesService {
         const minute = SofascoreParser.calculateMinute(match)
         const scoreHome = match.homeScore.current
         const scoreAway = match.awayScore.current
-        const state = this.calculateSimpleState(minute, scoreHome, scoreAway) // ✅ aquí usamos el nuevo método
+        const state = this.calculateSimpleState(minute, scoreHome, scoreAway)
 
         return this.createMatchDto({
           id,
@@ -160,7 +158,7 @@ export class MatchesService {
         const result = await this.processMatch(match)
         if (result) {
           results.push(result)
-          await new Promise((res) => setTimeout(res, 300)) // throttle entre partidos
+          await new Promise((res) => setTimeout(res, 300))
         }
       }
 
@@ -240,10 +238,12 @@ export class MatchesService {
         scoreAway,
       })
 
-      const recentEvents = timeline.filter((event) => {
-        const timeWindow = minute >= 75 ? 5 : minute >= 65 ? 7 : 8
-        return event.minute >= minute - timeWindow
-      })
+      const timeWindow = minute >= 75 ? 5 : minute >= 65 ? 7 : 8
+      const recentEvents = timeline.filter(
+        (event) =>
+          ['goal', 'shot', 'corner'].includes(event.type) &&
+          event.minute >= minute - timeWindow
+      )
 
       const recentActivityScore =
         SofascoreAnalyzer.calculateRecentActivityScore(recentEvents, minute)
@@ -273,6 +273,25 @@ export class MatchesService {
         lastPeriod,
       })
 
+      // ✅ Red flags (ya corregidas)
+      const lowShotAccuracy = stats.shotsOnTargetRatio < 0.25
+      const mostlyLongShots = stats.shotsInsideBoxRatio < 0.3
+      const highPossession = Math.max(
+        stats.possession?.home ?? 0,
+        stats.possession?.away ?? 0
+      )
+      const sterilePossession =
+        highPossession > 65 && stats.dangerousAttacks < 40
+
+      const redFlags = lowShotAccuracy || mostlyLongShots || sterilePossession
+
+      if (redFlags) {
+        this.logger.warn(
+          `🚫 Partido filtrado por red flags: ${homeTeam} vs ${awayTeam}`
+        )
+        return null
+      }
+
       let bettingAnalysis = null
       if (
         shouldAnalyzeWithGPT({
@@ -299,6 +318,10 @@ export class MatchesService {
           hasRecentActivity: recentEvents.length > 0,
           marketAvailable: true,
           lastEventType,
+          lastEvents: recentEvents.map((e) => ({
+            type: e.type,
+            minute: e.minute,
+          })),
         })
       }
 
