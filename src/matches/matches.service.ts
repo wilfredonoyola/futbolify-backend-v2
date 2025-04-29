@@ -203,6 +203,12 @@ export class MatchesService {
       ])
 
       const stats = SofascoreParser.takeStatisticsSnapshot(statsData)
+
+      this.logger.debug(
+        `🧪 Snapshot parseado para ${homeTeam} vs ${awayTeam}:\n` +
+          JSON.stringify(stats, null, 2)
+      )
+
       const xGTotal = (stats.xG?.home ?? 0) + (stats.xG?.away ?? 0)
 
       const timeline = SofascoreParser.buildTimeline(
@@ -287,9 +293,20 @@ export class MatchesService {
 
       if (redFlags) {
         this.logger.warn(
-          `🚫 Partido filtrado por red flags: ${homeTeam} vs ${awayTeam}`
+          `🚫 Partido filtrado por red flags: ${homeTeam} vs ${awayTeam}\n` +
+            `   🟡 shotsOnTargetRatio: ${stats.shotsOnTargetRatio?.toFixed(
+              2
+            )} (mín 0.25)\n` +
+            `   🔵 shotsInsideBoxRatio: ${stats.shotsInsideBoxRatio?.toFixed(
+              2
+            )} (mín 0.30)\n` +
+            `   🟣 posesión alta (>65%): ${Math.max(
+              stats.possession?.home ?? 0,
+              stats.possession?.away ?? 0
+            )}% con ${stats.dangerousAttacks} ataques peligrosos (mín 40)`
         )
-        return null
+
+        //  return null
       }
 
       let bettingAnalysis = null
