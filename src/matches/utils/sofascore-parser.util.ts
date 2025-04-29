@@ -125,13 +125,14 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
   let saves = { home: 0, away: 0 }
   let hitWoodwork = { home: 0, away: 0 }
   let finalThirdEntries = { home: 0, away: 0 }
+  let yellowCards = { home: 0, away: 0 }
+  let redCards = { home: 0, away: 0 }
+  let offsides = { home: 0, away: 0 }
 
-  // Buscamos específicamente los datos de todo el partido (período "ALL")
   const allPeriodStats = statisticsData.statistics?.find(
     (period) => period.period === 'ALL'
   )
 
-  // Si no encontramos el período "ALL", usamos todo lo disponible
   const allStatistics = allPeriodStats
     ? [allPeriodStats]
     : statisticsData.statistics || []
@@ -143,14 +144,10 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
       const items = group.statisticsItems || []
 
       for (const stat of items) {
-        // Obtener el nombre y valores de manera segura
         const name = stat.name || ''
-
-        // Para el caso común de valores directos
         const homeValue = parseValue(stat.homeValue)
         const awayValue = parseValue(stat.awayValue)
 
-        // Procesar según el nombre de la estadística
         switch (name) {
           case 'Total shots':
             totalShots.home = homeValue
@@ -188,15 +185,18 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
             break
 
           case 'Ball possession':
-            // Manejamos el caso de posesión formato "68%"
             possession.home = homeValue || 50
             possession.away = awayValue || 50
             break
 
-          case 'Attacks':
           case 'Dangerous attacks':
             dangerousAttacks.home = homeValue
             dangerousAttacks.away = awayValue
+            break
+
+          case 'Attacks':
+            attacks.home = homeValue
+            attacks.away = awayValue
             break
 
           case 'Big chances':
@@ -224,25 +224,20 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
             fouls.away = awayValue
             break
 
-          case 'Passes':
-            passes.home = homeValue
-            passes.away = awayValue
-            break
-
-          case 'Accurate passes':
-            accuratePasses.home = homeValue
-            accuratePasses.away = awayValue
-            break
-
           case 'Duels':
             duelsWon.home = homeValue || 50
             duelsWon.away = awayValue || 50
             break
 
-          case 'Total saves':
           case 'Goalkeeper saves':
+          case 'Total saves':
             saves.home = homeValue
             saves.away = awayValue
+            break
+
+          case 'Final third entries':
+            finalThirdEntries.home = homeValue
+            finalThirdEntries.away = awayValue
             break
 
           case 'Hit woodwork':
@@ -250,22 +245,30 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
             hitWoodwork.away = awayValue
             break
 
-          case 'Final third entries':
-            finalThirdEntries.home = homeValue
-            finalThirdEntries.away = awayValue
+          case 'Yellow cards':
+            yellowCards.home = homeValue
+            yellowCards.away = awayValue
+            break
+
+          case 'Red cards':
+            redCards.home = homeValue
+            redCards.away = awayValue
+            break
+
+          case 'Offsides':
+            offsides.home = homeValue
+            offsides.away = awayValue
             break
         }
       }
     }
   }
 
-  // Calcular métricas adicionales
   const totalShotsSum = totalShots.home + totalShots.away
   const shotsOnTargetSum = shotsOnTarget.home + shotsOnTarget.away
   const shotsOnTargetRatio =
     totalShotsSum > 0 ? shotsOnTargetSum / totalShotsSum : 0
 
-  // Calcular "peligrosidad" basada en tiros dentro del área vs fuera
   const dangerFactor =
     shotsInsideBox.home + shotsInsideBox.away > 0
       ? (shotsInsideBox.home + shotsInsideBox.away) / (totalShotsSum || 1)
@@ -277,6 +280,7 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
     shotsOnTarget: shotsOnTargetSum,
     shotsOnTargetTeams: shotsOnTarget,
     shotsOffTargetTeams: shotsOffTarget,
+    shotsOffTargetTotal: shotsOffTarget.home + shotsOffTarget.away,
     shotsInsideBoxTeams: shotsInsideBox,
     shotsOutsideBoxTeams: shotsOutsideBox,
     shotsOnTargetRatio,
@@ -286,21 +290,25 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
     cornersHome,
     cornersAway,
     possession,
+    possessionDifference: Math.abs(possession.home - possession.away),
     attacks,
     bigChancesTeams: bigChances,
     bigChancesScoredTeams: bigChancesScored,
     bigChancesMissedTeams: bigChancesMissed,
+    xG,
     fouls,
     finalThirdEntries,
     blockedShots,
     hitWoodwork,
-    xG,
-    possessionDifference: Math.abs(possession.home - possession.away),
     shotsInsideBoxRatio:
       (shotsInsideBox.home + shotsInsideBox.away) / (totalShotsSum || 1),
+
+    // Nuevos campos agregados correctamente
+    yellowCards,
+    redCards,
+    offsides,
   }
 }
-
 /**
  * Mapea los tipos de incidentes a nombres legibles
  * @param incidentType Tipo de incidente

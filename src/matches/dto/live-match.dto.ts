@@ -91,6 +91,18 @@ export class LiveMatchOutputDto {
 
   @Field(() => MatchState, { nullable: true })
   state?: MatchState
+
+  @Field(() => Int, { nullable: true })
+  yellowCards?: number
+
+  @Field(() => Int, { nullable: true })
+  redCards?: number
+
+  @Field(() => Int, { nullable: true })
+  offsides?: number
+
+  @Field(() => Int, { nullable: true })
+  shotsOffTarget?: number
 }
 
 @InputType()

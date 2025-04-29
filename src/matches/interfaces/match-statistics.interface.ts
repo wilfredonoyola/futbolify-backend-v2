@@ -4,12 +4,12 @@ export interface TeamStat {
 }
 
 export interface MatchStatistics {
-  // Métricas básicas
   totalShots: number
   totalShotsTeams: TeamStat
   shotsOnTarget: number
   shotsOnTargetTeams: TeamStat
   shotsOffTargetTeams: TeamStat
+  shotsOffTargetTotal: number
   shotsInsideBoxTeams: TeamStat
   shotsOutsideBoxTeams: TeamStat
   shotsOnTargetRatio: number
@@ -19,7 +19,6 @@ export interface MatchStatistics {
   cornersHome: number
   cornersAway: number
 
-  // Métricas avanzadas
   possession: TeamStat
   possessionDifference: number
   attacks: TeamStat
@@ -32,4 +31,8 @@ export interface MatchStatistics {
   hitWoodwork: TeamStat
   finalThirdEntries: TeamStat
   shotsInsideBoxRatio: number
+
+  yellowCards: TeamStat
+  redCards: TeamStat
+  offsides: TeamStat
 }

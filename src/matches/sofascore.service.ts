@@ -1,7 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common'
 import axios, { AxiosInstance } from 'axios'
-import { LiveMatchOutputDto, TimelineEventDto, MatchState } from './dto'
+import {
+  LiveMatchOutputDto,
+  TimelineEventDto,
+  MatchState,
+  SimplifiedStatsDto,
+  SofaScoreStatsResponse,
+  SofaScoreIncidentsResponse,
+} from './dto'
 import { CacheService } from './cache.service'
+import { MatchStatistics } from './interfaces'
 
 @Injectable()
 export class MatchesServiceSofascore {
@@ -103,7 +111,11 @@ export class MatchesServiceSofascore {
       dangerousAttacks,
       cornersHome,
       cornersAway,
-    } = stats
+      yellowCards,
+      redCards,
+      offsides,
+      shotsOffTargetTeams,
+    } = stats as any // 👈 puedes tiparlo mejor si devuelves el snapshot completo
 
     const basePressureScore = this.calculatePressureScore({
       totalShots,
@@ -151,6 +163,12 @@ export class MatchesServiceSofascore {
       isGoodForOver05,
       isGoodForOver15,
       state,
+
+      // 🔥 Nuevos campos añadidos al DTO
+      yellowCards: yellowCards?.home + yellowCards?.away,
+      redCards: redCards?.home + redCards?.away,
+      offsides: offsides?.home + offsides?.away,
+      shotsOffTarget: shotsOffTargetTeams?.home + shotsOffTargetTeams?.away,
     } as LiveMatchOutputDto
   }
 
@@ -216,21 +234,9 @@ export class MatchesServiceSofascore {
     fixtureId: number,
     homeTeam: string,
     awayTeam: string
-  ): Promise<{
-    totalShots: number
-    shotsOnTarget: number
-    dangerousAttacks: number
-    cornersHome: number
-    cornersAway: number
-  }> {
+  ): Promise<SimplifiedStatsDto> {
     const cacheKey = `stats-${fixtureId}`
-    const cachedStats = this.cacheService.get<{
-      totalShots: number
-      shotsOnTarget: number
-      dangerousAttacks: number
-      cornersHome: number
-      cornersAway: number
-    }>(cacheKey)
+    const cachedStats = this.cacheService.get<SimplifiedStatsDto>(cacheKey)
 
     if (cachedStats) {
       return cachedStats
@@ -238,17 +244,34 @@ export class MatchesServiceSofascore {
 
     try {
       const statsResponse = await this.makeRequestWithRetry(() =>
-        this.api.get('/matches/get-statistics', {
+        this.api.get<SofaScoreStatsResponse>('/matches/get-statistics', {
           params: { matchId: fixtureId },
         })
       )
 
       const statsData = statsResponse.data
-      const statsSnapshot = this.takeStatisticsSnapshot(statsData)
+      const snapshot = this.takeStatisticsSnapshot(statsData)
 
-      this.cacheService.set(cacheKey, statsSnapshot, 15)
+      const result: SimplifiedStatsDto = {
+        totalShots:
+          snapshot.totalShotsTeams.home + snapshot.totalShotsTeams.away,
+        shotsOnTarget:
+          snapshot.shotsOnTargetTeams.home + snapshot.shotsOnTargetTeams.away,
+        dangerousAttacks:
+          snapshot.dangerousAttacksTeams.home +
+          snapshot.dangerousAttacksTeams.away,
+        cornersHome: snapshot.cornersHome,
+        cornersAway: snapshot.cornersAway,
 
-      return statsSnapshot
+        // 🟡 Nuevos campos requeridos por el DTO
+        yellowCards: snapshot.yellowCards,
+        redCards: snapshot.redCards,
+        offsides: snapshot.offsides,
+        shotsOffTargetTeams: snapshot.shotsOffTargetTeams,
+      }
+
+      this.cacheService.set(cacheKey, result, 15)
+      return result
     } catch (error) {
       this.logger.warn(
         `⚠️ No se pudo cargar estadísticas para ${homeTeam} vs ${awayTeam}: ${error.message}`
@@ -259,6 +282,10 @@ export class MatchesServiceSofascore {
         dangerousAttacks: 0,
         cornersHome: 0,
         cornersAway: 0,
+        yellowCards: { home: 0, away: 0 },
+        redCards: { home: 0, away: 0 },
+        offsides: { home: 0, away: 0 },
+        shotsOffTargetTeams: { home: 0, away: 0 },
       }
     }
   }
@@ -277,12 +304,12 @@ export class MatchesServiceSofascore {
 
     try {
       const incidentsResponse = await this.makeRequestWithRetry(() =>
-        this.api.get('/matches/get-incidents', {
+        this.api.get<SofaScoreIncidentsResponse>('/matches/get-incidents', {
           params: { matchId: fixtureId },
         })
       )
 
-      const incidentsData = incidentsResponse.data
+      const incidentsData: SofaScoreIncidentsResponse = incidentsResponse.data
       const timeline = this.buildTimeline(
         incidentsData.incidents,
         homeTeam,
@@ -352,20 +379,58 @@ export class MatchesServiceSofascore {
     return Math.max(elapsedMinutes, 0)
   }
 
-  private takeStatisticsSnapshot(statisticsData: any): {
-    totalShots: number
-    shotsOnTarget: number
-    dangerousAttacks: number
-    cornersHome: number
-    cornersAway: number
-  } {
-    let totalShots = 0
-    let shotsOnTarget = 0
-    let dangerousAttacks = 0
+  parseValue(value: any): number {
+    if (value === null || value === undefined) return 0
+
+    if (typeof value === 'number') return value
+
+    if (typeof value === 'string') {
+      // Ejemplo: "68%" → 68
+      const percentMatch = value.match(/(\d+)%/)
+      if (percentMatch) return parseInt(percentMatch[1])
+
+      // Ejemplo: "22/30" → 22
+      const fractionMatch = value.match(/(\d+)\/(\d+)/)
+      if (fractionMatch) return parseInt(fractionMatch[1])
+
+      const parsed = parseInt(value)
+      if (!isNaN(parsed)) return parsed
+    }
+
+    return 0
+  }
+
+  private takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
+    let totalShots = { home: 0, away: 0 }
+    let shotsOnTarget = { home: 0, away: 0 }
+    let shotsOffTarget = { home: 0, away: 0 }
+    let blockedShots = { home: 0, away: 0 }
+    let shotsInsideBox = { home: 0, away: 0 }
+    let shotsOutsideBox = { home: 0, away: 0 }
     let cornersHome = 0
     let cornersAway = 0
+    let dangerousAttacks = { home: 0, away: 0 }
+    let possession = { home: 50, away: 50 }
+    let attacks = { home: 0, away: 0 }
+    let bigChances = { home: 0, away: 0 }
+    let bigChancesScored = { home: 0, away: 0 }
+    let bigChancesMissed = { home: 0, away: 0 }
+    let xG = { home: 0, away: 0 }
+    let fouls = { home: 0, away: 0 }
+    let duelsWon = { home: 0, away: 0 }
+    let saves = { home: 0, away: 0 }
+    let hitWoodwork = { home: 0, away: 0 }
+    let finalThirdEntries = { home: 0, away: 0 }
+    let yellowCards = { home: 0, away: 0 }
+    let redCards = { home: 0, away: 0 }
+    let offsides = { home: 0, away: 0 }
 
-    const allStatistics = statisticsData.statistics || []
+    const allPeriodStats = statisticsData.statistics?.find(
+      (period) => period.period === 'ALL'
+    )
+    const allStatistics = allPeriodStats
+      ? [allPeriodStats]
+      : statisticsData.statistics || []
 
     for (const period of allStatistics) {
       const groups = period.groups || []
@@ -374,29 +439,146 @@ export class MatchesServiceSofascore {
         const items = group.statisticsItems || []
 
         for (const stat of items) {
-          if (stat.name === 'Total shots') {
-            totalShots += (stat.homeValue ?? 0) + (stat.awayValue ?? 0)
-          }
-          if (stat.name === 'Shots on target') {
-            shotsOnTarget += (stat.homeValue ?? 0) + (stat.awayValue ?? 0)
-          }
-          if (stat.name === 'Corner kicks') {
-            cornersHome += stat.homeValue ?? 0
-            cornersAway += stat.awayValue ?? 0
-          }
-          if (stat.name === 'Dangerous attacks') {
-            dangerousAttacks += (stat.homeValue ?? 0) + (stat.awayValue ?? 0)
+          const name = stat.name || ''
+          const homeValue = this.parseValue(stat.homeValue)
+          const awayValue = this.parseValue(stat.awayValue)
+
+          switch (name) {
+            case 'Total shots':
+              totalShots.home = homeValue
+              totalShots.away = awayValue
+              break
+            case 'Shots on target':
+              shotsOnTarget.home = homeValue
+              shotsOnTarget.away = awayValue
+              break
+            case 'Shots off target':
+              shotsOffTarget.home = homeValue
+              shotsOffTarget.away = awayValue
+              break
+            case 'Blocked shots':
+              blockedShots.home = homeValue
+              blockedShots.away = awayValue
+              break
+            case 'Shots inside box':
+              shotsInsideBox.home = homeValue
+              shotsInsideBox.away = awayValue
+              break
+            case 'Shots outside box':
+              shotsOutsideBox.home = homeValue
+              shotsOutsideBox.away = awayValue
+              break
+            case 'Corner kicks':
+              cornersHome = homeValue
+              cornersAway = awayValue
+              break
+            case 'Ball possession':
+              possession.home = homeValue || 50
+              possession.away = awayValue || 50
+              break
+            case 'Dangerous attacks':
+              dangerousAttacks.home = homeValue
+              dangerousAttacks.away = awayValue
+              break
+            case 'Attacks':
+              attacks.home = homeValue
+              attacks.away = awayValue
+              break
+            case 'Big chances':
+              bigChances.home = homeValue
+              bigChances.away = awayValue
+              break
+            case 'Big chances scored':
+              bigChancesScored.home = homeValue
+              bigChancesScored.away = awayValue
+              break
+            case 'Big chances missed':
+              bigChancesMissed.home = homeValue
+              bigChancesMissed.away = awayValue
+              break
+            case 'Expected goals (xG)':
+              xG.home = homeValue
+              xG.away = awayValue
+              break
+            case 'Fouls':
+              fouls.home = homeValue
+              fouls.away = awayValue
+              break
+            case 'Duels':
+              duelsWon.home = homeValue || 50
+              duelsWon.away = awayValue || 50
+              break
+            case 'Goalkeeper saves':
+            case 'Total saves':
+              saves.home = homeValue
+              saves.away = awayValue
+              break
+            case 'Final third entries':
+              finalThirdEntries.home = homeValue
+              finalThirdEntries.away = awayValue
+              break
+            case 'Hit woodwork':
+              hitWoodwork.home = homeValue
+              hitWoodwork.away = awayValue
+              break
+            case 'Yellow cards':
+              yellowCards.home = homeValue
+              yellowCards.away = awayValue
+              break
+            case 'Red cards':
+              redCards.home = homeValue
+              redCards.away = awayValue
+              break
+            case 'Offsides':
+              offsides.home = homeValue
+              offsides.away = awayValue
+              break
           }
         }
       }
     }
 
+    const totalShotsSum = totalShots.home + totalShots.away
+    const shotsOnTargetSum = shotsOnTarget.home + shotsOnTarget.away
+    const shotsOnTargetRatio =
+      totalShotsSum > 0 ? shotsOnTargetSum / totalShotsSum : 0
+
+    const dangerFactor =
+      shotsInsideBox.home + shotsInsideBox.away > 0
+        ? (shotsInsideBox.home + shotsInsideBox.away) / (totalShotsSum || 1)
+        : 0.5
+
     return {
-      totalShots,
-      shotsOnTarget,
-      dangerousAttacks,
+      totalShots: totalShotsSum,
+      totalShotsTeams: totalShots,
+      shotsOnTarget: shotsOnTargetSum,
+      shotsOnTargetTeams: shotsOnTarget,
+      shotsOffTargetTeams: shotsOffTarget,
+      shotsOffTargetTotal: shotsOffTarget.home + shotsOffTarget.away,
+      shotsInsideBoxTeams: shotsInsideBox,
+      shotsOutsideBoxTeams: shotsOutsideBox,
+      shotsOnTargetRatio,
+      dangerFactor,
+      dangerousAttacks: dangerousAttacks.home + dangerousAttacks.away,
+      dangerousAttacksTeams: dangerousAttacks,
       cornersHome,
       cornersAway,
+      possession,
+      attacks,
+      bigChancesTeams: bigChances,
+      bigChancesScoredTeams: bigChancesScored,
+      bigChancesMissedTeams: bigChancesMissed,
+      fouls,
+      finalThirdEntries,
+      blockedShots,
+      hitWoodwork,
+      xG,
+      possessionDifference: Math.abs(possession.home - possession.away),
+      shotsInsideBoxRatio:
+        (shotsInsideBox.home + shotsInsideBox.away) / (totalShotsSum || 1),
+      yellowCards,
+      redCards,
+      offsides,
     }
   }
 

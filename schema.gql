@@ -82,6 +82,10 @@ type LiveMatchOutputDto {
   bookmakers: [String!]
   timeline: [TimelineEventDto!]
   state: MatchState
+  yellowCards: Int
+  redCards: Int
+  offsides: Int
+  shotsOffTarget: Int
 }
 
 enum MatchState {

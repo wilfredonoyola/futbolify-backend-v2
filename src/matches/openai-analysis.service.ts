@@ -19,6 +19,28 @@ export class OpenAiAnalysisService {
     odds: number
     timestamp: string
   } | null> {
+    // 🧠 Validación previa: mínimo 1 evento ofensivo en últimos 8 minutos
+    const recentMinute = matchData.minute || 0
+    const events = matchData.lastEvents || []
+
+    const recentEvents = events.filter(
+      (e: any) =>
+        ['goal', 'shot', 'corner'].includes(e.type) &&
+        recentMinute - e.minute <= 8
+    )
+
+    const recentCount = recentEvents.length
+
+    if (recentCount === 0) {
+      return {
+        recommendedBet: 'no_bet',
+        confidence: 0,
+        reason: 'Sin eventos ofensivos recientes en los últimos 8 minutos.',
+        odds: 0,
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     const prompt = [
       {
         role: 'system' as const,
@@ -37,16 +59,16 @@ export class OpenAiAnalysisService {
 - xG
 - Minuto del partido
 - Marcador actual
-- Actividad reciente
+- Actividad reciente (últimos 8 minutos)
 
 🚦 Criterios base:
 - Minuto 55+ (ideal 68+)
-- Partido activo (ej: 0-0, 1-0, 1-1)
+- Partido activo (ej: 0-0, 1-0, 1-1, 2-1)
 - Mercado disponible (se asume true si 'marketAvailable' es true)
 
 🧠 Lógica de presión:
-- Over 0.5 si presión ≥6.5
-- Over 1.5 si presión ≥8.0
+- Over 0.5 si presión ≥6.5 y al menos 1 evento ofensivo (remate, córner, gol) en los últimos 8 minutos
+- Over 1.5 si presión ≥8.0 y al menos 2 eventos ofensivos en los últimos 5 minutos
 - No apostar si presión <6.0 o hay red flags
 
 🚨 Red flags:
@@ -63,7 +85,8 @@ export class OpenAiAnalysisService {
   "timestamp": ISO date actual
 }
 
-⚠️ Si no hay suficiente información ➔ responde "no_bet".`.trim(),
+⚠️ Si no hay suficiente información ➔ responde "no_bet".
+`.trim(),
       },
       {
         role: 'user' as const,
@@ -73,7 +96,7 @@ export class OpenAiAnalysisService {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o', // ✅ Modelo optimizado
+        model: 'gpt-4o',
         messages: prompt,
         temperature: 0.2,
       })
