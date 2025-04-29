@@ -31,6 +31,15 @@ type GoogleSigninResponse {
   isProfileCompleted: Boolean!
 }
 
+type TimelineEventDto {
+  type: String!
+  detail: String!
+  team: String!
+  player: String
+  assist: String
+  minute: Int!
+}
+
 type LiveMatchOutputDto {
   id: Int!
   homeTeam: String!
@@ -42,19 +51,51 @@ type LiveMatchOutputDto {
   shotsOnTarget: Int
   dangerousAttacks: Int
   corners: Int
+  pressureScore: Float
+  hasRecentActivity: Boolean
+  marketAvailable: Boolean
+  lastEventType: String
+  isGoodForOver05: Boolean
+  isGoodForOver15: Boolean
   bookmakers: [String!]
-  nextGoalOddsHome: String
-  nextGoalOddsAway: String
-  initialOddsHome: String
-  initialOddsAway: String
-  liveOddsHome: String
-  liveOddsAway: String
+  timeline: [TimelineEventDto!]
+  state: MatchState
+}
+
+enum MatchState {
+  NotStarted
+  FirstHalf
+  HalfTime
+  SecondHalf
+  Potential
+  ReadyToBet
+  Normal
+  NoBet
+  Finished
+  BetPlaced
+}
+
+type MatchAnalysisOutputDto {
+  fixtureId: Float!
+  homeTeam: String!
+  awayTeam: String!
+  minute: Float!
+  scoreHome: Float!
+  scoreAway: Float!
+  pressureScore: Float!
+  recommendation: String!
+  redFlagsDetected: Boolean!
+  marketAvailable: Boolean!
+  lastEventType: String
+  reasonToBet: String
+  reasonNotToBet: String
 }
 
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
-  liveMatches: [LiveMatchOutputDto!]!
+  liveMatchesDetailed: [LiveMatchOutputDto!]!
+  analyzeMatch(fixtureId: Float!): MatchAnalysisOutputDto!
 }
 
 type Mutation {

@@ -1,3 +1,5 @@
 export * from './add-match.input.dto'
 export * from './match.output.dto'
 export * from './live-match-output.dto'
+export * from './live-match-for-gpt.dto'
+export * from './match-analysis-output.dto'
