@@ -1,216 +1,371 @@
-import { Injectable } from '@nestjs/common'
-import { LiveMatchOutputDto } from './dto'
-import axios from 'axios'
+import { Injectable, Logger } from '@nestjs/common'
+import {
+  LiveMatchOutputDto,
+  LateMatchOptionsDto,
+  TimelineEventDto,
+  MatchState,
+} from './dto'
+import { CacheService } from './cache.service'
+import * as SofascoreAPI from './utils/sofascore-api.util'
+import * as SofascoreParser from './utils/sofascore-parser.util'
+import * as SofascoreAnalyzer from './utils/sofascore-analyzer.util'
+import { OpenAiAnalysisService } from './openai-analysis.service'
+import { shouldAnalyzeWithGPT } from './utils/match-relevance.util'
+import { ConfigService } from '@nestjs/config'
 
 @Injectable()
 export class MatchesService {
-  private readonly apiKey = 'e4d595a2f938020b9c1cfd348b05efd7' // ⚠️ Mover luego a .env seguro
+  private readonly logger = new Logger(MatchesService.name)
 
-  private readonly api = axios.create({
-    baseURL: 'https://v3.football.api-sports.io',
-    headers: {
-      'x-apisports-key': this.apiKey,
-    },
-  })
+  constructor(
+    private readonly cacheService: CacheService,
+    private readonly openAiAnalysisService: OpenAiAnalysisService,
+    private readonly configService: ConfigService
+  ) {}
 
-  /**
-   * 🚀 Método SIMPLE:
-   * Devuelve lista plana de partidos vivos (sin estadísticas, sin odds)
-   */
-  async getLiveMatchesSimple(): Promise<LiveMatchOutputDto[]> {
-    const liveFixturesResponse = await this.api.get('/fixtures', {
-      params: { live: 'all' },
-    })
-
-    const fixtures = liveFixturesResponse.data.response
-
-    if (!fixtures.length) {
-      console.log('❌ No hay partidos LIVE en este momento.')
-      return []
-    }
-
-    console.log(`✅ Se encontraron ${fixtures.length} partidos en vivo.`)
-
-    const matches = fixtures.map((fixture) => ({
-      id: fixture.fixture.id,
-      homeTeam: fixture.teams.home.name,
-      awayTeam: fixture.teams.away.name,
-      minute: fixture.fixture.status.elapsed,
-      scoreHome: fixture.goals.home,
-      scoreAway: fixture.goals.away,
-    })) as LiveMatchOutputDto[]
-
-    console.log(`🎯 Partidos planos listos: ${matches.length}`)
-
-    return matches
+  private createMatchDto(data: any): LiveMatchOutputDto {
+    const dto = new LiveMatchOutputDto()
+    dto.id = data.id
+    dto.homeTeam = data.homeTeam
+    dto.awayTeam = data.awayTeam
+    dto.minute = data.minute
+    dto.scoreHome = data.scoreHome
+    dto.scoreAway = data.scoreAway
+    dto.shots = data.stats?.totalShots ?? null
+    dto.shotsOnTarget = data.stats?.shotsOnTarget ?? null
+    dto.dangerousAttacks = data.stats?.dangerousAttacks ?? null
+    dto.corners = data.stats
+      ? data.stats.cornersHome + data.stats.cornersAway
+      : null
+    dto.pressureScore = data.pressureScore ?? null
+    dto.recentActivityScore = data.recentActivityScore ?? null
+    dto.hasRecentActivity = data.recentEvents
+      ? data.recentEvents.length > 0
+      : null
+    dto.possession = data.stats?.possession ?? null
+    dto.xG = data.xGTotal ?? null
+    dto.attacks = data.stats?.attacks ?? null
+    dto.bigChances = data.stats?.bigChancesTeams ?? null
+    dto.isGoodForOver05 = data.isGoodForOver05 ?? null
+    dto.isGoodForOver15 = data.isGoodForOver15 ?? null
+    dto.marketAvailable = true
+    dto.lastEventType = data.lastEventType ?? null
+    dto.bookmakers = null
+    dto.timeline = data.timeline ?? []
+    dto.state = data.state ?? null
+    dto.bettingAnalysis = data.bettingAnalysis ?? null
+    return dto
   }
 
-  /**
-   * 🚀 Método DETALLADO:
-   * Devuelve lista completa con estadísticas y odds
-   */
-  async getLiveMatchesDetailed(): Promise<LiveMatchOutputDto[]> {
-    const liveFixturesResponse = await this.api.get('/fixtures', {
-      params: { live: 'all' },
-    })
+  private calculateSimpleState(
+    minute: number,
+    scoreHome: number,
+    scoreAway: number
+  ): MatchState {
+    if (minute < 1) return MatchState.NotStarted
+    if (minute < 45) return MatchState.FirstHalf
+    if (minute >= 45 && minute < 60) return MatchState.HalfTime
+    if (minute >= 60 && minute < 90) return MatchState.SecondHalf
+    return MatchState.Finished
+  }
 
-    const fixtures = liveFixturesResponse.data.response
+  async getLiveMatchesSimple(): Promise<LiveMatchOutputDto[]> {
+    try {
+      const liveMatches = await SofascoreAPI.fetchLiveMatches(
+        this.cacheService,
+        this.configService
+      )
+      if (!liveMatches.length) {
+        this.logger.log('❌ No hay partidos en vivo.')
+        return []
+      }
+      this.logger.log(`✅ ${liveMatches.length} partidos en vivo detectados.`)
+      return liveMatches.map((match) => {
+        const id = match.id
+        const homeTeam = match.homeTeam.name
+        const awayTeam = match.awayTeam.name
+        const minute = SofascoreParser.calculateMinute(match)
+        const scoreHome = match.homeScore.current
+        const scoreAway = match.awayScore.current
+        const state = this.calculateSimpleState(minute, scoreHome, scoreAway)
 
-    if (!fixtures.length) {
-      console.log('❌ No hay partidos LIVE en este momento.')
+        return this.createMatchDto({
+          id,
+          homeTeam,
+          awayTeam,
+          minute,
+          scoreHome,
+          scoreAway,
+          stats: null,
+          pressureScore: null,
+          recentActivityScore: null,
+          recentEvents: [],
+          lastEventType: null,
+          timeline: [],
+          isGoodForOver05: null,
+          isGoodForOver15: null,
+          state,
+          bettingAnalysis: null,
+          xGTotal: null,
+        })
+      })
+    } catch (error) {
+      this.logger.error(`❌ Error trayendo partidos LIVE: ${error.message}`)
       return []
     }
+  }
 
-    console.log(`✅ Se encontraron ${fixtures.length} partidos en vivo.`)
+  async getLateMatches(
+    options: LateMatchOptionsDto = {}
+  ): Promise<LiveMatchOutputDto[]> {
+    try {
+      const {
+        minMinute = 65,
+        minPressureScore = 8.0,
+        requireRecentActivity = true,
+        maxGoals = 3,
+      } = options
 
-    const matches = await Promise.all(
-      fixtures.map(async (fixture) => {
-        const fixtureId = fixture.fixture.id
-        const homeTeam = fixture.teams.home.name
-        const awayTeam = fixture.teams.away.name
-        const minute = fixture.fixture.status.elapsed
-        const scoreHome = fixture.goals.home
-        const scoreAway = fixture.goals.away
+      const liveMatches = await SofascoreAPI.fetchLiveMatches(
+        this.cacheService,
+        this.configService
+      )
+      if (!liveMatches.length) {
+        this.logger.log('❌ No hay partidos en vivo para evaluar como tardíos.')
+        return []
+      }
 
-        console.log(
-          `➡️ Analizando partido: ${homeTeam} vs ${awayTeam} (ID: ${fixtureId})`
+      const lateMatches = liveMatches.filter((match) => {
+        const minute = SofascoreParser.calculateMinute(match)
+        const lastPeriod = match.lastPeriod
+        const totalGoals = match.homeScore.current + match.awayScore.current
+        return (
+          lastPeriod === 'period2' &&
+          minute >= minMinute &&
+          totalGoals <= maxGoals
+        )
+      })
+
+      if (!lateMatches.length) {
+        this.logger.log(`❌ No hay partidos tardíos (min >= ${minMinute}).`)
+        return []
+      }
+
+      this.logger.log(`✅ ${lateMatches.length} partidos tardíos detectados.`)
+
+      const results: LiveMatchOutputDto[] = []
+      for (const match of lateMatches) {
+        const result = await this.processMatch(match)
+        if (result) {
+          results.push(result)
+          await new Promise((res) => setTimeout(res, 300))
+        }
+      }
+
+      return results.filter((match) => {
+        if (!match || !match.pressureScore) return false
+        if (match.pressureScore < minPressureScore) return false
+        if (
+          requireRecentActivity &&
+          match.minute >= 80 &&
+          !match.hasRecentActivity
+        )
+          return false
+        return true
+      })
+    } catch (error) {
+      this.logger.error(`❌ Error trayendo partidos TARDÍOS: ${error.message}`)
+      return []
+    }
+  }
+
+  private async processMatch(match: any): Promise<LiveMatchOutputDto> {
+    try {
+      const fixtureId = match.id
+      const homeTeam = match.homeTeam.name
+      const awayTeam = match.awayTeam.name
+      const minute = SofascoreParser.calculateMinute(match)
+      const scoreHome = match.homeScore.current
+      const scoreAway = match.awayScore.current
+      const lastPeriod = match.lastPeriod
+
+      const [statsData, timelineData] = await Promise.all([
+        SofascoreAPI.fetchMatchStatistics(
+          fixtureId,
+          this.cacheService,
+          this.configService
+        ),
+        SofascoreAPI.fetchMatchTimeline(
+          fixtureId,
+          this.cacheService,
+          this.configService
+        ),
+      ])
+
+      const stats = SofascoreParser.takeStatisticsSnapshot(statsData)
+
+      this.logger.debug(
+        `🧪 Snapshot parseado para ${homeTeam} vs ${awayTeam}:\n` +
+          JSON.stringify(stats, null, 2)
+      )
+
+      const xGTotal = (stats.xG?.home ?? 0) + (stats.xG?.away ?? 0)
+
+      const timeline = SofascoreParser.buildTimeline(
+        timelineData.incidents || [],
+        homeTeam,
+        awayTeam
+      )
+
+      const lastEventTypes = timeline
+        .sort((a, b) => b.minute - a.minute)
+        .slice(0, 5)
+        .map((event) => event.type)
+
+      const basePressureScore = SofascoreAnalyzer.calculatePressureScore({
+        totalShots: stats.totalShots,
+        shotsOnTarget: stats.shotsOnTarget,
+        dangerousAttacks: stats.dangerousAttacks,
+        corners: stats.cornersHome + stats.cornersAway,
+        totalShotsTeams: stats.totalShotsTeams,
+        shotsOnTargetTeams: stats.shotsOnTargetTeams,
+        shotsInsideBoxTeams: stats.shotsInsideBoxTeams,
+        shotsOnTargetRatio: stats.shotsOnTargetRatio,
+        possession: stats.possession,
+        possessionDifference: stats.possessionDifference,
+        bigChancesTeams: stats.bigChancesTeams,
+        attacks: stats.attacks,
+        xG: stats.xG,
+        dangerFactor: stats.dangerFactor,
+        shotsInsideBoxRatio: stats.shotsInsideBoxRatio,
+        minute,
+        lastEventTypes,
+        scoreHome,
+        scoreAway,
+      })
+
+      const timeWindow = minute >= 75 ? 5 : minute >= 65 ? 7 : 8
+      const recentEvents = timeline.filter(
+        (event) =>
+          ['goal', 'shot', 'corner'].includes(event.type) &&
+          event.minute >= minute - timeWindow
+      )
+
+      const recentActivityScore =
+        SofascoreAnalyzer.calculateRecentActivityScore(recentEvents, minute)
+      const finalPressureScore = basePressureScore + recentActivityScore
+
+      const lastEventType = lastEventTypes[0] || null
+
+      const isGoodForOver05 = SofascoreAnalyzer.isGoodForOver05(
+        finalPressureScore,
+        minute,
+        scoreHome + scoreAway
+      )
+
+      const isGoodForOver15 = SofascoreAnalyzer.isGoodForOver15(
+        finalPressureScore,
+        minute,
+        scoreHome + scoreAway
+      )
+
+      const state = SofascoreAnalyzer.determineMatchState({
+        minute,
+        scoreHome,
+        scoreAway,
+        pressureScore: finalPressureScore,
+        isGoodForOver05,
+        isGoodForOver15,
+        lastPeriod,
+      })
+
+      // ✅ Red flags (ya corregidas)
+      const lowShotAccuracy = stats.shotsOnTargetRatio < 0.25
+      const mostlyLongShots = stats.shotsInsideBoxRatio < 0.3
+      const highPossession = Math.max(
+        stats.possession?.home ?? 0,
+        stats.possession?.away ?? 0
+      )
+      const sterilePossession =
+        highPossession > 65 && stats.dangerousAttacks < 40
+
+      const redFlags = lowShotAccuracy || mostlyLongShots || sterilePossession
+
+      if (redFlags) {
+        this.logger.warn(
+          `🚫 Partido filtrado por red flags: ${homeTeam} vs ${awayTeam}\n` +
+            `   🟡 shotsOnTargetRatio: ${stats.shotsOnTargetRatio?.toFixed(
+              2
+            )} (mín 0.25)\n` +
+            `   🔵 shotsInsideBoxRatio: ${stats.shotsInsideBoxRatio?.toFixed(
+              2
+            )} (mín 0.30)\n` +
+            `   🟣 posesión alta (>65%): ${Math.max(
+              stats.possession?.home ?? 0,
+              stats.possession?.away ?? 0
+            )}% con ${stats.dangerousAttacks} ataques peligrosos (mín 40)`
         )
 
-        try {
-          // 🚀 Traer estadísticas
-          const statsResponse = await this.api.get('/fixtures/statistics', {
-            params: { fixture: fixtureId },
-          })
+        //  return null
+      }
 
-          const stats = statsResponse.data.response
+      let bettingAnalysis = null
+      if (
+        shouldAnalyzeWithGPT({
+          minute,
+          scoreHome,
+          scoreAway,
+          pressureScore: finalPressureScore,
+          marketAvailable: true,
+        })
+      ) {
+        bettingAnalysis = await this.openAiAnalysisService.analyzeMatch({
+          id: fixtureId,
+          homeTeam,
+          awayTeam,
+          minute,
+          scoreHome,
+          scoreAway,
+          shots: stats.totalShots,
+          shotsOnTarget: stats.shotsOnTarget,
+          dangerousAttacks: stats.dangerousAttacks,
+          corners: stats.cornersHome + stats.cornersAway,
+          xG: xGTotal,
+          pressureScore: finalPressureScore,
+          hasRecentActivity: recentEvents.length > 0,
+          marketAvailable: true,
+          lastEventType,
+          lastEvents: recentEvents.map((e) => ({
+            type: e.type,
+            minute: e.minute,
+          })),
+        })
+      }
 
-          let totalShots = 0
-          let shotsOnTarget = 0
-          let dangerousAttacks = 0
-          let corners = 0
-
-          for (const teamStats of stats) {
-            for (const stat of teamStats.statistics) {
-              if (stat.type === 'Total Shots' && stat.value !== null) {
-                totalShots += stat.value
-              }
-              if (stat.type === 'Shots on Goal' && stat.value !== null) {
-                shotsOnTarget += stat.value
-              }
-              if (stat.type === 'Dangerous Attacks' && stat.value !== null) {
-                dangerousAttacks += stat.value
-              }
-              if (stat.type === 'Corner Kicks' && stat.value !== null) {
-                corners += stat.value
-              }
-            }
-          }
-
-          console.log(
-            `📊 Stats: Shots=${totalShots}, OnTarget=${shotsOnTarget}, Dangerous=${dangerousAttacks}, Corners=${corners}`
-          )
-
-          // 🚀 Traer odds
-          const oddsResponse = await this.api.get('/odds', {
-            params: { fixture: fixtureId },
-          })
-
-          const oddsData = oddsResponse.data.response[0]
-          const bookmakersNames: string[] =
-            oddsData?.bookmakers?.map((bk) => bk.name) || []
-
-          console.log(
-            `🏦 Casas disponibles: ${
-              bookmakersNames.length
-                ? bookmakersNames.join(', ')
-                : 'Ninguna encontrada'
-            }`
-          )
-
-          let initialOddsHome: string | undefined
-          let initialOddsAway: string | undefined
-          let nextGoalOddsHome: string | undefined
-          let nextGoalOddsAway: string | undefined
-
-          if (oddsData?.bookmakers?.length) {
-            const allBets = oddsData.bookmakers.flatMap((bk) => bk.bets)
-
-            // Buscar "Match Winner" ➔ Cuotas iniciales
-            const matchWinner = allBets.find(
-              (bet) => bet.name === 'Match Winner'
-            )
-            if (matchWinner) {
-              const homeOdd = matchWinner.values.find((v) => v.value === 'Home')
-              const awayOdd = matchWinner.values.find((v) => v.value === 'Away')
-              initialOddsHome = homeOdd?.odd || undefined
-              initialOddsAway = awayOdd?.odd || undefined
-            }
-
-            // Buscar "Next Goal" ➔ Cuotas próximo gol
-            const nextGoal = allBets.find((bet) =>
-              bet.name.includes('Next Goal')
-            )
-            if (nextGoal) {
-              const homeNextGoal = nextGoal.values.find(
-                (v) => v.value === 'Home'
-              )
-              const awayNextGoal = nextGoal.values.find(
-                (v) => v.value === 'Away'
-              )
-              nextGoalOddsHome = homeNextGoal?.odd || undefined
-              nextGoalOddsAway = awayNextGoal?.odd || undefined
-            }
-          }
-
-          // 🚀 FILTRO: Solo agregar si hay stats
-          if (
-            totalShots === 0 &&
-            shotsOnTarget === 0 &&
-            dangerousAttacks === 0 &&
-            corners === 0
-          ) {
-            console.log(
-              '⚠️ Partido descartado por falta de estadísticas suficientes.'
-            )
-            return null
-          }
-
-          console.log('✅ Partido válido para análisis.')
-
-          return {
-            id: fixtureId,
-            homeTeam,
-            awayTeam,
-            minute,
-            scoreHome,
-            scoreAway,
-            shots: totalShots,
-            shotsOnTarget,
-            dangerousAttacks,
-            corners: corners,
-            bookmakers: bookmakersNames,
-            initialOddsHome,
-            initialOddsAway,
-            nextGoalOddsHome,
-            nextGoalOddsAway,
-            liveOddsHome: undefined,
-            liveOddsAway: undefined,
-          } as LiveMatchOutputDto
-        } catch (error) {
-          console.error(
-            `❌ Error en partido ${homeTeam} vs ${awayTeam}: ${error.message}`
-          )
-          return null
-        }
+      return this.createMatchDto({
+        id: fixtureId,
+        homeTeam,
+        awayTeam,
+        minute,
+        scoreHome,
+        scoreAway,
+        stats,
+        pressureScore: finalPressureScore,
+        recentActivityScore,
+        recentEvents,
+        lastEventType,
+        timeline,
+        isGoodForOver05,
+        isGoodForOver15,
+        state,
+        bettingAnalysis,
+        xGTotal,
       })
-    )
-
-    const validMatches = matches.filter((match) => match !== null)
-
-    console.log(
-      `🎯 Total partidos listos para análisis: ${validMatches.length}`
-    )
-
-    return validMatches
+    } catch (error) {
+      this.logger.error(
+        `❌ Error procesando partido ID ${match?.id}: ${error.message}`
+      )
+      return null
+    }
   }
 }
