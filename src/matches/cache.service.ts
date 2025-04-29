@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 
 interface CacheItem<T> {
   value: T
-  expiry: number
+  expiresAt: number
 }
 
 @Injectable()
@@ -12,8 +12,8 @@ export class CacheService {
 
   /**
    * Obtiene un valor de la caché
-   * @param key Clave para el valor
-   * @returns El valor almacenado o null si no existe o ha expirado
+   * @param key Clave de la caché
+   * @returns Valor almacenado o null si no existe o expiró
    */
   get<T>(key: string): T | null {
     const item = this.cache.get(key)
@@ -22,9 +22,7 @@ export class CacheService {
       return null
     }
 
-    // Verificar si el ítem ha expirado
-    if (item.expiry < Date.now()) {
-      this.logger.debug(`Caché expirada para clave: ${key}`)
+    if (Date.now() > item.expiresAt) {
       this.cache.delete(key)
       return null
     }
@@ -34,20 +32,19 @@ export class CacheService {
 
   /**
    * Almacena un valor en la caché
-   * @param key Clave para el valor
+   * @param key Clave de la caché
    * @param value Valor a almacenar
    * @param ttlSeconds Tiempo de vida en segundos
    */
   set<T>(key: string, value: T, ttlSeconds: number): void {
-    const expiry = Date.now() + ttlSeconds * 1000
-    this.cache.set(key, { value, expiry })
-    this.logger.debug(
-      `Valor almacenado en caché con clave: ${key}, TTL: ${ttlSeconds}s`
-    )
+    this.cache.set(key, {
+      value,
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    })
   }
 
   /**
-   * Elimina un valor de la caché
+   * Elimina una clave de la caché
    * @param key Clave a eliminar
    */
   delete(key: string): void {
@@ -59,25 +56,18 @@ export class CacheService {
    */
   clear(): void {
     this.cache.clear()
-    this.logger.debug('Caché completamente limpiada')
   }
 
   /**
-   * Limpia los ítems expirados de la caché
+   * Limpia las claves expiradas
    */
   cleanExpired(): void {
     const now = Date.now()
-    let count = 0
 
     for (const [key, item] of this.cache.entries()) {
-      if (item.expiry < now) {
+      if (now > item.expiresAt) {
         this.cache.delete(key)
-        count++
       }
-    }
-
-    if (count > 0) {
-      this.logger.debug(`Eliminados ${count} ítems expirados de la caché`)
     }
   }
 }

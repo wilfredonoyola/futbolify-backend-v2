@@ -38,6 +38,21 @@ type TimelineEventDto {
   player: String
   assist: String
   minute: Int!
+  isHome: Boolean
+  importance: Float
+}
+
+type BettingAnalysisDto {
+  recommendedBet: String!
+  confidence: Int!
+  reason: String!
+  odds: Float!
+  timestamp: String!
+}
+
+type PossessionDto {
+  home: Int!
+  away: Int!
 }
 
 type LiveMatchOutputDto {
@@ -52,11 +67,18 @@ type LiveMatchOutputDto {
   dangerousAttacks: Int
   corners: Int
   pressureScore: Float
+  recentActivityScore: Float
   hasRecentActivity: Boolean
+  possession: PossessionDto
+  xG: Float
+  attacks: PossessionDto
+  bigChances: PossessionDto
+  bettingAnalysis: BettingAnalysisDto
   marketAvailable: Boolean
   lastEventType: String
   isGoodForOver05: Boolean
   isGoodForOver15: Boolean
+  isLateMatch: Boolean
   bookmakers: [String!]
   timeline: [TimelineEventDto!]
   state: MatchState
@@ -67,35 +89,29 @@ enum MatchState {
   FirstHalf
   HalfTime
   SecondHalf
+  Finished
+  Normal
   Potential
   ReadyToBet
-  Normal
   NoBet
-  Finished
-  BetPlaced
-}
-
-type MatchAnalysisOutputDto {
-  fixtureId: Float!
-  homeTeam: String!
-  awayTeam: String!
-  minute: Float!
-  scoreHome: Float!
-  scoreAway: Float!
-  pressureScore: Float!
-  recommendation: String!
-  redFlagsDetected: Boolean!
-  marketAvailable: Boolean!
-  lastEventType: String
-  reasonToBet: String
-  reasonNotToBet: String
+  NoLateValue
+  ModerateLateValue
+  HighLateValue
 }
 
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
-  liveMatchesDetailed: [LiveMatchOutputDto!]!
-  analyzeMatch(fixtureId: Float!): MatchAnalysisOutputDto!
+  liveMatches: [LiveMatchOutputDto!]!
+  lateMatches(options: LateMatchOptionsDto): [LiveMatchOutputDto!]!
+  matchById(id: Float!): LiveMatchOutputDto
+}
+
+input LateMatchOptionsDto {
+  minMinute: Int
+  minPressureScore: Float
+  requireRecentActivity: Boolean
+  maxGoals: Int
 }
 
 type Mutation {

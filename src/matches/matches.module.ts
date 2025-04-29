@@ -1,17 +1,16 @@
 import { Module } from '@nestjs/common'
-import { MatchesService } from './matches.service'
+
 import { MatchesResolver } from './matches.resolver'
-import { SportmonksService } from './sportmonks.service'
-import { MatchesServiceSofascore } from './sofascore.service'
+import { MatchesService } from './matches.service'
 import { CacheService } from './cache.service'
+import { OpenAiAnalysisService } from './openai-analysis.service'
 
 @Module({
   providers: [
     MatchesService,
-    SportmonksService,
     MatchesResolver,
-    MatchesServiceSofascore,
     CacheService,
+    OpenAiAnalysisService,
   ],
 })
 export class MatchesModule {}

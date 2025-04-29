@@ -1,25 +1,26 @@
 import { Resolver, Query, Args } from '@nestjs/graphql'
 import { MatchesService } from './matches.service'
-import { LiveMatchOutputDto } from './dto/live-match-output.dto' // DTO que ya tienes
-import { LiveMatchForGptDto, MatchAnalysisOutputDto } from './dto'
-import { SportmonksService } from './sportmonks.service'
-import { MatchesServiceSofascore } from './sofascore.service'
+import { LateMatchOptionsDto, LiveMatchOutputDto } from './dto'
 
-@Resolver()
+@Resolver('Match')
 export class MatchesResolver {
-  constructor(
-    private readonly matchesService: MatchesService,
-    private readonly sportmonksService: SportmonksService,
-    private readonly sofaScoreService: MatchesServiceSofascore
-  ) {}
+  constructor(private readonly matchesService: MatchesService) {}
 
   @Query(() => [LiveMatchOutputDto])
-  liveMatchesDetailed() {
-    return this.sofaScoreService.getLiveMatchesSimple()
+  async liveMatches() {
+    return this.matchesService.getLiveMatchesSimple()
   }
 
-  @Query(() => MatchAnalysisOutputDto)
-  async analyzeMatch(@Args('fixtureId') fixtureId: number) {
-    return this.matchesService.analyzeSingleMatch(fixtureId)
+  @Query(() => [LiveMatchOutputDto])
+  async lateMatches(
+    @Args('options', { nullable: true }) options?: LateMatchOptionsDto
+  ) {
+    return this.matchesService.getLateMatches(options || {})
+  }
+
+  @Query(() => LiveMatchOutputDto, { nullable: true })
+  async matchById(@Args('id') id: number) {
+    const matches = await this.matchesService.getLiveMatchesSimple()
+    return matches.find((match) => match.id === id) || null
   }
 }
