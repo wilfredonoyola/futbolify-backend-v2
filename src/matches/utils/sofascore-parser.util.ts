@@ -3,12 +3,51 @@ import {
   MatchStatistics,
   TeamStat,
 } from '../interfaces/match-statistics.interface'
+import axios, { AxiosInstance } from 'axios'
+import { ConfigService } from '@nestjs/config'
 
-/**
- * Calcula el minuto actual del partido
- * @param match Datos del partido
- * @returns Minuto actual
- */
+export async function makeRequestWithFallback<T>(
+  requestFn: (api: AxiosInstance) => Promise<T>,
+  configService: ConfigService,
+  attempts = 3
+): Promise<T> {
+  const useRapid = configService.get<string>('USE_RAPIDAPI_SOFA') === 'true'
+
+  const rapidApi = axios.create({
+    baseURL: 'https://sofascore.p.rapidapi.com',
+    headers: {
+      'X-RapidAPI-Key': configService.get<string>('RAPIDAPI_KEY_SOFA') || '',
+      'X-RapidAPI-Host': 'sofascore.p.rapidapi.com',
+    },
+    timeout: 5000,
+  })
+
+  const directApi = axios.create({
+    baseURL: 'https://api.sofascore.com/api/v1',
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+    },
+    timeout: 5000,
+  })
+
+  try {
+    if (useRapid) {
+      return await requestFn(rapidApi)
+    } else {
+      return await requestFn(directApi)
+    }
+  } catch (error: any) {
+    const status = error.response?.status
+    if (useRapid && [401, 403, 429].includes(status)) {
+      console.warn(
+        `⚠️ RapidAPI falló con ${status}, usando fallback directo...`
+      )
+      return await requestFn(directApi)
+    }
+    throw error
+  }
+}
+
 export function calculateMinute(match: any): number {
   const now = Math.floor(Date.now() / 1000)
   const startTimestamp = match.startTimestamp
@@ -22,52 +61,28 @@ export function calculateMinute(match: any): number {
   const elapsedSeconds = now - currentPeriodStart
   const elapsedMinutes = Math.floor(elapsedSeconds / 60)
 
-  if (lastPeriod === 'period2') {
-    return 45 + Math.max(elapsedMinutes, 0)
-  }
-
-  if (lastPeriod === 'period1') {
-    return Math.max(elapsedMinutes, 0)
-  }
-
-  if (lastPeriod === 'extra1') {
-    return 90 + Math.max(elapsedMinutes, 0)
-  }
-
-  if (lastPeriod === 'extra2') {
-    return 105 + Math.max(elapsedMinutes, 0)
-  }
-
-  if (lastPeriod === 'penalties') {
-    return 120
-  }
+  if (lastPeriod === 'period2') return 45 + Math.max(elapsedMinutes, 0)
+  if (lastPeriod === 'period1') return Math.max(elapsedMinutes, 0)
+  if (lastPeriod === 'extra1') return 90 + Math.max(elapsedMinutes, 0)
+  if (lastPeriod === 'extra2') return 105 + Math.max(elapsedMinutes, 0)
+  if (lastPeriod === 'penalties') return 120
 
   return Math.max(elapsedMinutes, 0)
 }
 
-/**
- * Construye la línea de tiempo de eventos del partido
- * @param incidents Eventos del partido
- * @param homeTeamName Nombre del equipo local
- * @param awayTeamName Nombre del equipo visitante
- * @returns Lista de eventos en la línea de tiempo
- */
 export function buildTimeline(
   incidents: any[],
   homeTeamName: string,
   awayTeamName: string
 ): TimelineEventDto[] {
   const timeline: TimelineEventDto[] = []
-
-  if (!incidents || !Array.isArray(incidents)) return timeline
+  if (!Array.isArray(incidents)) return timeline
 
   for (const incident of incidents) {
-    // Verificar que incident sea un objeto válido
     if (!incident || typeof incident !== 'object') continue
 
-    const incidentType = incident.incidentType || ''
+    const incidentType = incident.incidentType || incident.type || ''
 
-    // Expandir los tipos de incidentes que rastreamos
     if (
       [
         'goal',
@@ -78,6 +93,7 @@ export function buildTimeline(
         'corner_kick',
         'shot_on_target',
         'shot_off_target',
+        'dangerous_attack',
       ].includes(incidentType)
     ) {
       timeline.push({
@@ -86,7 +102,10 @@ export function buildTimeline(
         team: incident.isHome ? homeTeamName : awayTeamName,
         player: incident.player?.name ?? '',
         assist: incident.assist1?.name ?? null,
-        minute: incident.time || 0,
+        minute:
+          typeof incident.time === 'object'
+            ? incident.time.minute || 0
+            : incident.time || 0,
         isHome: !!incident.isHome,
         importance: calculateEventImportance(incidentType),
       })
@@ -96,13 +115,7 @@ export function buildTimeline(
   return timeline.sort((a, b) => a.minute - b.minute)
 }
 
-/**
- * Extrae y procesa las estadísticas de un partido
- * @param statisticsData Datos de estadísticas del partido
- * @returns Estadísticas procesadas
- */
 export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
-  // Valores iniciales
   let totalShots = { home: 0, away: 0 }
   let shotsOnTarget = { home: 0, away: 0 }
   let shotsOffTarget = { home: 0, away: 0 }
@@ -139,122 +152,102 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
 
   for (const period of allStatistics) {
     const groups = period.groups || []
-
     for (const group of groups) {
       const items = group.statisticsItems || []
-
       for (const stat of items) {
-        const name = stat.name || ''
+        const key = stat.name || stat.key || ''
         const homeValue = parseValue(stat.homeValue)
         const awayValue = parseValue(stat.awayValue)
 
-        switch (name) {
+        switch (key) {
           case 'Total shots':
+          case 'totalShotsOnGoal':
             totalShots.home = homeValue
             totalShots.away = awayValue
             break
-
           case 'Shots on target':
+          case 'shotsOnGoal':
             shotsOnTarget.home = homeValue
             shotsOnTarget.away = awayValue
             break
-
           case 'Shots off target':
             shotsOffTarget.home = homeValue
             shotsOffTarget.away = awayValue
             break
-
           case 'Blocked shots':
             blockedShots.home = homeValue
             blockedShots.away = awayValue
             break
-
           case 'Shots inside box':
             shotsInsideBox.home = homeValue
             shotsInsideBox.away = awayValue
             break
-
           case 'Shots outside box':
             shotsOutsideBox.home = homeValue
             shotsOutsideBox.away = awayValue
             break
-
           case 'Corner kicks':
             cornersHome = homeValue
             cornersAway = awayValue
             break
-
           case 'Ball possession':
+          case 'ballPossession':
             possession.home = homeValue || 50
             possession.away = awayValue || 50
             break
-
           case 'Dangerous attacks':
             dangerousAttacks.home = homeValue
             dangerousAttacks.away = awayValue
             break
-
           case 'Attacks':
             attacks.home = homeValue
             attacks.away = awayValue
             break
-
           case 'Big chances':
             bigChances.home = homeValue
             bigChances.away = awayValue
             break
-
           case 'Big chances scored':
             bigChancesScored.home = homeValue
             bigChancesScored.away = awayValue
             break
-
           case 'Big chances missed':
             bigChancesMissed.home = homeValue
             bigChancesMissed.away = awayValue
             break
-
           case 'Expected goals (xG)':
             xG.home = homeValue
             xG.away = awayValue
             break
-
           case 'Fouls':
             fouls.home = homeValue
             fouls.away = awayValue
             break
-
           case 'Duels':
             duelsWon.home = homeValue || 50
             duelsWon.away = awayValue || 50
             break
-
-          case 'Goalkeeper saves':
           case 'Total saves':
+          case 'Goalkeeper saves':
             saves.home = homeValue
             saves.away = awayValue
             break
-
           case 'Final third entries':
             finalThirdEntries.home = homeValue
             finalThirdEntries.away = awayValue
             break
-
           case 'Hit woodwork':
             hitWoodwork.home = homeValue
             hitWoodwork.away = awayValue
             break
-
           case 'Yellow cards':
             yellowCards.home = homeValue
             yellowCards.away = awayValue
             break
-
           case 'Red cards':
             redCards.home = homeValue
             redCards.away = awayValue
             break
-
           case 'Offsides':
             offsides.home = homeValue
             offsides.away = awayValue
@@ -268,7 +261,6 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
   const shotsOnTargetSum = shotsOnTarget.home + shotsOnTarget.away
   const shotsOnTargetRatio =
     totalShotsSum > 0 ? shotsOnTargetSum / totalShotsSum : 0
-
   const dangerFactor =
     shotsInsideBox.home + shotsInsideBox.away > 0
       ? (shotsInsideBox.home + shotsInsideBox.away) / (totalShotsSum || 1)
@@ -302,18 +294,12 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
     hitWoodwork,
     shotsInsideBoxRatio:
       (shotsInsideBox.home + shotsInsideBox.away) / (totalShotsSum || 1),
-
-    // Nuevos campos agregados correctamente
     yellowCards,
     redCards,
     offsides,
   }
 }
-/**
- * Mapea los tipos de incidentes a nombres legibles
- * @param incidentType Tipo de incidente
- * @returns Nombre legible del tipo de incidente
- */
+
 function mapIncidentType(incidentType: string): string {
   const typeMap = {
     goal: 'Goal',
@@ -326,15 +312,9 @@ function mapIncidentType(incidentType: string): string {
     shot_off_target: 'Shot',
     dangerous_attack: 'Dangerous Attack',
   }
-
   return typeMap[incidentType] || 'Other'
 }
 
-/**
- * Calcula la importancia de un evento
- * @param incidentType Tipo de incidente
- * @returns Valor de importancia (0-5)
- */
 function calculateEventImportance(incidentType: string): number {
   const importanceMap = {
     goal: 5,
@@ -347,33 +327,24 @@ function calculateEventImportance(incidentType: string): number {
     shot_off_target: 2,
     dangerous_attack: 1,
   }
-
   return importanceMap[incidentType] || 0
 }
 
-/**
- * Parsea un valor a número
- * @param value Valor a parsear
- * @returns Número parseado o 0 si no es válido
- */
 function parseValue(value: any): number {
   if (value === null || value === undefined) return 0
-
   if (typeof value === 'number') return value
-
   if (typeof value === 'string') {
-    // Manejo de "52%" o "22/30 (73%)"
     const percentMatch = value.match(/(\d+)%/)
     if (percentMatch) return parseInt(percentMatch[1])
 
-    // Manejo de valores fraccionarios como "22/30"
     const fractionMatch = value.match(/(\d+)\/(\d+)/)
     if (fractionMatch) return parseInt(fractionMatch[1])
 
-    // Intenta convertir cualquier otro string a número
+    const mixedMatch = value.match(/\((\d+)%\)/)
+    if (mixedMatch) return parseInt(mixedMatch[1])
+
     const numValue = parseInt(value)
     if (!isNaN(numValue)) return numValue
   }
-
   return 0
 }
