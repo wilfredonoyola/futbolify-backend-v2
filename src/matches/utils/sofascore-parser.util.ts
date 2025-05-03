@@ -3,50 +3,6 @@ import {
   MatchStatistics,
   TeamStat,
 } from '../interfaces/match-statistics.interface'
-import axios, { AxiosInstance } from 'axios'
-import { ConfigService } from '@nestjs/config'
-
-export async function makeRequestWithFallback<T>(
-  requestFn: (api: AxiosInstance) => Promise<T>,
-  configService: ConfigService,
-  attempts = 3
-): Promise<T> {
-  const useRapid = configService.get<string>('USE_RAPIDAPI_SOFA') === 'true'
-
-  const rapidApi = axios.create({
-    baseURL: 'https://sofascore.p.rapidapi.com',
-    headers: {
-      'X-RapidAPI-Key': configService.get<string>('RAPIDAPI_KEY_SOFA') || '',
-      'X-RapidAPI-Host': 'sofascore.p.rapidapi.com',
-    },
-    timeout: 5000,
-  })
-
-  const directApi = axios.create({
-    baseURL: 'https://api.sofascore.com/api/v1',
-    headers: {
-      'User-Agent': 'Mozilla/5.0',
-    },
-    timeout: 5000,
-  })
-
-  try {
-    if (useRapid) {
-      return await requestFn(rapidApi)
-    } else {
-      return await requestFn(directApi)
-    }
-  } catch (error: any) {
-    const status = error.response?.status
-    if (useRapid && [401, 403, 429].includes(status)) {
-      console.warn(
-        `⚠️ RapidAPI falló con ${status}, usando fallback directo...`
-      )
-      return await requestFn(directApi)
-    }
-    throw error
-  }
-}
 
 export function calculateMinute(match: any): number {
   const now = Math.floor(Date.now() / 1000)
@@ -132,12 +88,8 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
   let bigChancesMissed = { home: 0, away: 0 }
   let xG = { home: 0, away: 0 }
   let fouls = { home: 0, away: 0 }
-  let passes = { home: 0, away: 0 }
-  let accuratePasses = { home: 0, away: 0 }
-  let duelsWon = { home: 0, away: 0 }
-  let saves = { home: 0, away: 0 }
-  let hitWoodwork = { home: 0, away: 0 }
   let finalThirdEntries = { home: 0, away: 0 }
+  let hitWoodwork = { home: 0, away: 0 }
   let yellowCards = { home: 0, away: 0 }
   let redCards = { home: 0, away: 0 }
   let offsides = { home: 0, away: 0 }
@@ -224,13 +176,9 @@ export function takeStatisticsSnapshot(statisticsData: any): MatchStatistics {
             fouls.away = awayValue
             break
           case 'Duels':
-            duelsWon.home = homeValue || 50
-            duelsWon.away = awayValue || 50
             break
           case 'Total saves':
           case 'Goalkeeper saves':
-            saves.home = homeValue
-            saves.away = awayValue
             break
           case 'Final third entries':
             finalThirdEntries.home = homeValue

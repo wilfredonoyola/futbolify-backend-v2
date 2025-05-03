@@ -2,25 +2,29 @@ import { Injectable, Logger } from '@nestjs/common'
 import {
   LiveMatchOutputDto,
   LateMatchOptionsDto,
-  TimelineEventDto,
   MatchState,
+  PredictionSnapshotDto,
+  LiveMatchPublicViewDto,
 } from './dto'
-import { CacheService } from './cache.service'
-import * as SofascoreAPI from './utils/sofascore-api.util'
+import * as SofascoreAPI from './utils/sofascore-client.util'
 import * as SofascoreParser from './utils/sofascore-parser.util'
 import * as SofascoreAnalyzer from './utils/sofascore-analyzer.util'
 import { OpenAiAnalysisService } from './openai-analysis.service'
 import { shouldAnalyzeWithGPT } from './utils/match-relevance.util'
 import { ConfigService } from '@nestjs/config'
+import { PredictionStorageService } from './prediction-storage.service'
+import { PredictionEngineService } from './prediction-engine.service'
+import { PredictionThresholds } from './utils/prediction-thresholds.config'
 
 @Injectable()
 export class MatchesService {
   private readonly logger = new Logger(MatchesService.name)
 
   constructor(
-    private readonly cacheService: CacheService,
     private readonly openAiAnalysisService: OpenAiAnalysisService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly predictionStorageService: PredictionStorageService,
+    private readonly predictionEngineService: PredictionEngineService
   ) {}
 
   private createMatchDto(data: any): LiveMatchOutputDto {
@@ -72,7 +76,6 @@ export class MatchesService {
   async getLiveMatchesSimple(): Promise<LiveMatchOutputDto[]> {
     try {
       const liveMatches = await SofascoreAPI.fetchLiveMatches(
-        this.cacheService,
         this.configService
       )
       if (!liveMatches.length) {
@@ -127,7 +130,6 @@ export class MatchesService {
       } = options
 
       const liveMatches = await SofascoreAPI.fetchLiveMatches(
-        this.cacheService,
         this.configService
       )
       if (!liveMatches.length) {
@@ -190,16 +192,8 @@ export class MatchesService {
       const lastPeriod = match.lastPeriod
 
       const [statsData, timelineData] = await Promise.all([
-        SofascoreAPI.fetchMatchStatistics(
-          fixtureId,
-          this.cacheService,
-          this.configService
-        ),
-        SofascoreAPI.fetchMatchTimeline(
-          fixtureId,
-          this.cacheService,
-          this.configService
-        ),
+        SofascoreAPI.fetchMatchStatistics(fixtureId, this.configService),
+        SofascoreAPI.fetchMatchTimeline(fixtureId, this.configService),
       ])
 
       const stats = SofascoreParser.takeStatisticsSnapshot(statsData)
@@ -254,6 +248,35 @@ export class MatchesService {
       const recentActivityScore =
         SofascoreAnalyzer.calculateRecentActivityScore(recentEvents, minute)
       const finalPressureScore = basePressureScore + recentActivityScore
+
+      const predictionSnapshot: PredictionSnapshotDto = {
+        id: fixtureId,
+        minute,
+        scoreHome,
+        scoreAway,
+        pressureScore: finalPressureScore,
+        recentActivityScore,
+        lastEventTypes,
+      }
+
+      const predictionResult =
+        await this.predictionEngineService.generateFullPrediction(
+          predictionSnapshot,
+          { testMode: true }
+        )
+
+      await this.predictionStorageService.savePrediction(predictionResult, {
+        minute,
+        scoreHome,
+        scoreAway,
+        pressureScore: finalPressureScore,
+        recentActivityScore,
+      })
+
+      this.logger.log(
+        `📊 FinalProb: ${predictionResult.finalProbability}% | Live: ${predictionResult.liveProbability}% | Hist: ${predictionResult.historicalSupport.percentage}%`
+      )
+      this.logger.debug(`📋 ${predictionResult.reasoning}`)
 
       const lastEventType = lastEventTypes[0] || null
 
@@ -360,6 +383,8 @@ export class MatchesService {
         state,
         bettingAnalysis,
         xGTotal,
+        finalProbability: predictionResult.finalProbability,
+        historicalComment: predictionResult.historicalSupport.comment,
       })
     } catch (error) {
       this.logger.error(
@@ -367,5 +392,105 @@ export class MatchesService {
       )
       return null
     }
+  }
+
+  async getLiveMatchAnalysis(): Promise<LiveMatchPublicViewDto[]> {
+    const matches = await this.getLateMatches()
+
+    const visible = matches.filter((match) => {
+      const prob = match.finalProbability ?? 0
+      const confidence = match.bettingAnalysis?.confidence ?? 0
+      return (
+        prob >= PredictionThresholds.SHOW_MATCHES_FROM &&
+        confidence >= PredictionThresholds.CONFIDENCE_MIN
+      )
+    })
+
+    this.logger.log(`📡 SniperView: ${visible.length} visible matches`)
+
+    return visible.map((match) => this.mapToPublicView(match))
+  }
+
+  private mapToPublicView(match: LiveMatchOutputDto): LiveMatchPublicViewDto {
+    const {
+      finalProbability = 0,
+      pressureScore = 0,
+      recentActivityScore = 0,
+    } = match
+
+    let rawState: 'hot' | 'active' | 'passive' = 'passive'
+    if (finalProbability >= 70) rawState = 'hot'
+    else if (pressureScore >= 7.5 || recentActivityScore >= 2)
+      rawState = 'active'
+
+    let rawDecision: 'bet' | 'observe' | 'ignore' = 'ignore'
+    if (finalProbability >= 70) rawDecision = 'bet'
+    else if (finalProbability >= 50) rawDecision = 'observe'
+
+    return {
+      matchId: match.id,
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      minute: match.minute!,
+      scoreHome: match.scoreHome,
+      scoreAway: match.scoreAway,
+      pressureScore,
+      recentActivityScore,
+      finalProbability,
+      historicalComment: match.historicalComment,
+      reasoning: match.bettingAnalysis?.reason,
+      hasRecentActivity: match.hasRecentActivity ?? false,
+      isLateMatch: match.minute! >= 65,
+      lastEventTypes: match.timeline?.slice(-5).map((e) => e.type) || [],
+      lastUpdate: new Date(),
+      state:
+        rawState === 'hot'
+          ? 'caliente'
+          : rawState === 'active'
+          ? 'activo'
+          : 'pasivo',
+      decision:
+        rawDecision === 'bet'
+          ? 'apostar'
+          : rawDecision === 'observe'
+          ? 'observar'
+          : 'retirarse',
+    }
+  }
+
+  async getRecentSniperViewFromStorage(): Promise<LiveMatchPublicViewDto[]> {
+    const recent =
+      await this.predictionStorageService.getRecentPredictionsForSniper()
+
+    return recent.map((record) => {
+      let state: 'caliente' | 'activo' | 'pasivo' = 'pasivo'
+      if (record.finalProbability >= 70) state = 'caliente'
+      else if (record.pressureScore >= 7.5 || record.recentActivityScore >= 2)
+        state = 'activo'
+
+      let decision: 'apostar' | 'observar' | 'retirarse' = 'retirarse'
+      if (record.finalProbability >= 70) decision = 'apostar'
+      else if (record.finalProbability >= 50) decision = 'observar'
+
+      return {
+        matchId: record.matchId,
+        homeTeam: 'Equipo A', // opcional si tenés cache de nombres
+        awayTeam: 'Equipo B',
+        minute: record.minute,
+        scoreHome: record.scoreHome,
+        scoreAway: record.scoreAway,
+        pressureScore: record.pressureScore,
+        recentActivityScore: record.recentActivityScore,
+        finalProbability: record.finalProbability,
+        historicalComment: record.historicalComment,
+        reasoning: undefined,
+        hasRecentActivity: record.recentActivityScore > 0,
+        isLateMatch: record.minute >= 65,
+        lastEventTypes: [],
+        lastUpdate: record.updatedAt,
+        state,
+        decision,
+      }
+    })
   }
 }

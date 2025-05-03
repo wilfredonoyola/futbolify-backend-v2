@@ -1,5 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common'
 import OpenAI from 'openai'
+import { PredictionSnapshotDto } from './dto/prediction-snapshot.dto'
+
+export interface HistoricalSimilarityResult {
+  similarMatches: number
+  withGoals: number
+  percentage: number
+  comment: string
+}
 
 @Injectable()
 export class OpenAiAnalysisService {
@@ -19,7 +27,6 @@ export class OpenAiAnalysisService {
     odds: number
     timestamp: string
   } | null> {
-    // 🧠 Validación previa: mínimo 1 evento ofensivo en últimos 8 minutos
     const recentMinute = matchData.minute || 0
     const events = matchData.lastEvents || []
 
@@ -29,9 +36,7 @@ export class OpenAiAnalysisService {
         recentMinute - e.minute <= 8
     )
 
-    const recentCount = recentEvents.length
-
-    if (recentCount === 0) {
+    if (recentEvents.length === 0) {
       return {
         recommendedBet: 'no_bet',
         confidence: 0,
@@ -67,8 +72,8 @@ export class OpenAiAnalysisService {
 - Mercado disponible (se asume true si 'marketAvailable' es true)
 
 🧠 Lógica de presión:
-- Over 0.5 si presión ≥6.5 y al menos 1 evento ofensivo (remate, córner, gol) en los últimos 8 minutos
-- Over 1.5 si presión ≥8.0 y al menos 2 eventos ofensivos en los últimos 5 minutos
+- Over 0.5 si presión ≥6.5 y al menos 1 evento ofensivo
+- Over 1.5 si presión ≥8.0 y al menos 2 eventos ofensivos
 - No apostar si presión <6.0 o hay red flags
 
 🚨 Red flags:
@@ -86,7 +91,8 @@ export class OpenAiAnalysisService {
 }
 
 ⚠️ Si no hay suficiente información ➔ responde "no_bet".
-`.trim(),
+NO uses comillas invertidas ni Markdown. Devuelve solo JSON plano sin formato.
+        `.trim(),
       },
       {
         role: 'user' as const,
@@ -102,9 +108,61 @@ export class OpenAiAnalysisService {
       })
 
       const content = response.choices[0]?.message?.content
-      return content ? JSON.parse(content) : null
+      const cleanContent = content?.replace(/```(json)?|```/g, '').trim()
+      return cleanContent ? JSON.parse(cleanContent) : null
     } catch (error: any) {
       this.logger.error(`Error en análisis GPT: ${error.message}`)
+      return null
+    }
+  }
+
+  async findSimilarMatches(
+    snapshot: PredictionSnapshotDto
+  ): Promise<HistoricalSimilarityResult | null> {
+    const prompt = [
+      {
+        role: 'system' as const,
+        content: `
+Sos un analista deportivo con acceso a una base histórica de +10.000 partidos.
+
+Te voy a dar los datos en vivo de un partido (presión ofensiva, marcador, minuto y eventos recientes). Tu tarea es buscar partidos similares en tu base y responder cuántos de ellos tuvieron al menos 1 gol desde el minuto actual hasta el final del partido.
+
+⚽ Datos relevantes:
+- Marcador (ej: 0-0, 1-1)
+- Presión ofensiva (ej: 9.2)
+- Actividad reciente
+- Minuto actual
+
+📊 Devuelvo un JSON con:
+{
+  "similarMatches": número total de partidos similares,
+  "withGoals": cuántos tuvieron gol después del minuto actual,
+  "percentage": % de goles (con 1 decimal),
+  "comment": explicación simple
+}
+NO uses comillas invertidas ni Markdown. Devuelve solo JSON plano sin formato.
+        `.trim(),
+      },
+      {
+        role: 'user' as const,
+        content: JSON.stringify(snapshot),
+      },
+    ]
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: prompt,
+        temperature: 0.2,
+      })
+
+      const content = response.choices[0]?.message?.content
+      const cleanContent = content?.replace(/```(json)?|```/g, '').trim()
+      return cleanContent ? JSON.parse(cleanContent) : null
+    } catch (error: any) {
+      this.logger.error(
+        `❌ Error en análisis OpenAI (similares): ${error.message}`
+      )
       return null
     }
   }

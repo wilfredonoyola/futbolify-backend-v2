@@ -12,9 +12,11 @@ import { UsersModule } from './users/users.module'
 import { MatchesModule } from './matches/matches.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
+import { ScheduleModule } from '@nestjs/schedule'
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     // ✅ ConfigModule para cargar variables de entorno automáticamente
     ConfigModule.forRoot({
       isGlobal: true, // disponible globalmente

@@ -103,6 +103,12 @@ export class LiveMatchOutputDto {
 
   @Field(() => Int, { nullable: true })
   shotsOffTarget?: number
+
+  @Field(() => Float, { nullable: true })
+  finalProbability?: number
+
+  @Field(() => String, { nullable: true })
+  historicalComment?: string
 }
 
 @InputType()
