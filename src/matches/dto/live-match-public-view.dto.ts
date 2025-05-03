@@ -5,10 +5,10 @@ export class LiveMatchPublicViewDto {
   @Field(() => Int)
   matchId: number
 
-  @Field()
+  @Field(() => String)
   homeTeam: string
 
-  @Field()
+  @Field(() => String)
   awayTeam: string
 
   @Field(() => Int)

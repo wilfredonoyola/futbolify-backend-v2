@@ -157,6 +157,19 @@ export class MatchesService {
 
       const results: LiveMatchOutputDto[] = []
       for (const match of lateMatches) {
+        const minute = SofascoreParser.calculateMinute(match)
+        const totalGoals = match.homeScore.current + match.awayScore.current
+
+        // ⚠️ Evitá reanalizar partidos muy "dormidos"
+        if (minute > 88) continue // demasiado tarde
+        if (totalGoals > maxGoals) continue // ya desbordado
+        if (
+          minute > 80 &&
+          match.lastEventTime &&
+          match.lastEventTime < minute - 4
+        )
+          continue
+
         const result = await this.processMatch(match)
         if (result) {
           results.push(result)
@@ -271,6 +284,8 @@ export class MatchesService {
         scoreAway,
         pressureScore: finalPressureScore,
         recentActivityScore,
+        homeTeam,
+        awayTeam,
       })
 
       this.logger.log(
@@ -474,8 +489,8 @@ export class MatchesService {
 
       return {
         matchId: record.matchId,
-        homeTeam: 'Equipo A', // opcional si tenés cache de nombres
-        awayTeam: 'Equipo B',
+        homeTeam: record.homeTeam, // opcional si tenés cache de nombres
+        awayTeam: record.awayTeam,
         minute: record.minute,
         scoreHome: record.scoreHome,
         scoreAway: record.scoreAway,

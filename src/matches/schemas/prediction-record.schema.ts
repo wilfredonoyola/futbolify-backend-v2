@@ -15,6 +15,14 @@ export class PredictionRecord {
   matchId: number
 
   @Prop({ required: true })
+  @Field(() => String)
+  homeTeam: string
+
+  @Prop({ required: true })
+  @Field(() => String)
+  awayTeam: string
+
+  @Prop({ required: true })
   @Field(() => Int)
   minute: number
 

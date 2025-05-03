@@ -54,6 +54,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passports": "^0.2.1",
+    "proxy-agent": "^6.5.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^7",

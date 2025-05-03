@@ -35,6 +35,12 @@ export class PredictionRecordDto {
   @Field(() => Boolean)
   goalOccurred: boolean
 
+  @Field(() => String)
+  homeTeam: string
+
+  @Field(() => String)
+  awayTeam: string
+
   @Field(() => Date)
   createdAt: Date
 

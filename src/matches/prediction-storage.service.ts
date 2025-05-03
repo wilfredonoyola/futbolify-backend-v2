@@ -35,6 +35,8 @@ export class PredictionStorageService {
       scoreAway: number
       pressureScore: number
       recentActivityScore: number
+      homeTeam: string
+      awayTeam: string
     }
   ): Promise<void> {
     try {
@@ -49,6 +51,8 @@ export class PredictionStorageService {
         finalProbability: prediction.finalProbability,
         historicalComment: prediction.historicalSupport.comment,
         goalOccurred: false,
+        homeTeam: snapshot.homeTeam,
+        awayTeam: snapshot.awayTeam,
       })
 
       this.logger.log(`✅ Predicción guardada para match ${prediction.matchId}`)
@@ -78,6 +82,8 @@ export class PredictionStorageService {
     return {
       id: record._id.toString(),
       matchId: record.matchId,
+      homeTeam: record.homeTeam,
+      awayTeam: record.awayTeam,
       minute: record.minute,
       scoreHome: record.scoreHome,
       scoreAway: record.scoreAway,

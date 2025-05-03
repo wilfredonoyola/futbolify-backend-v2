@@ -117,6 +117,8 @@ type PredictionRecordDto {
   finalProbability: Float!
   historicalComment: String
   goalOccurred: Boolean!
+  homeTeam: String!
+  awayTeam: String!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
