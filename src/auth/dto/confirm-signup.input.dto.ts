@@ -1,24 +1,24 @@
 /** @format */
 
-import { Field, InputType } from '@nestjs/graphql'
+import { Field, InputType } from "@nestjs/graphql";
 
 @InputType()
 export class ConfirmSignupInputDto {
   @Field()
-  email: string
+  verificationCode: string;
 
   @Field()
-  verificationCode: string
+  password: string;
 
   @Field()
-  password: string
+  phone: number;
 
   @Field()
-  phone: number
-
-  @Field()
-  userName: string
+  userName: string;
 
   @Field(() => Date)
-  birthday: Date
+  birthday: Date;
+
+  @Field()
+  email: string;
 }
