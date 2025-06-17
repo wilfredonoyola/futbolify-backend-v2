@@ -1,24 +1,27 @@
+/** @format */
+
 // src/app.module.ts
 
-import { Module } from '@nestjs/common'
-import { ConfigModule, ConfigService } from '@nestjs/config'
-import { MongooseModule } from '@nestjs/mongoose'
-import { GraphQLModule } from '@nestjs/graphql'
-import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo'
-import { join } from 'path'
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { MongooseModule } from "@nestjs/mongoose";
+import { GraphQLModule } from "@nestjs/graphql";
+import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
+import { join } from "path";
 
-import { AuthModule } from './auth/auth.module'
-import { UsersModule } from './users/users.module'
-import { MatchesModule } from './matches/matches.module'
-import { AppController } from './app.controller'
-import { AppService } from './app.service'
+import { AuthModule } from "./auth/auth.module";
+import { UsersModule } from "./users/users.module";
+import { MatchesModule } from "./matches/matches.module";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { PostsModule } from "./post/post.module";
 
 @Module({
   imports: [
     // ✅ ConfigModule para cargar variables de entorno automáticamente
     ConfigModule.forRoot({
       isGlobal: true, // disponible globalmente
-      envFilePath: '.env', // puedes omitirlo si usas el nombre estándar ".env"
+      envFilePath: ".env", // puedes omitirlo si usas el nombre estándar ".env"
     }),
 
     // ✅ Conexión a MongoDB de manera asíncrona
@@ -26,7 +29,7 @@ import { AppService } from './app.service'
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI'),
+        uri: configService.get<string>("MONGODB_URI"),
       }),
     }),
 
@@ -34,12 +37,13 @@ import { AppService } from './app.service'
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       playground: true,
-      autoSchemaFile: join(process.cwd(), 'schema.gql'),
+      autoSchemaFile: join(process.cwd(), "schema.gql"),
     }),
 
     // ✅ Tus módulos propios
     AuthModule,
     UsersModule,
+    PostsModule,
     MatchesModule,
   ],
   controllers: [AppController],
