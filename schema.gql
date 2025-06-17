@@ -103,9 +103,34 @@ enum MatchState {
   HighLateValue
 }
 
+type PostOutputDto {
+  id: ID!
+  title: String!
+  description: String
+  type: PostType!
+  contentUrl: String
+  textContent: String
+  authorId: ID!
+  isActive: Boolean!
+  viewCount: Int!
+  tags: [String!]!
+  createdAt: Int!
+  updatedAt: Int!
+}
+
+"""The types of content a post can have"""
+enum PostType {
+  VIDEO
+  IMAGE
+  TEXT
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
+  posts: [PostOutputDto!]!
+  post(id: String!): PostOutputDto
+  postsByAuthor(authorId: String!): [PostOutputDto!]!
   liveMatches: [LiveMatchOutputDto!]!
   lateMatches(options: LateMatchOptionsDto): [LiveMatchOutputDto!]!
   matchById(id: Float!): LiveMatchOutputDto
@@ -130,6 +155,10 @@ type Mutation {
   completeProfile(updateProfileInput: UpdateProfileInputDto!): Boolean!
   updateUser(id: String!, updateUserInput: UpdateUserInput!): UserOutputDto!
   removeUser(id: String!): Boolean!
+  createPost(createPostInput: CreatePostInput!): PostOutputDto!
+  updatePost(id: String!, updatePostInput: UpdatePostInput!): PostOutputDto!
+  removePost(id: String!): Boolean!
+  togglePostStatus(id: String!): Boolean!
 }
 
 input SigninInputDto {
@@ -181,4 +210,23 @@ input UpdateProfileInputDto {
 input UpdateUserInput {
   roles: [UserRole!]
   name: String
+}
+
+input CreatePostInput {
+  title: String!
+  description: String
+  type: PostType!
+  contentUrl: String
+  textContent: String
+  tags: [String!]
+}
+
+input UpdatePostInput {
+  title: String
+  description: String
+  type: PostType
+  contentUrl: String
+  textContent: String
+  tags: [String!]
+  isActive: Boolean
 }
