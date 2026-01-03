@@ -106,11 +106,17 @@ export class AuthService {
   }
 
   async register(email: string, password: string): Promise<any> {
+    // Usamos el email como placeholder para el atributo 'name' requerido por Cognito
+    const namePlaceholder = email.split('@')[0]
+    
     const command = new SignUpCommand({
       ClientId: this.clientId,
       Username: email,
       Password: password,
-      UserAttributes: [{ Name: 'email', Value: email }],
+      UserAttributes: [
+        { Name: 'email', Value: email },
+        { Name: 'name', Value: namePlaceholder },
+      ],
     })
     const response = await this.client.send(command)
 
