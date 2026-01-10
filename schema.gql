@@ -2,18 +2,38 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type SigninOutputDto {
-  access_token: String!
-  isOnboardingCompleted: Boolean!
-  avatarUrl: String
+type User {
+  userId: ID!
+  email: String!
+  birthday: DateTime
+  phone: String!
   roles: [UserRole!]!
+  isOnboardingCompleted: Boolean!
+  createdAt: Int!
+  updatedAt: Int!
+  userName: String!
+  avatarUrl: String
+  googleId: String
+  authProvider: String
 }
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
 
 """The roles a user can have in the system"""
 enum UserRole {
   USER
   ADMIN
   SUPER_ADMIN
+}
+
+type SigninOutputDto {
+  access_token: String!
+  isOnboardingCompleted: Boolean!
+  avatarUrl: String
+  roles: [UserRole!]!
 }
 
 type UserOutputDto {
@@ -103,12 +123,132 @@ enum MatchState {
   HighLateValue
 }
 
+type Team {
+  id: ID!
+  name: String!
+  color: TeamColor!
+  code: String!
+  createdBy: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  matchCount: Int
+  mediaCount: Int
+  memberCount: Int
+}
+
+"""Available team colors"""
+enum TeamColor {
+  GREEN
+  BLUE
+  RED
+  YELLOW
+  PURPLE
+  ORANGE
+  PINK
+  BLACK
+  WHITE
+}
+
+type TeamMember {
+  id: ID!
+  teamId: ID!
+  userId: ID!
+  role: MemberRole!
+  joinedAt: DateTime!
+}
+
+"""Role of a member in a team"""
+enum MemberRole {
+  ADMIN
+  MEMBER
+}
+
+type TeamMatch {
+  id: ID!
+  teamId: ID!
+  date: DateTime!
+  opponent: String
+  location: String
+  createdBy: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  photoCount: Int
+  videoCount: Int
+  highlightCount: Int
+}
+
+type Media {
+  id: ID!
+  matchId: ID!
+  uploadedBy: ID!
+  type: MediaType!
+  url: String!
+  thumbnailUrl: String
+  category: MediaCategory
+  isHighlight: Boolean!
+  duration: Float
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Type of media content"""
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
+"""Category of media content"""
+enum MediaCategory {
+  GOAL
+  PLAY
+  FAIL
+}
+
+type TeamMemberWithUser {
+  id: ID!
+  teamId: ID!
+  userId: ID!
+  role: MemberRole!
+  joinedAt: DateTime!
+  user: User
+}
+
+type TeamWithMembers {
+  id: ID!
+  name: String!
+  color: TeamColor!
+  code: String!
+  createdBy: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  matchCount: Int
+  mediaCount: Int
+  memberCount: Int
+  members: [TeamMemberWithUser!]!
+}
+
+type ProfileStats {
+  goalCount: Int!
+  videoCount: Int!
+  photoCount: Int!
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
   liveMatches: [LiveMatchOutputDto!]!
   lateMatches(options: LateMatchOptionsDto): [LiveMatchOutputDto!]!
   matchById(id: Float!): LiveMatchOutputDto
+  myTeams: [Team!]!
+  team(id: ID!): TeamWithMembers!
+  teamByCode(code: String!): Team!
+  teamMembers(teamId: ID!): [TeamMember!]!
+  teamMatches(teamId: ID!): [TeamMatch!]!
+  teamMatch(id: ID!): TeamMatch!
+  matchMedia(matchId: ID!, filters: MediaFiltersInput): [Media!]!
+  media(id: ID!): Media!
+  myTaggedMedia(type: String): [Media!]!
+  profileStats(userId: ID): ProfileStats!
 }
 
 input LateMatchOptionsDto {
@@ -116,6 +256,12 @@ input LateMatchOptionsDto {
   minPressureScore: Float
   requireRecentActivity: Boolean
   maxGoals: Int
+}
+
+input MediaFiltersInput {
+  type: MediaType
+  category: MediaCategory
+  isHighlight: Boolean
 }
 
 type Mutation {
@@ -130,6 +276,24 @@ type Mutation {
   completeProfile(updateProfileInput: UpdateProfileInputDto!): Boolean!
   updateUser(id: String!, updateUserInput: UpdateUserInput!): UserOutputDto!
   removeUser(id: String!): Boolean!
+  createTeam(input: CreateTeamInput!): Team!
+  updateTeam(id: ID!, input: UpdateTeamInput!): Team!
+  deleteTeam(id: ID!): Boolean!
+  joinTeam(code: String!): Team!
+  leaveTeam(teamId: ID!): Boolean!
+  removeTeamMember(teamId: ID!, userId: ID!): Boolean!
+  updateMemberRole(teamId: ID!, userId: ID!, role: String!): TeamMember!
+  createMatch(input: CreateMatchInput!): TeamMatch!
+  updateMatch(id: ID!, input: UpdateMatchInput!): TeamMatch!
+  deleteMatch(id: ID!): Boolean!
+  uploadMedia(input: UploadMediaInput!): Media!
+  batchUploadMedia(inputs: [UploadMediaInput!]!): [Media!]!
+  updateMedia(id: ID!, input: UpdateMediaInput!): Media!
+  deleteMedia(id: ID!): Boolean!
+  toggleHighlight(mediaId: ID!): Media!
+  tagUsersInMedia(mediaId: ID!, userIds: [ID!]!): Boolean!
+  selfTagMedia(mediaId: ID!): Boolean!
+  removeMediaTag(mediaId: ID!, userId: ID!): Boolean!
 }
 
 input SigninInputDto {
@@ -150,11 +314,6 @@ input ConfirmSignupInputDto {
   userName: String!
   birthday: DateTime!
 }
-
-"""
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
-"""
-scalar DateTime
 
 input ConfirmPasswordInputDto {
   email: String!
@@ -181,4 +340,44 @@ input UpdateProfileInputDto {
 input UpdateUserInput {
   roles: [UserRole!]
   name: String
+}
+
+input CreateTeamInput {
+  name: String!
+  color: TeamColor!
+}
+
+input UpdateTeamInput {
+  name: String
+  color: TeamColor
+}
+
+input CreateMatchInput {
+  teamId: ID!
+  date: DateTime!
+  opponent: String
+  location: String
+}
+
+input UpdateMatchInput {
+  date: DateTime
+  opponent: String
+  location: String
+}
+
+input UploadMediaInput {
+  matchId: ID!
+  type: MediaType!
+  url: String!
+  thumbnailUrl: String
+  category: MediaCategory
+  isHighlight: Boolean = false
+  duration: Float
+}
+
+input UpdateMediaInput {
+  thumbnailUrl: String
+  category: MediaCategory
+  isHighlight: Boolean
+  duration: Float
 }
