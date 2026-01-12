@@ -23,10 +23,11 @@ export class UsersService {
       throw new Error('User or user roles are undefined');
     }
 
-    if (user.roles.includes('SUPER_ADMIN')) {
+    // For Futbolify, return all users if admin, otherwise just current user
+    if (user.roles.includes('SUPER_ADMIN') || user.roles.includes('ADMIN')) {
       return this.userModel.find().exec();
     } else {
-      return this.userModel.find({ company: user.company._id }).exec();
+      return this.userModel.find({ _id: user.userId }).exec();
     }
   }
 
@@ -47,14 +48,16 @@ export class UsersService {
     updateUserDto: Partial<User>,
     user: CurrentUserPayload,
   ): Promise<UserDocument> {
-    if (user.roles.includes('SUPER_ADMIN')) {
-      throw new ConflictException('SUPER_ADMIN cannot update users');
+    // Only allow updating own profile or if admin
+    const isAdmin = user.roles.includes('SUPER_ADMIN') || user.roles.includes('ADMIN');
+    const isOwnProfile = user.userId === id;
+    
+    if (!isAdmin && !isOwnProfile) {
+      throw new ConflictException('You can only update your own profile');
     }
 
     const updatedUser = await this.userModel
-      .findOneAndUpdate({ _id: id, company: user.company._id }, updateUserDto, {
-        new: true,
-      })
+      .findByIdAndUpdate(id, updateUserDto, { new: true })
       .exec();
 
     if (!updatedUser) {
@@ -65,12 +68,15 @@ export class UsersService {
   }
 
   async remove(id: string, user: CurrentUserPayload): Promise<void> {
-    if (user.roles.includes('SUPER_ADMIN')) {
-      throw new ConflictException('SUPER_ADMIN cannot remove users');
+    // Only admins can remove users
+    const isAdmin = user.roles.includes('SUPER_ADMIN') || user.roles.includes('ADMIN');
+    
+    if (!isAdmin) {
+      throw new ConflictException('Only admins can remove users');
     }
 
     const removedUser = await this.userModel
-      .findOneAndDelete({ _id: id, company: user.company._id })
+      .findByIdAndDelete(id)
       .exec();
 
     if (!removedUser) {

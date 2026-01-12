@@ -47,19 +47,9 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
       const roles = decodedToken['cognito:groups'] || [];
 
       // Buscar al usuario en la base de datos
-      let user;
-      if (roles.includes('SUPER_ADMIN')) {
-        // Si es SUPER_ADMIN, no intentamos asociar una empresa
-        user = await this.userModel
-          .findOne({ email: decodedToken.email })
-          .exec();
-      } else {
-        // Para otros roles, buscar al usuario y populamos la empresa
-        user = await this.userModel
-          .findOne({ email: decodedToken.email })
-          .populate('company') // Incluir la empresa si no es SUPER_ADMIN
-          .exec();
-      }
+      const user = await this.userModel
+        .findOne({ email: decodedToken.email })
+        .exec();
 
       if (!user) {
         return this.fail(
@@ -70,10 +60,9 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
 
       // Preparar la información del usuario
       const userInfo = {
-        id: user._id,
+        userId: user._id.toString(),
         username: user.email,
         roles: roles,
-        company: roles.includes('SUPER_ADMIN') ? null : user.company, // Si es SUPER_ADMIN, no tiene empresa
       };
 
       return this.success(userInfo); // Autenticación exitosa
