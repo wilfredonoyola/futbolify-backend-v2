@@ -4,8 +4,10 @@ import { MediaService } from './media.service';
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CurrentUserPayload } from '../auth/current-user-payload.interface';
-import { Media, MediaType } from './schemas/media.schema';
+import { Media, MediaType, MediaCategory } from './schemas/media.schema';
 import { UploadMediaInput, UpdateMediaInput, MediaFiltersInput, ProfileStats } from './dto';
+import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
+import { FileUpload } from 'graphql-upload/Upload.mjs';
 
 @Resolver(() => Media)
 export class MediaResolver {
@@ -41,6 +43,20 @@ export class MediaResolver {
     return this.mediaService.getMyTaggedMedia(user.userId, type);
   }
 
+  /**
+   * Get ALL media related to current user:
+   * - Media where user is tagged
+   * - Media uploaded by user
+   */
+  @Query(() => [Media], { name: 'allMyMedia' })
+  @UseGuards(GqlAuthGuard)
+  async getAllMyMedia(
+    @Args('type', { type: () => String, nullable: true }) type: MediaType,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<Media[]> {
+    return this.mediaService.getAllMyMedia(user.userId, type);
+  }
+
   @Query(() => ProfileStats, { name: 'profileStats' })
   @UseGuards(GqlAuthGuard)
   async getProfileStats(
@@ -51,7 +67,42 @@ export class MediaResolver {
     return this.mediaService.getProfileStats(userId);
   }
 
+  /**
+   * Get profile stats including uploaded + tagged media
+   */
+  @Query(() => ProfileStats, { name: 'allMyProfileStats' })
+  @UseGuards(GqlAuthGuard)
+  async getAllMyProfileStats(
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ProfileStats> {
+    return this.mediaService.getAllMyProfileStats(user.userId);
+  }
+
   // ============== MUTATIONS ==============
+
+  @Mutation(() => Media)
+  @UseGuards(GqlAuthGuard)
+  async uploadPhoto(
+    @Args('matchId', { type: () => ID }) matchId: string,
+    @Args('file', { type: () => GraphQLUpload }) file: any,
+    @Args('category', { type: () => String, nullable: true }) category: MediaCategory,
+    @Args('isHighlight', { type: () => Boolean, nullable: true, defaultValue: false }) isHighlight: boolean,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<Media> {
+    return this.mediaService.uploadPhoto(user.userId, matchId, file, category, isHighlight);
+  }
+
+  @Mutation(() => Media)
+  @UseGuards(GqlAuthGuard)
+  async uploadVideo(
+    @Args('matchId', { type: () => ID }) matchId: string,
+    @Args('file', { type: () => GraphQLUpload }) file: any,
+    @Args('category', { type: () => String, nullable: true }) category: MediaCategory,
+    @Args('isHighlight', { type: () => Boolean, nullable: true, defaultValue: false }) isHighlight: boolean,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<Media> {
+    return this.mediaService.uploadVideo(user.userId, matchId, file, category, isHighlight);
+  }
 
   @Mutation(() => Media)
   @UseGuards(GqlAuthGuard)

@@ -2,6 +2,7 @@ import { Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import { ConfigService } from '@nestjs/config'
+import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.mjs'
 
 const logger = new Logger('App')
 
@@ -10,11 +11,19 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule)
 
+  // Enable graphql-upload middleware ONLY for /graphql route
+  // This prevents conflict with REST multipart uploads at /uploads/*
+  app.use('/graphql', graphqlUploadExpress({ maxFileSize: 100000000, maxFiles: 10 }))
+
   // Configuring ValidationPipe to improve performance
   app.useGlobalPipes(
     new ValidationPipe({
       // whitelist: true,
       transform: true,
+      // Skip transformation for Upload type (graphql-upload)
+      transformOptions: {
+        enableImplicitConversion: false,
+      },
     })
   )
 

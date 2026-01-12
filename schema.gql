@@ -187,6 +187,10 @@ type Media {
   category: MediaCategory
   isHighlight: Boolean!
   duration: Float
+  videoId: String
+  storagePath: String
+  embedUrl: String
+  processingStatus: String
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -248,7 +252,9 @@ type Query {
   matchMedia(matchId: ID!, filters: MediaFiltersInput): [Media!]!
   media(id: ID!): Media!
   myTaggedMedia(type: String): [Media!]!
+  allMyMedia(type: String): [Media!]!
   profileStats(userId: ID): ProfileStats!
+  allMyProfileStats: ProfileStats!
 }
 
 input LateMatchOptionsDto {
@@ -286,6 +292,8 @@ type Mutation {
   createMatch(input: CreateMatchInput!): TeamMatch!
   updateMatch(id: ID!, input: UpdateMatchInput!): TeamMatch!
   deleteMatch(id: ID!): Boolean!
+  uploadPhoto(matchId: ID!, file: Upload!, category: String, isHighlight: Boolean = false): Media!
+  uploadVideo(matchId: ID!, file: Upload!, category: String, isHighlight: Boolean = false): Media!
   uploadMedia(input: UploadMediaInput!): Media!
   batchUploadMedia(inputs: [UploadMediaInput!]!): [Media!]!
   updateMedia(id: ID!, input: UpdateMediaInput!): Media!
@@ -364,6 +372,9 @@ input UpdateMatchInput {
   opponent: String
   location: String
 }
+
+"""The `Upload` scalar type represents a file upload."""
+scalar Upload
 
 input UploadMediaInput {
   matchId: ID!

@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { MatchesModule } from './matches/matches.module'
 import { TeamsModule } from './teams/teams.module'
+import { UploadsModule } from './uploads/uploads.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -36,6 +37,7 @@ import { AppService } from './app.service'
       driver: ApolloDriver,
       playground: true,
       autoSchemaFile: join(process.cwd(), 'schema.gql'),
+      csrfPrevention: false,
     }),
 
     // ✅ Tus módulos propios
@@ -43,6 +45,7 @@ import { AppService } from './app.service'
     UsersModule,
     MatchesModule,
     TeamsModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

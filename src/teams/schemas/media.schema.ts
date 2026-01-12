@@ -63,6 +63,22 @@ export class Media extends Document {
   @Field(() => Float, { nullable: true })
   duration?: number;
 
+  @Prop({ required: false })
+  @Field({ nullable: true })
+  videoId?: string;
+
+  @Prop({ required: false })
+  @Field({ nullable: true })
+  storagePath?: string;
+
+  @Prop({ required: false })
+  @Field({ nullable: true })
+  embedUrl?: string;
+
+  @Prop({ required: false, default: 'finished' })
+  @Field({ nullable: true })
+  processingStatus?: string;
+
   @Prop()
   @Field(() => Date)
   createdAt: Date;

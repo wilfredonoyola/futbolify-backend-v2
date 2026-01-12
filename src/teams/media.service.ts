@@ -7,6 +7,10 @@ import { TeamMatch, TeamMatchDocument } from './schemas/team-match.schema';
 import { TeamsService } from './teams.service';
 import { StatsUtils } from './utils/stats.utils';
 import { UploadMediaInput, UpdateMediaInput, MediaFiltersInput } from './dto';
+import { BunnyStorageService } from '../bunny/bunny-storage.service';
+import { BunnyStreamService } from '../bunny/bunny-stream.service';
+import FileUpload from 'graphql-upload/Upload.mjs';
+import { MediaCategory } from './schemas/media.schema';
 
 @Injectable()
 export class MediaService {
@@ -15,9 +19,245 @@ export class MediaService {
     @InjectModel(MediaTag.name) private mediaTagModel: Model<MediaTagDocument>,
     @InjectModel(TeamMatch.name) private teamMatchModel: Model<TeamMatchDocument>,
     private teamsService: TeamsService,
+    private bunnyStorageService: BunnyStorageService,
+    private bunnyStreamService: BunnyStreamService,
   ) {}
 
   // ============== MEDIA ==============
+
+  /**
+   * Upload photo to Bunny Storage
+   */
+  async uploadPhoto(
+    userId: string,
+    matchId: string,
+    file: any,
+    category?: MediaCategory,
+    isHighlight?: boolean,
+  ): Promise<Media> {
+    // Verify user is a member of the match's team
+    await this.teamsService.verifyMatchTeamMember(userId, matchId);
+
+    // Process file upload - handle both Promise and direct Upload
+    const upload = file?.promise ? await file.promise : await file;
+    const { createReadStream, filename, mimetype } = upload;
+    
+    // Validate file type
+    if (!mimetype.startsWith('image/')) {
+      throw new ForbiddenException('Only image files are allowed for photos');
+    }
+
+    // Read file to buffer
+    const stream = createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    // Upload to Bunny Storage
+    const uploadResult = await this.bunnyStorageService.uploadPhoto(buffer, filename, matchId);
+
+    // Generate thumbnail URL
+    const thumbnailUrl = this.bunnyStorageService.generateThumbnail(uploadResult.cdnUrl);
+
+    // Create media record
+    const media = await this.mediaModel.create({
+      matchId: new Types.ObjectId(matchId),
+      uploadedBy: new Types.ObjectId(userId),
+      type: MediaType.PHOTO,
+      url: uploadResult.cdnUrl,
+      thumbnailUrl,
+      storagePath: uploadResult.path,
+      category,
+      isHighlight: isHighlight || false,
+      processingStatus: 'finished',
+    });
+
+    return media;
+  }
+
+  /**
+   * Upload video to Bunny Stream
+   */
+  async uploadVideo(
+    userId: string,
+    matchId: string,
+    file: any,
+    category?: MediaCategory,
+    isHighlight?: boolean,
+  ): Promise<Media> {
+    // Verify user is a member of the match's team
+    await this.teamsService.verifyMatchTeamMember(userId, matchId);
+
+    // Process file upload - handle both Promise and direct Upload
+    const upload = file?.promise ? await file.promise : await file;
+    const { createReadStream, filename, mimetype } = upload;
+    
+    // Validate file type
+    if (!mimetype.startsWith('video/')) {
+      throw new ForbiddenException('Only video files are allowed for videos');
+    }
+
+    // Read file to buffer
+    const stream = createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    // Upload to Bunny Stream
+    const uploadResult = await this.bunnyStreamService.uploadVideo(buffer, filename, matchId);
+
+    // Create media record
+    const media = await this.mediaModel.create({
+      matchId: new Types.ObjectId(matchId),
+      uploadedBy: new Types.ObjectId(userId),
+      type: MediaType.VIDEO,
+      url: uploadResult.url,
+      thumbnailUrl: uploadResult.thumbnailUrl,
+      embedUrl: uploadResult.embedUrl,
+      videoId: uploadResult.videoId,
+      category,
+      isHighlight: isHighlight || false,
+      processingStatus: uploadResult.status,
+    });
+
+    return media;
+  }
+
+  /**
+   * Check and update video processing status from Bunny Stream
+   * Called by polling from frontend
+   */
+  async updateVideoProcessingStatus(mediaId: string, userId: string): Promise<Media> {
+    const media = await this.mediaModel.findById(mediaId);
+
+    if (!media) {
+      throw new NotFoundException('Media not found');
+    }
+
+    // Verify user is a member of the match's team
+    await this.teamsService.verifyMatchTeamMember(userId, media.matchId.toString());
+
+    // Only update if it's a video and not already finished/failed
+    if (media.type !== MediaType.VIDEO || !media.videoId) {
+      return media;
+    }
+
+    if (media.processingStatus === 'finished' || media.processingStatus === 'failed') {
+      return media;
+    }
+
+    try {
+      // Get current status from Bunny Stream
+      const videoStatus = await this.bunnyStreamService.getVideoStatus(media.videoId);
+
+      // Update if status changed
+      if (videoStatus.status !== media.processingStatus) {
+        media.processingStatus = videoStatus.status;
+        
+        // Update duration if available
+        if (videoStatus.duration && videoStatus.duration > 0) {
+          media.duration = videoStatus.duration;
+        }
+
+        await media.save();
+      }
+    } catch (error) {
+      console.error('Error checking Bunny Stream status:', error);
+      // Don't throw, just return current media
+    }
+
+    return media;
+  }
+
+  /**
+   * Upload photo from buffer (used by REST endpoint for real progress)
+   */
+  async uploadPhotoFromBuffer(
+    userId: string,
+    matchId: string,
+    file: { buffer: Buffer; filename: string; mimetype: string },
+    category?: MediaCategory,
+    isHighlight?: boolean,
+  ): Promise<Media> {
+    // Verify user is a member of the match's team
+    await this.teamsService.verifyMatchTeamMember(userId, matchId);
+
+    // Validate file type
+    if (!file.mimetype.startsWith('image/')) {
+      throw new ForbiddenException('Only image files are allowed for photos');
+    }
+
+    // Upload to Bunny Storage
+    const uploadResult = await this.bunnyStorageService.uploadPhoto(
+      file.buffer,
+      file.filename,
+      matchId,
+    );
+
+    // Generate thumbnail URL
+    const thumbnailUrl = this.bunnyStorageService.generateThumbnail(uploadResult.cdnUrl);
+
+    // Create media record
+    const media = await this.mediaModel.create({
+      matchId: new Types.ObjectId(matchId),
+      uploadedBy: new Types.ObjectId(userId),
+      type: MediaType.PHOTO,
+      url: uploadResult.cdnUrl,
+      thumbnailUrl,
+      storagePath: uploadResult.path,
+      category,
+      isHighlight: isHighlight || false,
+      processingStatus: 'finished',
+    });
+
+    return media;
+  }
+
+  /**
+   * Upload video from buffer (used by REST endpoint for real progress)
+   */
+  async uploadVideoFromBuffer(
+    userId: string,
+    matchId: string,
+    file: { buffer: Buffer; filename: string; mimetype: string },
+    category?: MediaCategory,
+    isHighlight?: boolean,
+  ): Promise<Media> {
+    // Verify user is a member of the match's team
+    await this.teamsService.verifyMatchTeamMember(userId, matchId);
+
+    // Validate file type
+    if (!file.mimetype.startsWith('video/')) {
+      throw new ForbiddenException('Only video files are allowed for videos');
+    }
+
+    // Upload to Bunny Stream
+    const uploadResult = await this.bunnyStreamService.uploadVideo(
+      file.buffer,
+      file.filename,
+      matchId,
+    );
+
+    // Create media record
+    const media = await this.mediaModel.create({
+      matchId: new Types.ObjectId(matchId),
+      uploadedBy: new Types.ObjectId(userId),
+      type: MediaType.VIDEO,
+      url: uploadResult.url,
+      thumbnailUrl: uploadResult.thumbnailUrl,
+      embedUrl: uploadResult.embedUrl,
+      videoId: uploadResult.videoId,
+      category,
+      isHighlight: isHighlight || false,
+      processingStatus: uploadResult.status,
+    });
+
+    return media;
+  }
 
   async uploadMedia(userId: string, input: UploadMediaInput): Promise<Media> {
     // Verify user is a member of the match's team
@@ -72,6 +312,25 @@ export class MediaService {
 
     // Verify user is a member of the match's team
     await this.teamsService.verifyMatchTeamMember(userId, media.matchId.toString());
+
+    // Auto-update video status if it's processing
+    if (
+      media.type === MediaType.VIDEO && 
+      media.videoId && 
+      media.processingStatus !== 'finished' && 
+      media.processingStatus !== 'failed'
+    ) {
+      try {
+        const videoStatus = await this.bunnyStreamService.getVideoStatus(media.videoId);
+        if (videoStatus.status !== media.processingStatus) {
+          media.processingStatus = videoStatus.status;
+          if (videoStatus.duration) media.duration = videoStatus.duration;
+          await media.save();
+        }
+      } catch (error) {
+        console.error('Error auto-updating video status:', error);
+      }
+    }
 
     return media;
   }
@@ -128,6 +387,13 @@ export class MediaService {
       } catch {
         throw new ForbiddenException('Only the uploader or team admin can delete this media');
       }
+    }
+
+    // Delete from Bunny services
+    if (media.type === MediaType.PHOTO && media.storagePath) {
+      await this.bunnyStorageService.deletePhoto(media.storagePath);
+    } else if (media.type === MediaType.VIDEO && media.videoId) {
+      await this.bunnyStreamService.deleteVideo(media.videoId);
     }
 
     // Delete all tags for this media
@@ -262,8 +528,62 @@ export class MediaService {
     return this.mediaModel.find(query).sort({ createdAt: -1 }).exec();
   }
 
+  /**
+   * Get ALL media related to user:
+   * - Media where user is tagged
+   * - Media uploaded by user
+   */
+  async getAllMyMedia(userId: string, type?: MediaType): Promise<Media[]> {
+    const userObjectId = new Types.ObjectId(userId);
+
+    // Find all tags for this user
+    const tags = await this.mediaTagModel.find({ userId: userObjectId });
+    const taggedMediaIds = tags.map((t) => t.mediaId);
+
+    // Build query: uploaded by me OR tagged in
+    const query: any = {
+      $or: [
+        { uploadedBy: userObjectId },
+        { _id: { $in: taggedMediaIds } },
+      ],
+    };
+
+    if (type) {
+      query.type = type;
+    }
+
+    // Get unique results sorted by date
+    return this.mediaModel.find(query).sort({ createdAt: -1 }).exec();
+  }
+
+  /**
+   * Get profile stats including uploaded media
+   */
+  async getAllMyProfileStats(userId: string) {
+    const userObjectId = new Types.ObjectId(userId);
+
+    // Find all tags for this user
+    const tags = await this.mediaTagModel.find({ userId: userObjectId });
+    const taggedMediaIds = tags.map((t) => t.mediaId);
+
+    // Query for all my media (uploaded + tagged)
+    const myMediaQuery = {
+      $or: [
+        { uploadedBy: userObjectId },
+        { _id: { $in: taggedMediaIds } },
+      ],
+    };
+
+    const [goalCount, videoCount, photoCount] = await Promise.all([
+      this.mediaModel.countDocuments({ ...myMediaQuery, category: 'GOAL' }),
+      this.mediaModel.countDocuments({ ...myMediaQuery, type: 'VIDEO' }),
+      this.mediaModel.countDocuments({ ...myMediaQuery, type: 'PHOTO' }),
+    ]);
+
+    return { goalCount, videoCount, photoCount };
+  }
+
   async getProfileStats(userId: string) {
     return StatsUtils.getProfileStats(userId, this.mediaTagModel, this.mediaModel);
   }
 }
-

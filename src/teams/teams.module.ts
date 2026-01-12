@@ -11,6 +11,7 @@ import { Media, MediaSchema } from './schemas/media.schema';
 import { MediaTag, MediaTagSchema } from './schemas/media-tag.schema';
 import { TeamMemberGuard } from './guards/team-member.guard';
 import { TeamAdminGuard } from './guards/team-admin.guard';
+import { BunnyModule } from '../bunny/bunny.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { TeamAdminGuard } from './guards/team-admin.guard';
       { name: Media.name, schema: MediaSchema },
       { name: MediaTag.name, schema: MediaTagSchema },
     ]),
+    BunnyModule,
   ],
   providers: [
     TeamsService,
