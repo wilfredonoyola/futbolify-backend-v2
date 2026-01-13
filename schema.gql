@@ -12,6 +12,7 @@ type User {
   createdAt: Int!
   updatedAt: Int!
   userName: String!
+  name: String
   avatarUrl: String
   googleId: String
   authProvider: String
@@ -33,6 +34,8 @@ type SigninOutputDto {
   access_token: String!
   isOnboardingCompleted: Boolean!
   avatarUrl: String
+  name: String
+  userName: String
   roles: [UserRole!]!
 }
 
@@ -47,6 +50,7 @@ type UserOutputDto {
 type GoogleSigninResponse {
   email: String!
   userName: String!
+  name: String
   avatarUrl: String
   isProfileCompleted: Boolean!
 }

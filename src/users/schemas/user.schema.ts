@@ -62,6 +62,10 @@ export class User extends Document {
 
   @Prop({ required: false })
   @Field({ nullable: true })
+  name?: string
+
+  @Prop({ required: false })
+  @Field({ nullable: true })
   avatarUrl?: string
 
   @Prop({ required: false, unique: true })

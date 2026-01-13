@@ -11,6 +11,9 @@ export class GoogleSigninResponse {
   userName: string
 
   @Field({ nullable: true })
+  name?: string
+
+  @Field({ nullable: true })
   avatarUrl: string
 
   @Field()

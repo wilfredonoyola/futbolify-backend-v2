@@ -87,6 +87,8 @@ export class AuthService {
       access_token: idToken,
       isOnboardingCompleted: user.isOnboardingCompleted,
       roles: mappedCognitoRoles,
+      name: user.name || user.userName, // Return name or fallback to userName
+      userName: user.userName,
     }
   }
 
@@ -272,6 +274,7 @@ export class AuthService {
       const payload = ticket.getPayload()
 
       const email = payload?.email
+      const name = payload?.name || '' // Keep original name
       let userName = payload?.name || 'UsuarioGoogle'
       const avatarUrl = payload?.picture || ''
       const googleId = payload?.sub
@@ -326,6 +329,7 @@ export class AuthService {
         user = new this.userModel({
           email,
           userName,
+          name, // Save original name
           avatarUrl,
           googleId,
           authProvider,
@@ -338,6 +342,7 @@ export class AuthService {
         return {
           email,
           userName,
+          name, // Return original name
           avatarUrl,
           isProfileCompleted: false,
         }
@@ -346,6 +351,7 @@ export class AuthService {
       return {
         email: user.email,
         userName: user.userName,
+        name: user.name || name, // Return name from DB or from Google
         avatarUrl: user.avatarUrl,
         isProfileCompleted: user.isProfileCompleted,
       }

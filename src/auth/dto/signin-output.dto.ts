@@ -12,6 +12,12 @@ export class SigninOutputDto {
   @Field({ nullable: true })
   avatarUrl: string
 
+  @Field({ nullable: true })
+  name?: string
+
+  @Field({ nullable: true })
+  userName?: string
+
   @Field(() => [UserRole])
   roles: UserRole[]
 }

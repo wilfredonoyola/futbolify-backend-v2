@@ -124,6 +124,7 @@ export class AuthResolver {
       return {
         email: verifiedToken.email,
         userName: verifiedToken.userName,
+        name: verifiedToken.name,
         avatarUrl: verifiedToken.avatarUrl,
         isProfileCompleted: verifiedToken.isProfileCompleted,
       }
