@@ -83,6 +83,7 @@ export class AuthService {
     }
 
     return {
+      id: user._id.toString(),
       avatarUrl: user.avatarUrl,
       access_token: idToken,
       isOnboardingCompleted: user.isOnboardingCompleted,
@@ -206,9 +207,13 @@ export class AuthService {
       this.mapCognitoGroupsToUserRoles(cognitoRoles)
 
     return {
+      id: createdUser._id.toString(),
       isOnboardingCompleted: false,
       access_token: idToken,
       roles: mappedCognitoRoles,
+      name: createdUser.name || createdUser.userName,
+      userName: createdUser.userName,
+      avatarUrl: createdUser.avatarUrl || '',
     }
   }
 

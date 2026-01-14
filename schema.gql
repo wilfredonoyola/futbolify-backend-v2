@@ -31,6 +31,7 @@ enum UserRole {
 }
 
 type SigninOutputDto {
+  id: ID!
   access_token: String!
   isOnboardingCompleted: Boolean!
   avatarUrl: String
@@ -181,6 +182,14 @@ type TeamMatch {
   highlightCount: Int
 }
 
+type MediaTag {
+  id: ID!
+  mediaId: ID!
+  userId: ID!
+  taggedBy: ID!
+  createdAt: DateTime!
+}
+
 type Media {
   id: ID!
   matchId: ID!
@@ -197,6 +206,7 @@ type Media {
   processingStatus: String
   createdAt: DateTime!
   updatedAt: DateTime!
+  tags: [MediaTag!]
 }
 
 """Type of media content"""
@@ -210,6 +220,31 @@ enum MediaCategory {
   GOAL
   PLAY
   FAIL
+}
+
+type PendingTag {
+  id: ID!
+  mediaId: ID!
+  teamId: ID!
+  name: String!
+  phone: String
+  inviteCode: String!
+  status: PendingTagStatus!
+  createdBy: ID!
+  claimedBy: ID
+  claimedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  inviteUrl: String!
+  media: Media
+  createdByUser: User
+}
+
+"""Status of a pending tag invitation"""
+enum PendingTagStatus {
+  PENDING
+  CLAIMED
+  CANCELLED
 }
 
 type TeamMemberWithUser {
@@ -251,6 +286,7 @@ type Query {
   team(id: ID!): TeamWithMembers!
   teamByCode(code: String!): Team!
   teamMembers(teamId: ID!): [TeamMember!]!
+  teamMembersWithUser(teamId: ID!): [TeamMemberWithUser!]!
   teamMatches(teamId: ID!): [TeamMatch!]!
   teamMatch(id: ID!): TeamMatch!
   matchMedia(matchId: ID!, filters: MediaFiltersInput): [Media!]!
@@ -259,6 +295,10 @@ type Query {
   allMyMedia(type: String): [Media!]!
   profileStats(userId: ID): ProfileStats!
   allMyProfileStats: ProfileStats!
+  pendingTags(mediaId: ID!): [PendingTag!]!
+  teamPendingInvitations(teamId: ID!): [PendingTag!]!
+  myPendingTags: [PendingTag!]!
+  pendingTagByCode(inviteCode: String!): PendingTag
 }
 
 input LateMatchOptionsDto {
@@ -306,6 +346,12 @@ type Mutation {
   tagUsersInMedia(mediaId: ID!, userIds: [ID!]!): Boolean!
   selfTagMedia(mediaId: ID!): Boolean!
   removeMediaTag(mediaId: ID!, userId: ID!): Boolean!
+  createPendingTag(input: CreatePendingTagInput!): PendingTag!
+  cancelPendingTag(id: ID!): Boolean!
+  claimPendingTag(inviteCode: String!): PendingTag!
+
+  """Claim all pending tags by phone number (called after registration)"""
+  claimPendingTagsByPhone(phone: String!): Boolean!
 }
 
 input SigninInputDto {
@@ -395,4 +441,10 @@ input UpdateMediaInput {
   category: MediaCategory
   isHighlight: Boolean
   duration: Float
+}
+
+input CreatePendingTagInput {
+  mediaId: ID!
+  name: String!
+  phone: String
 }

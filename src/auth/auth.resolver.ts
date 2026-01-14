@@ -56,9 +56,12 @@ export class AuthResolver {
   ): Promise<SigninOutputDto> {
     const confirm = await this.authService.confirmRegistration(confirmInput)
     return {
+      id: confirm.id,
       isOnboardingCompleted: confirm.isOnboardingCompleted,
       access_token: confirm.access_token,
       avatarUrl: confirm.avatarUrl,
+      name: confirm.name,
+      userName: confirm.userName,
       roles: confirm.roles,
     }
   }

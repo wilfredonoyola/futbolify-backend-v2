@@ -1,8 +1,11 @@
-import { Field, ObjectType } from '@nestjs/graphql'
+import { Field, ObjectType, ID } from '@nestjs/graphql'
 import { UserRole } from 'src/users/schemas/user.schema'
 
 @ObjectType()
 export class SigninOutputDto {
+  @Field(() => ID)
+  id: string
+
   @Field()
   access_token: string
 

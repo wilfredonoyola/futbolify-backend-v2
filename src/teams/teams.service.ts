@@ -209,21 +209,51 @@ export class TeamsService {
     // Verify user is a member
     await this.verifyTeamMember(userId, teamId);
 
-    // Populate user data for detailed view
-    const members = await this.teamMemberModel
-      .find({ teamId: new Types.ObjectId(teamId) })
-      .populate('userId')
-      .exec();
+    // Use aggregation with $lookup for reliable user population
+    const members = await this.teamMemberModel.aggregate([
+      { $match: { teamId: new Types.ObjectId(teamId) } },
+      {
+        $lookup: {
+          from: 'users', // MongoDB collection name (lowercase, plural)
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userArray',
+        },
+      },
+      {
+        $addFields: {
+          user: { $arrayElemAt: ['$userArray', 0] },
+        },
+      },
+      {
+        $project: {
+          userArray: 0, // Remove the temporary array
+        },
+      },
+    ]);
 
-    // Transform to include user object
-    return members.map((member) => ({
-      id: member._id.toString(),
-      teamId: member.teamId.toString(),
-      userId: (member.userId as any)?._id?.toString() || member.userId.toString(),
-      role: member.role,
-      joinedAt: member.joinedAt,
-      user: member.userId, // The populated user object
-    }));
+    // Transform to match GraphQL schema
+    return members.map((member) => {
+      // Check if user exists and has required fields
+      const hasValidUser = member.user && member.user._id && member.user.email;
+      
+      return {
+        id: member._id.toString(),
+        teamId: member.teamId.toString(),
+        userId: member.userId.toString(),
+        role: member.role,
+        joinedAt: member.joinedAt,
+        user: hasValidUser
+          ? {
+              userId: member.user._id.toString(),
+              email: member.user.email,
+              userName: member.user.userName || member.user.email,
+              name: member.user.name || null,
+              avatarUrl: member.user.avatarUrl || null,
+            }
+          : null,
+      };
+    });
   }
 
   async removeTeamMember(adminUserId: string, teamId: string, memberUserId: string): Promise<boolean> {

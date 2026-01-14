@@ -1,10 +1,11 @@
-import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ID, ResolveField, Parent } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { MediaService } from './media.service';
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CurrentUserPayload } from '../auth/current-user-payload.interface';
 import { Media, MediaType, MediaCategory } from './schemas/media.schema';
+import { MediaTag } from './schemas/media-tag.schema';
 import { UploadMediaInput, UpdateMediaInput, MediaFiltersInput, ProfileStats } from './dto';
 import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
 import { FileUpload } from 'graphql-upload/Upload.mjs';
@@ -12,6 +13,13 @@ import { FileUpload } from 'graphql-upload/Upload.mjs';
 @Resolver(() => Media)
 export class MediaResolver {
   constructor(private readonly mediaService: MediaService) {}
+
+  // ============== FIELD RESOLVERS ==============
+
+  @ResolveField(() => [MediaTag], { nullable: true })
+  async tags(@Parent() media: Media): Promise<MediaTag[]> {
+    return this.mediaService.getMediaTags(media._id.toString());
+  }
 
   // ============== QUERIES ==============
 

@@ -1,6 +1,7 @@
 import { Field, ObjectType, ID, Int, Float, registerEnumType } from '@nestjs/graphql';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { MediaTag } from './media-tag.schema';
 
 export type MediaDocument = Media & Document;
 
@@ -86,6 +87,10 @@ export class Media extends Document {
   @Prop()
   @Field(() => Date)
   updatedAt: Date;
+
+  // Virtual field - populated via resolver
+  @Field(() => [MediaTag], { nullable: true })
+  tags?: MediaTag[];
 }
 
 export const MediaSchema = SchemaFactory.createForClass(Media);

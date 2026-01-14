@@ -423,6 +423,10 @@ export class MediaService {
 
   // ============== TAGS ==============
 
+  async getMediaTags(mediaId: string): Promise<MediaTag[]> {
+    return this.mediaTagModel.find({ mediaId: new Types.ObjectId(mediaId) });
+  }
+
   async tagUsersInMedia(mediaId: string, userId: string, userIds: string[]): Promise<boolean> {
     const media = await this.mediaModel.findById(mediaId);
 

@@ -9,4 +9,6 @@ export * from './team-with-members.output';
 export * from './team-member-with-user.output';
 export * from './media-with-tags.output';
 export * from './profile-stats.output';
+export * from './create-pending-tag.input';
+export * from './pending-tag.output';
 

@@ -63,6 +63,7 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
         userId: user._id.toString(),
         username: user.email,
         roles: roles,
+        phone: user.phone,
       };
 
       return this.success(userInfo); // Autenticación exitosa

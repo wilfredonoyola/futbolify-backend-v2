@@ -13,6 +13,7 @@ import {
   CreateMatchInput,
   UpdateMatchInput,
   TeamWithMembers,
+  TeamMemberWithUser,
 } from './dto';
 
 @Resolver(() => Team)
@@ -54,6 +55,15 @@ export class TeamsResolver {
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<TeamMember[]> {
     return this.teamsService.getTeamMembers(teamId, user.userId);
+  }
+
+  @Query(() => [TeamMemberWithUser], { name: 'teamMembersWithUser' })
+  @UseGuards(GqlAuthGuard)
+  async getTeamMembersWithUser(
+    @Args('teamId', { type: () => ID }) teamId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<TeamMemberWithUser[]> {
+    return this.teamsService.getTeamMembersWithUser(teamId, user.userId);
   }
 
   @Query(() => [TeamMatch], { name: 'teamMatches' })
