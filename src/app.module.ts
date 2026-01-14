@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module'
 import { MatchesModule } from './matches/matches.module'
 import { TeamsModule } from './teams/teams.module'
 import { UploadsModule } from './uploads/uploads.module'
+import { NotificationsModule } from './notifications/notifications.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -46,6 +47,7 @@ import { AppService } from './app.service'
     MatchesModule,
     TeamsModule,
     UploadsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

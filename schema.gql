@@ -222,6 +222,32 @@ enum MediaCategory {
   FAIL
 }
 
+type Notification {
+  id: ID!
+  userId: ID!
+  type: NotificationType!
+  title: String!
+  message: String!
+  imageUrl: String
+  actionUrl: String
+  isRead: Boolean!
+  emailSent: Boolean!
+  actorId: ID
+  mediaId: ID
+  teamId: ID
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Type of notification"""
+enum NotificationType {
+  TAG
+  TEAM_JOIN
+  INVITE_ACCEPTED
+  NEW_MEDIA
+  MENTION
+}
+
 type PendingTag {
   id: ID!
   mediaId: ID!
@@ -299,6 +325,8 @@ type Query {
   teamPendingInvitations(teamId: ID!): [PendingTag!]!
   myPendingTags: [PendingTag!]!
   pendingTagByCode(inviteCode: String!): PendingTag
+  notifications(limit: Int! = 50): [Notification!]!
+  unreadNotificationCount: Int!
 }
 
 input LateMatchOptionsDto {
@@ -352,6 +380,8 @@ type Mutation {
 
   """Claim all pending tags by phone number (called after registration)"""
   claimPendingTagsByPhone(phone: String!): Boolean!
+  markNotificationAsRead(notificationId: ID!): Notification
+  markAllNotificationsAsRead: Int!
 }
 
 input SigninInputDto {

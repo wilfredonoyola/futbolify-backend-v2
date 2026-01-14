@@ -1,14 +1,17 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Media, MediaDocument, MediaType } from './schemas/media.schema';
 import { MediaTag, MediaTagDocument } from './schemas/media-tag.schema';
 import { TeamMatch, TeamMatchDocument } from './schemas/team-match.schema';
+import { Team, TeamDocument } from './schemas/team.schema';
 import { TeamsService } from './teams.service';
 import { StatsUtils } from './utils/stats.utils';
 import { UploadMediaInput, UpdateMediaInput, MediaFiltersInput } from './dto';
 import { BunnyStorageService } from '../bunny/bunny-storage.service';
 import { BunnyStreamService } from '../bunny/bunny-stream.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { User, UserDocument } from '../users/schemas/user.schema';
 import FileUpload from 'graphql-upload/Upload.mjs';
 import { MediaCategory } from './schemas/media.schema';
 
@@ -18,9 +21,13 @@ export class MediaService {
     @InjectModel(Media.name) private mediaModel: Model<MediaDocument>,
     @InjectModel(MediaTag.name) private mediaTagModel: Model<MediaTagDocument>,
     @InjectModel(TeamMatch.name) private teamMatchModel: Model<TeamMatchDocument>,
+    @InjectModel(Team.name) private teamModel: Model<TeamDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     private teamsService: TeamsService,
     private bunnyStorageService: BunnyStorageService,
     private bunnyStreamService: BunnyStreamService,
+    @Inject(forwardRef(() => NotificationsService))
+    private notificationsService: NotificationsService,
   ) {}
 
   // ============== MEDIA ==============
@@ -437,6 +444,21 @@ export class MediaService {
     // Verify user is a member of the match's team
     await this.teamsService.verifyMatchTeamMember(userId, media.matchId.toString());
 
+    // Get tagger name for notifications
+    const tagger = await this.userModel.findById(userId);
+    const taggerName = tagger?.name || tagger?.userName || 'Alguien';
+
+    // Get team name for notifications
+    const match = await this.teamMatchModel.findById(media.matchId);
+    let teamName: string | undefined;
+    if (match) {
+      const team = await this.teamModel.findById(match.teamId);
+      teamName = team?.name;
+    }
+
+    // Determine media type for notification
+    const mediaType = media.type === MediaType.VIDEO ? 'video' : 'photo';
+
     // Create tags (duplicates will be ignored due to unique index)
     const tagPromises = userIds.map(async (tagUserId) => {
       try {
@@ -445,6 +467,18 @@ export class MediaService {
           userId: new Types.ObjectId(tagUserId),
           taggedBy: new Types.ObjectId(userId),
         });
+
+        // Send notification to tagged user (don't block)
+        this.notificationsService.notifyUserTagged(
+          tagUserId,
+          userId,
+          taggerName,
+          mediaId,
+          mediaType,
+          media.thumbnailUrl,
+          teamName,
+        ).catch(err => console.error('Failed to create tag notification:', err));
+
       } catch (error) {
         // Ignore duplicate key errors
         if (error.code !== 11000) {

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TeamsService } from './teams.service';
 import { MediaService } from './media.service';
@@ -16,6 +16,7 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { TeamMemberGuard } from './guards/team-member.guard';
 import { TeamAdminGuard } from './guards/team-admin.guard';
 import { BunnyModule } from '../bunny/bunny.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { BunnyModule } from '../bunny/bunny.module';
       { name: User.name, schema: UserSchema },
     ]),
     BunnyModule,
+    forwardRef(() => NotificationsModule),
   ],
   providers: [
     TeamsService,
