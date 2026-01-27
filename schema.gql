@@ -302,6 +302,148 @@ type ProfileStats {
   photoCount: Int!
 }
 
+type ThemeTokens {
+  primaryColor: String!
+  secondaryColor: String!
+  accentColor: String!
+  backgroundColor: String!
+  textColor: String!
+  logo: String!
+  fontPrimary: String!
+  fontSecondary: String!
+  fanPageName: String!
+}
+
+type WatermarkConfig {
+  style: String!
+  position: String!
+  customText: String
+  showBackground: Boolean!
+  backgroundColor: String
+  size: String!
+}
+
+type ContentPreferences {
+  pageType: String
+  gender: String
+  teamId: String
+  leagueId: String
+  additionalTeams: [String!]
+  contentTypes: [String!]!
+  publishLanguage: String!
+  sourceLanguages: [String!]!
+  notifyBreaking: Boolean!
+  notifyMatchday: Boolean!
+}
+
+type Brand {
+  id: ID!
+  userId: ID!
+  fanPageId: String!
+  fanPageName: String!
+  tokens: ThemeTokens!
+  watermark: WatermarkConfig!
+  contentPreferences: ContentPreferences
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Template {
+  id: ID!
+  userId: ID!
+  brandId: ID
+  name: String!
+  description: String
+  category: String!
+  thumbnail: String
+  width: Int!
+  height: Int!
+  backgroundColor: String!
+  templateData: JSON!
+  tags: [String!]
+  isPublished: Boolean!
+  isPreset: Boolean!
+  presetId: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+type ContentSuggestion {
+  id: ID!
+  type: ContentType!
+  priority: ContentPriority!
+  title: String!
+  originalTitle: String
+  rewrittenTitle: String
+  description: String!
+  originalDescription: String
+  source: String
+  sourceLanguage: String
+  sourceUrl: String
+  imageUrl: String
+  timestamp: DateTime!
+  suggestedTemplates: [String!]!
+  suggestedCaption: String
+  hashtags: [String!]
+  viralScore: Int
+  relevanceScore: Int
+  isRelevant: Boolean
+  wasProcessedByAI: Boolean
+}
+
+enum ContentType {
+  BREAKING
+  MATCHDAY
+  RESULT
+  TRANSFER
+  INJURY
+  STATS
+  QUOTE
+  MEME
+  THROWBACK
+  RUMOR
+  GENERAL
+}
+
+enum ContentPriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+type ContentMeta {
+  pageType: PageType!
+  teamId: String
+  teamIds: [String!]
+  leagueId: String
+  totalItems: Int!
+  urgentCount: Int!
+  highPriorityCount: Int!
+  fetchedAt: DateTime!
+}
+
+enum PageType {
+  SINGLE_TEAM
+  LEAGUE
+  MULTI_TEAM
+  WOMENS
+  GENERAL
+}
+
+type ContentSuggestionsResponse {
+  success: Boolean!
+  content: [ContentSuggestion!]!
+  meta: ContentMeta!
+  error: String
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
@@ -327,6 +469,18 @@ type Query {
   pendingTagByCode(inviteCode: String!): PendingTag
   notifications(limit: Int! = 50): [Notification!]!
   unreadNotificationCount: Int!
+  myBrands: [Brand!]!
+  activeBrand: Brand
+  brand(id: ID!): Brand!
+  hasBrands: Boolean!
+  myTemplates(category: String): [Template!]!
+  brandTemplates(brandId: ID!): [Template!]!
+  presetTemplates(category: String): [Template!]!
+  template(id: ID!): Template!
+  templateByPresetId(presetId: String!): Template
+  searchTemplates(query: String!): [Template!]!
+  contentSuggestions(input: FetchContentInput!): ContentSuggestionsResponse!
+  activeBrandContent(limit: Float = 25): ContentSuggestionsResponse!
 }
 
 input LateMatchOptionsDto {
@@ -340,6 +494,16 @@ input MediaFiltersInput {
   type: MediaType
   category: MediaCategory
   isHighlight: Boolean
+}
+
+input FetchContentInput {
+  pageType: String = "single-team"
+  teamId: String
+  teamIds: [String!]
+  leagueId: String
+  sourceLanguages: [String!] = ["es", "en"]
+  limit: Int = 25
+  brandId: String
 }
 
 type Mutation {
@@ -382,6 +546,14 @@ type Mutation {
   claimPendingTagsByPhone(phone: String!): Boolean!
   markNotificationAsRead(notificationId: ID!): Notification
   markAllNotificationsAsRead: Int!
+  createBrand(input: CreateBrandInput!): Brand!
+  updateBrand(input: UpdateBrandInput!): Brand!
+  setActiveBrand(brandId: ID!): Brand!
+  deleteBrand(id: ID!): Boolean!
+  createTemplate(input: CreateTemplateInput!): Template!
+  updateTemplate(input: UpdateTemplateInput!): Template!
+  duplicateTemplate(templateId: ID!, newName: String): Template!
+  deleteTemplate(id: ID!): Boolean!
 }
 
 input SigninInputDto {
@@ -477,4 +649,85 @@ input CreatePendingTagInput {
   mediaId: ID!
   name: String!
   phone: String
+}
+
+input CreateBrandInput {
+  fanPageId: String!
+  fanPageName: String!
+  tokens: ThemeTokensInput!
+  watermark: WatermarkConfigInput!
+  contentPreferences: ContentPreferencesInput
+  isActive: Boolean = false
+}
+
+input ThemeTokensInput {
+  primaryColor: String!
+  secondaryColor: String!
+  accentColor: String!
+  backgroundColor: String!
+  textColor: String!
+  logo: String!
+  fontPrimary: String!
+  fontSecondary: String!
+  fanPageName: String!
+}
+
+input WatermarkConfigInput {
+  style: String!
+  position: String!
+  customText: String
+  showBackground: Boolean!
+  backgroundColor: String
+  size: String!
+}
+
+input ContentPreferencesInput {
+  pageType: String
+  gender: String
+  teamId: String
+  leagueId: String
+  additionalTeams: [String!]
+  contentTypes: [String!]!
+  publishLanguage: String!
+  sourceLanguages: [String!]!
+  notifyBreaking: Boolean!
+  notifyMatchday: Boolean!
+}
+
+input UpdateBrandInput {
+  id: ID!
+  fanPageName: String
+  tokens: ThemeTokensInput
+  watermark: WatermarkConfigInput
+  contentPreferences: ContentPreferencesInput
+  isActive: Boolean
+}
+
+input CreateTemplateInput {
+  brandId: ID
+  name: String!
+  description: String
+  category: String!
+  thumbnail: String
+  width: Int!
+  height: Int!
+  backgroundColor: String!
+  templateData: JSON!
+  tags: [String!]
+  isPublished: Boolean = false
+  presetId: String
+}
+
+input UpdateTemplateInput {
+  id: ID!
+  name: String
+  description: String
+  category: String
+  thumbnail: String
+  width: Int
+  height: Int
+  backgroundColor: String
+  templateData: JSON
+  tags: [String!]
+  isPublished: Boolean
 }

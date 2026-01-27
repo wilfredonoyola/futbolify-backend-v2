@@ -87,6 +87,16 @@ export class ContentPreferencesInput {
   @Field({ nullable: true })
   @IsString()
   @IsOptional()
+  pageType?: string; // 'single-team' | 'league' | 'multi-team' | 'womens' | 'general'
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
+  gender?: string; // 'men' | 'women' | 'both'
+
+  @Field({ nullable: true })
+  @IsString()
+  @IsOptional()
   teamId?: string;
 
   @Field({ nullable: true })

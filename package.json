@@ -47,6 +47,7 @@
     "graphql": "16.8.1",
     "graphql-query-complexity": "0.12.0",
     "graphql-subscriptions": "2.0.0",
+    "graphql-type-json": "^0.3.2",
     "graphql-upload": "^17.0.0",
     "moment": "^2.30.1",
     "mongoose": "^8.5.2",

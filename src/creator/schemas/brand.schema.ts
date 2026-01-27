@@ -76,6 +76,14 @@ export class WatermarkConfig {
 export class ContentPreferences {
   @Field({ nullable: true })
   @Prop()
+  pageType?: string; // 'single-team' | 'league' | 'multi-team' | 'womens' | 'general'
+
+  @Field({ nullable: true })
+  @Prop()
+  gender?: string; // 'men' | 'women' | 'both'
+
+  @Field({ nullable: true })
+  @Prop()
   teamId?: string;
 
   @Field({ nullable: true })
