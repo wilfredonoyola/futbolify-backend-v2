@@ -444,6 +444,67 @@ type ContentSuggestionsResponse {
   error: String
 }
 
+type BrandMemberUser {
+  userId: ID!
+  email: String!
+  userName: String!
+  name: String
+  avatarUrl: String
+}
+
+type BrandMemberWithUser {
+  id: ID!
+  brandId: ID!
+  userId: ID!
+  role: BrandMemberRole!
+  joinedAt: DateTime!
+  user: BrandMemberUser
+}
+
+"""Role of a member in a brand"""
+enum BrandMemberRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+type BrandInvitationResult {
+  id: ID!
+  code: String!
+  email: String
+  role: BrandMemberRole!
+  status: InvitationStatus!
+  expiresAt: DateTime!
+  createdAt: DateTime!
+  inviteUrl: String!
+}
+
+"""Status of a brand invitation"""
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+type BrandPublicInfo {
+  id: ID!
+  fanPageName: String!
+  logo: String
+  invitedRole: BrandMemberRole!
+}
+
+type BrandInvitationInfo {
+  id: ID!
+  brandId: ID!
+  code: String!
+  email: String
+  role: BrandMemberRole!
+  status: InvitationStatus!
+  expiresAt: DateTime!
+  createdAt: DateTime!
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
@@ -481,6 +542,10 @@ type Query {
   searchTemplates(query: String!): [Template!]!
   contentSuggestions(input: FetchContentInput!): ContentSuggestionsResponse!
   activeBrandContent(limit: Float = 25): ContentSuggestionsResponse!
+  brandMembers(brandId: ID!): [BrandMemberWithUser!]!
+  brandInvitations(brandId: ID!): [BrandInvitationInfo!]!
+  brandByInviteCode(code: String!): BrandPublicInfo!
+  myBrandRole(brandId: ID!): BrandMemberRole
 }
 
 input LateMatchOptionsDto {
@@ -554,6 +619,12 @@ type Mutation {
   updateTemplate(input: UpdateTemplateInput!): Template!
   duplicateTemplate(templateId: ID!, newName: String): Template!
   deleteTemplate(id: ID!): Boolean!
+  inviteToBrand(input: InviteToBrandInput!): BrandInvitationResult!
+  joinBrand(input: JoinBrandInput!): Brand!
+  updateBrandMemberRole(input: UpdateBrandMemberRoleInput!): BrandMemberWithUser!
+  removeBrandMember(brandId: ID!, userId: ID!): Boolean!
+  leaveBrand(brandId: ID!): Boolean!
+  revokeBrandInvitation(invitationId: ID!): Boolean!
 }
 
 input SigninInputDto {
@@ -730,4 +801,20 @@ input UpdateTemplateInput {
   templateData: JSON
   tags: [String!]
   isPublished: Boolean
+}
+
+input InviteToBrandInput {
+  brandId: ID!
+  role: BrandMemberRole!
+  email: String
+}
+
+input JoinBrandInput {
+  code: String!
+}
+
+input UpdateBrandMemberRoleInput {
+  brandId: ID!
+  userId: ID!
+  role: BrandMemberRole!
 }

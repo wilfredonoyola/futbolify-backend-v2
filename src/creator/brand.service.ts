@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Brand } from './schemas/brand.schema';
+import { BrandMember, BrandMemberDocument, BrandMemberRole } from './schemas/brand-member.schema';
 import { CreateBrandInput } from './dto/create-brand.input';
 import { UpdateBrandInput } from './dto/update-brand.input';
 
@@ -9,6 +10,7 @@ import { UpdateBrandInput } from './dto/update-brand.input';
 export class BrandService {
   constructor(
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
+    @InjectModel(BrandMember.name) private brandMemberModel: Model<BrandMemberDocument>,
   ) {}
 
   /**
@@ -32,65 +34,161 @@ export class BrandService {
   }
 
   /**
-   * Find all brands for a user
+   * Find all brands for a user (owned or member)
    */
   async findAllByUser(userId: string): Promise<Brand[]> {
-    return this.brandModel
+    // Get brands owned by user
+    const ownedBrands = await this.brandModel
       .find({ userId: new Types.ObjectId(userId) })
       .sort({ createdAt: -1 })
       .exec();
+
+    // Get brands where user is a member
+    const memberships = await this.brandMemberModel.find({
+      userId: new Types.ObjectId(userId),
+    });
+    const memberBrandIds = memberships.map((m) => m.brandId);
+
+    // Filter out brands already owned
+    const ownedBrandIds = new Set(ownedBrands.map((b) => b._id.toString()));
+    const additionalBrandIds = memberBrandIds.filter(
+      (id) => !ownedBrandIds.has(id.toString()),
+    );
+
+    // Fetch additional brands
+    const memberBrands = await this.brandModel
+      .find({ _id: { $in: additionalBrandIds } })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    // Combine: owned first, then member brands
+    return [...ownedBrands, ...memberBrands];
   }
 
   /**
-   * Find active brand for a user
+   * Find active brand for a user (owned or member)
    */
   async findActiveBrand(userId: string): Promise<Brand | null> {
+    // First try to find an active owned brand
     const activeBrand = await this.brandModel
-      .findOne({ 
+      .findOne({
         userId: new Types.ObjectId(userId),
         isActive: true,
       })
       .exec();
 
-    // If no active brand, return the first one
-    if (!activeBrand) {
-      return this.brandModel
-        .findOne({ userId: new Types.ObjectId(userId) })
-        .sort({ createdAt: -1 })
-        .exec();
+    if (activeBrand) {
+      return activeBrand;
     }
 
-    return activeBrand;
+    // If no active brand, return the first owned brand
+    const firstOwnedBrand = await this.brandModel
+      .findOne({ userId: new Types.ObjectId(userId) })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    if (firstOwnedBrand) {
+      return firstOwnedBrand;
+    }
+
+    // If no owned brands, return the first member brand
+    const memberships = await this.brandMemberModel.find({
+      userId: new Types.ObjectId(userId),
+    });
+
+    if (memberships.length > 0) {
+      return this.brandModel.findById(memberships[0].brandId).exec();
+    }
+
+    return null;
   }
 
   /**
-   * Find brand by ID
+   * Find brand by ID (user must be owner or member)
    */
   async findOne(id: string, userId: string): Promise<Brand> {
-    const brand = await this.brandModel
-      .findOne({
-        _id: new Types.ObjectId(id),
-        userId: new Types.ObjectId(userId),
-      })
-      .exec();
+    const brand = await this.brandModel.findById(id).exec();
 
     if (!brand) {
       throw new NotFoundException(`Brand with ID ${id} not found`);
+    }
+
+    // Check if user is owner
+    if (brand.userId.toString() === userId) {
+      return brand;
+    }
+
+    // Check if user is a member
+    const membership = await this.brandMemberModel.findOne({
+      brandId: new Types.ObjectId(id),
+      userId: new Types.ObjectId(userId),
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You do not have access to this brand');
     }
 
     return brand;
   }
 
   /**
-   * Update a brand
+   * Check if user has access to a brand
+   */
+  async hasAccess(brandId: string, userId: string): Promise<boolean> {
+    const brand = await this.brandModel.findById(brandId).exec();
+    if (!brand) return false;
+
+    // Check if owner
+    if (brand.userId.toString() === userId) {
+      return true;
+    }
+
+    // Check membership
+    const membership = await this.brandMemberModel.findOne({
+      brandId: new Types.ObjectId(brandId),
+      userId: new Types.ObjectId(userId),
+    });
+
+    return !!membership;
+  }
+
+  /**
+   * Get user's role in a brand
+   */
+  async getUserRole(brandId: string, userId: string): Promise<BrandMemberRole | null> {
+    const brand = await this.brandModel.findById(brandId).exec();
+    if (!brand) return null;
+
+    // Check if owner
+    if (brand.userId.toString() === userId) {
+      return BrandMemberRole.OWNER;
+    }
+
+    // Check membership
+    const membership = await this.brandMemberModel.findOne({
+      brandId: new Types.ObjectId(brandId),
+      userId: new Types.ObjectId(userId),
+    });
+
+    return membership?.role || null;
+  }
+
+  /**
+   * Update a brand (owner or editor can update)
    */
   async update(userId: string, updateBrandInput: UpdateBrandInput): Promise<Brand> {
     const { id, ...updateData } = updateBrandInput;
 
-    // If setting as active, deactivate other brands
+    // Check if user has edit access
+    const role = await this.getUserRole(id, userId);
+    if (!role || role === BrandMemberRole.VIEWER) {
+      throw new ForbiddenException('You do not have permission to edit this brand');
+    }
+
+    // If setting as active, deactivate other brands for this user
     if (updateData.isActive) {
       await this.brandModel.updateMany(
-        { 
+        {
           userId: new Types.ObjectId(userId),
           _id: { $ne: new Types.ObjectId(id) },
         },
@@ -99,11 +197,8 @@ export class BrandService {
     }
 
     const brand = await this.brandModel
-      .findOneAndUpdate(
-        {
-          _id: new Types.ObjectId(id),
-          userId: new Types.ObjectId(userId),
-        },
+      .findByIdAndUpdate(
+        id,
         { $set: updateData },
         { new: true },
       )
@@ -117,60 +212,83 @@ export class BrandService {
   }
 
   /**
-   * Set a brand as active
+   * Set a brand as active (user must have access)
    */
   async setActive(userId: string, brandId: string): Promise<Brand> {
-    // Deactivate all brands for this user
+    // Verify user has access to this brand
+    const hasAccess = await this.hasAccess(brandId, userId);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this brand');
+    }
+
+    // Deactivate all owned brands for this user
     await this.brandModel.updateMany(
       { userId: new Types.ObjectId(userId) },
       { isActive: false },
     );
 
-    // Activate the specified brand
-    const brand = await this.brandModel
-      .findOneAndUpdate(
-        {
-          _id: new Types.ObjectId(brandId),
-          userId: new Types.ObjectId(userId),
-        },
-        { isActive: true },
-        { new: true },
-      )
-      .exec();
+    // Note: We don't set isActive on the brand itself for member brands
+    // because isActive is user-specific state. Instead, the frontend
+    // should track the active brand per user session.
+
+    const brand = await this.brandModel.findById(brandId).exec();
 
     if (!brand) {
       throw new NotFoundException(`Brand with ID ${brandId} not found`);
+    }
+
+    // If user is the owner, update isActive
+    if (brand.userId.toString() === userId) {
+      brand.isActive = true;
+      await brand.save();
     }
 
     return brand;
   }
 
   /**
-   * Delete a brand
+   * Delete a brand (owner only)
    */
   async remove(id: string, userId: string): Promise<boolean> {
-    const result = await this.brandModel
-      .deleteOne({
-        _id: new Types.ObjectId(id),
-        userId: new Types.ObjectId(userId),
-      })
-      .exec();
-
-    if (result.deletedCount === 0) {
+    // Only owner can delete
+    const brand = await this.brandModel.findById(id).exec();
+    if (!brand) {
       throw new NotFoundException(`Brand with ID ${id} not found`);
     }
+
+    if (brand.userId.toString() !== userId) {
+      throw new ForbiddenException('Only the brand owner can delete this brand');
+    }
+
+    // Delete all members
+    await this.brandMemberModel.deleteMany({
+      brandId: new Types.ObjectId(id),
+    });
+
+    // Delete the brand
+    await this.brandModel.deleteOne({ _id: new Types.ObjectId(id) });
 
     return true;
   }
 
   /**
-   * Check if user has any brands
+   * Check if user has any brands (owned or member)
    */
   async hasBrands(userId: string): Promise<boolean> {
-    const count = await this.brandModel
+    // Check owned brands
+    const ownedCount = await this.brandModel
       .countDocuments({ userId: new Types.ObjectId(userId) })
       .exec();
 
-    return count > 0;
+    if (ownedCount > 0) {
+      return true;
+    }
+
+    // Check member brands
+    const memberCount = await this.brandMemberModel
+      .countDocuments({ userId: new Types.ObjectId(userId) })
+      .exec();
+
+    return memberCount > 0;
   }
 }
