@@ -111,7 +111,7 @@ export class ContentPreferences {
 @ObjectType()
 export class Brand extends Document {
   @Field(() => ID)
-  _id: MongooseSchema.Types.ObjectId;
+  id: string;
 
   @Field(() => ID)
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })

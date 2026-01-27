@@ -180,14 +180,20 @@ export class TemplateService {
 
     return this.templateModel
       .find({
-        $or: [
-          { userId: new Types.ObjectId(userId) },
-          { isPreset: true, isPublished: true },
-        ],
-        $or: [
-          { name: searchRegex },
-          { description: searchRegex },
-          { tags: searchRegex },
+        $and: [
+          {
+            $or: [
+              { userId: new Types.ObjectId(userId) },
+              { isPreset: true, isPublished: true },
+            ],
+          },
+          {
+            $or: [
+              { name: searchRegex },
+              { description: searchRegex },
+              { tags: searchRegex },
+            ],
+          },
         ],
       })
       .sort({ updatedAt: -1 })

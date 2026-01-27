@@ -4,8 +4,8 @@ import { Template } from './schemas/template.schema';
 import { TemplateService } from './template.service';
 import { CreateTemplateInput } from './dto/create-template.input';
 import { UpdateTemplateInput } from './dto/update-template.input';
-import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 @Resolver(() => Template)
 @UseGuards(GqlAuthGuard)

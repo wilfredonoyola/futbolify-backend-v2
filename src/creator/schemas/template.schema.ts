@@ -1,13 +1,13 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
-import { Field, ObjectType, ID, Int, GraphQLJSONObject } from '@nestjs/graphql';
+import { Field, ObjectType, ID, Int } from '@nestjs/graphql';
 import GraphQLJSON from 'graphql-type-json';
 
 @Schema({ timestamps: true })
 @ObjectType()
 export class Template extends Document {
   @Field(() => ID)
-  _id: MongooseSchema.Types.ObjectId;
+  id: string;
 
   @Field(() => ID)
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })

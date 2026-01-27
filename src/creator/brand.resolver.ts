@@ -4,8 +4,8 @@ import { Brand } from './schemas/brand.schema';
 import { BrandService } from './brand.service';
 import { CreateBrandInput } from './dto/create-brand.input';
 import { UpdateBrandInput } from './dto/update-brand.input';
-import { GqlAuthGuard } from '../auth/guards/gql-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 @Resolver(() => Brand)
 @UseGuards(GqlAuthGuard)

@@ -1,7 +1,6 @@
 import { InputType, Field } from '@nestjs/graphql';
 import { IsString, IsNotEmpty, IsOptional, IsBoolean, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import GraphQLJSON from 'graphql-type-json';
 
 @InputType()
 export class ThemeTokensInput {
