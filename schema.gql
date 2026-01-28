@@ -16,6 +16,7 @@ type User {
   avatarUrl: String
   googleId: String
   authProvider: String
+  activeBrandId: ID
 }
 
 """
