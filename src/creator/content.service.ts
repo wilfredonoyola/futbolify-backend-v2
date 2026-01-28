@@ -161,49 +161,197 @@ const CONTENT_SOURCES: ContentSource[] = [
 ];
 
 const TEAM_KEYWORDS: Record<string, Record<string, string[]>> = {
+  // La Liga
   'real-madrid': {
-    es: ['real madrid', 'madrid', 'merengues', 'blancos', 'bernabéu', 'bernabeu', 'rmcf', 'madridista'],
+    es: ['real madrid', 'madrid', 'merengues', 'blancos', 'bernabéu', 'bernabeu', 'rmcf', 'madridista', 'florentino', 'ancelotti'],
     en: ['real madrid', 'madrid', 'los blancos', 'bernabeu', 'real'],
   },
   'barcelona': {
-    es: ['barcelona', 'barça', 'barca', 'blaugrana', 'culés', 'cules', 'fcb', 'camp nou'],
+    es: ['barcelona', 'barça', 'barca', 'blaugrana', 'culés', 'cules', 'fcb', 'camp nou', 'laporta', 'xavi', 'flick'],
     en: ['barcelona', 'barca', 'blaugrana', 'fcb', 'camp nou'],
   },
   'atletico-madrid': {
-    es: ['atlético', 'atletico', 'atleti', 'colchoneros', 'rojiblanco'],
+    es: ['atlético', 'atletico', 'atleti', 'colchoneros', 'rojiblanco', 'simeone', 'metropolitano'],
     en: ['atletico madrid', 'atletico', 'atleti'],
   },
+  'sevilla': {
+    es: ['sevilla', 'sevillista', 'nervión', 'nervion'],
+    en: ['sevilla', 'sevilla fc'],
+  },
+  'real-betis': {
+    es: ['betis', 'real betis', 'béticos', 'beticos', 'verdiblanco', 'villamarín'],
+    en: ['real betis', 'betis'],
+  },
+  'real-sociedad': {
+    es: ['real sociedad', 'la real', 'txuri-urdin', 'anoeta', 'donostia'],
+    en: ['real sociedad', 'la real'],
+  },
+  'athletic-bilbao': {
+    es: ['athletic', 'athletic bilbao', 'athletic club', 'leones', 'san mamés'],
+    en: ['athletic bilbao', 'athletic club'],
+  },
+  'villarreal': {
+    es: ['villarreal', 'submarino amarillo', 'groguets'],
+    en: ['villarreal', 'yellow submarine'],
+  },
+  'valencia': {
+    es: ['valencia', 'valencia cf', 'che', 'mestalla', 'murciélagos'],
+    en: ['valencia', 'valencia cf'],
+  },
+  // Premier League
   'manchester-city': {
-    es: ['manchester city', 'man city', 'city', 'ciudadanos', 'citizens'],
+    es: ['manchester city', 'man city', 'city', 'ciudadanos', 'citizens', 'guardiola', 'etihad'],
     en: ['manchester city', 'man city', 'city', 'citizens', 'cityzens', 'mcfc'],
   },
   'manchester-united': {
-    es: ['manchester united', 'man united', 'united', 'diablos rojos'],
+    es: ['manchester united', 'man united', 'united', 'diablos rojos', 'old trafford'],
     en: ['manchester united', 'man united', 'united', 'red devils', 'mufc', 'man utd'],
   },
   'liverpool': {
-    es: ['liverpool', 'reds', 'anfield'],
+    es: ['liverpool', 'reds', 'anfield', 'klopp'],
     en: ['liverpool', 'reds', 'lfc', 'anfield', 'the kop'],
   },
+  'arsenal': {
+    es: ['arsenal', 'gunners', 'cañoneros', 'emirates', 'arteta'],
+    en: ['arsenal', 'gunners', 'afc', 'emirates'],
+  },
+  'chelsea': {
+    es: ['chelsea', 'blues', 'stamford bridge'],
+    en: ['chelsea', 'blues', 'cfc', 'stamford bridge'],
+  },
+  'tottenham': {
+    es: ['tottenham', 'spurs', 'lilywhites'],
+    en: ['tottenham', 'spurs', 'thfc', 'lilywhites'],
+  },
+  'newcastle': {
+    es: ['newcastle', 'magpies', 'urracas'],
+    en: ['newcastle', 'magpies', 'nufc', 'toon'],
+  },
+  'aston-villa': {
+    es: ['aston villa', 'villa', 'villans'],
+    en: ['aston villa', 'villa', 'avfc', 'villans'],
+  },
+  // Serie A
+  'juventus': {
+    es: ['juventus', 'juve', 'vecchia signora', 'bianconeri', 'turín'],
+    en: ['juventus', 'juve', 'old lady', 'bianconeri'],
+  },
+  'inter-milan': {
+    es: ['inter', 'inter de milán', 'nerazzurri', 'internazionale'],
+    en: ['inter milan', 'inter', 'nerazzurri', 'internazionale'],
+  },
+  'ac-milan': {
+    es: ['milan', 'ac milan', 'rossoneri', 'san siro'],
+    en: ['ac milan', 'milan', 'rossoneri'],
+  },
+  'napoli': {
+    es: ['napoli', 'nápoles', 'partenopei', 'azzurri'],
+    en: ['napoli', 'partenopei'],
+  },
+  'roma': {
+    es: ['roma', 'as roma', 'giallorossi', 'lobos'],
+    en: ['roma', 'as roma', 'giallorossi'],
+  },
+  'lazio': {
+    es: ['lazio', 'biancocelesti', 'águilas'],
+    en: ['lazio', 'biancocelesti'],
+  },
+  // Bundesliga
   'bayern-munich': {
     es: ['bayern', 'bayern múnich', 'bayern munich', 'bávaros'],
     en: ['bayern munich', 'bayern', 'bavarians', 'fcb'],
   },
+  'borussia-dortmund': {
+    es: ['dortmund', 'borussia dortmund', 'bvb', 'negriamarillos'],
+    en: ['borussia dortmund', 'dortmund', 'bvb'],
+  },
+  'rb-leipzig': {
+    es: ['leipzig', 'rb leipzig', 'red bull'],
+    en: ['rb leipzig', 'leipzig'],
+  },
+  'bayer-leverkusen': {
+    es: ['leverkusen', 'bayer leverkusen', 'xabi alonso'],
+    en: ['bayer leverkusen', 'leverkusen'],
+  },
+  // Ligue 1
   'psg': {
     es: ['psg', 'paris saint-germain', 'paris', 'parisinos'],
     en: ['psg', 'paris saint-germain', 'paris'],
   },
-  'juventus': {
-    es: ['juventus', 'juve', 'vecchia signora'],
-    en: ['juventus', 'juve', 'old lady', 'bianconeri'],
+  'marseille': {
+    es: ['marsella', 'olympique marsella', 'om'],
+    en: ['marseille', 'om', 'olympique marseille'],
   },
-  'inter-milan': {
-    es: ['inter', 'inter de milán', 'nerazzurri'],
-    en: ['inter milan', 'inter', 'nerazzurri', 'internazionale'],
+  'lyon': {
+    es: ['lyon', 'olympique lyon', 'ol'],
+    en: ['lyon', 'olympique lyonnais'],
   },
-  'ac-milan': {
-    es: ['milan', 'ac milan', 'rossoneri'],
-    en: ['ac milan', 'milan', 'rossoneri'],
+  'monaco': {
+    es: ['mónaco', 'monaco', 'as monaco'],
+    en: ['monaco', 'as monaco'],
+  },
+  // Liga MX
+  'america': {
+    es: ['américa', 'america', 'club américa', 'las águilas', 'aguilas', 'coapa', 'azulcremas'],
+    en: ['club america', 'america'],
+  },
+  'chivas': {
+    es: ['chivas', 'guadalajara', 'chivas guadalajara', 'rebaño', 'rojiblanco', 'akron'],
+    en: ['chivas', 'guadalajara'],
+  },
+  'cruz-azul': {
+    es: ['cruz azul', 'la máquina', 'maquina', 'cementeros', 'azul'],
+    en: ['cruz azul'],
+  },
+  'tigres': {
+    es: ['tigres', 'tigres uanl', 'felinos', 'universitario'],
+    en: ['tigres', 'tigres uanl'],
+  },
+  'monterrey': {
+    es: ['monterrey', 'rayados', 'pandilla', 'la pandilla'],
+    en: ['monterrey', 'rayados'],
+  },
+  'pumas-unam': {
+    es: ['pumas', 'pumas unam', 'universitarios', 'cu', 'ciudad universitaria'],
+    en: ['pumas', 'pumas unam'],
+  },
+  'santos-laguna': {
+    es: ['santos', 'santos laguna', 'guerreros', 'laguneros'],
+    en: ['santos laguna'],
+  },
+  'leon': {
+    es: ['león', 'leon', 'club león', 'esmeraldas', 'la fiera'],
+    en: ['leon', 'club leon'],
+  },
+  'toluca': {
+    es: ['toluca', 'diablos rojos', 'choriceros'],
+    en: ['toluca'],
+  },
+  'pachuca': {
+    es: ['pachuca', 'tuzos', 'tuzo'],
+    en: ['pachuca', 'tuzos'],
+  },
+  // Argentina
+  'river-plate': {
+    es: ['river', 'river plate', 'millonarios', 'el monumental', 'núñez'],
+    en: ['river plate', 'river'],
+  },
+  'boca-juniors': {
+    es: ['boca', 'boca juniors', 'xeneizes', 'la bombonera', 'azul y oro'],
+    en: ['boca juniors', 'boca'],
+  },
+  // Brazil
+  'flamengo': {
+    es: ['flamengo', 'mengão', 'rubro-negro', 'fla'],
+    en: ['flamengo', 'fla'],
+  },
+  'palmeiras': {
+    es: ['palmeiras', 'verdão', 'porco', 'alviverde'],
+    en: ['palmeiras'],
+  },
+  'corinthians': {
+    es: ['corinthians', 'timão', 'corintiano'],
+    en: ['corinthians'],
   },
   // Women's teams
   'barcelona-femeni': {
@@ -226,6 +374,18 @@ const TEAM_KEYWORDS: Record<string, Record<string, string[]>> = {
     es: ['lyon femenino', 'olympique lyon femenino'],
     en: ['lyon women', 'olympique lyonnais women'],
     fr: ['ol féminin', 'lyon féminin'],
+  },
+  'america-femenil': {
+    es: ['américa femenil', 'america femenil', 'águilas femenil'],
+    en: ['club america women'],
+  },
+  'chivas-femenil': {
+    es: ['chivas femenil', 'guadalajara femenil', 'rebaño femenil'],
+    en: ['chivas women'],
+  },
+  'tigres-femenil': {
+    es: ['tigres femenil', 'amazonas', 'tigres uanl femenil'],
+    en: ['tigres women'],
   },
 };
 
