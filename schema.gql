@@ -476,7 +476,6 @@ type BrandInvitationResult {
   status: InvitationStatus!
   expiresAt: DateTime!
   createdAt: DateTime!
-  inviteUrl: String!
 }
 
 """Status of a brand invitation"""

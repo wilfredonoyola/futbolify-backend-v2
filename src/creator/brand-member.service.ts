@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { ConfigService } from '@nestjs/config';
 import { Brand } from './schemas/brand.schema';
 import { BrandMember, BrandMemberDocument, BrandMemberRole } from './schemas/brand-member.schema';
 import {
@@ -30,7 +29,6 @@ export class BrandMemberService {
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     @InjectModel(BrandMember.name) private brandMemberModel: Model<BrandMemberDocument>,
     @InjectModel(BrandInvitation.name) private brandInvitationModel: Model<BrandInvitationDocument>,
-    private configService: ConfigService,
   ) {}
 
   // ============== INVITATIONS ==============
@@ -74,9 +72,6 @@ export class BrandMemberService {
       expiresAt,
     });
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const inviteUrl = `${frontendUrl}/join?code=${code}`;
-
     return {
       id: invitation._id.toString(),
       code: invitation.code,
@@ -85,7 +80,6 @@ export class BrandMemberService {
       status: invitation.status,
       expiresAt: invitation.expiresAt,
       createdAt: invitation.createdAt,
-      inviteUrl,
     };
   }
 

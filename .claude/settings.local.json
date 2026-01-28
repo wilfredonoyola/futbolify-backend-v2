@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)",
+      "Bash(git rebase:*)",
+      "Bash(yarn build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: configure deployment for Digital Ocean\n\n- Change Procfile from yarn to npm \\(DO doesn''t have yarn by default\\)\n- Add Node.js engine requirement \\(>=18.0.0\\)\n- Update .gitignore to protect all .env.* files\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}

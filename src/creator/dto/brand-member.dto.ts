@@ -110,9 +110,6 @@ export class BrandInvitationResult {
 
   @Field(() => Date)
   createdAt: Date;
-
-  @Field()
-  inviteUrl: string;
 }
 
 @ObjectType()
