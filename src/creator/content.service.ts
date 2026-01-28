@@ -165,227 +165,282 @@ const TEAM_KEYWORDS: Record<string, Record<string, string[]>> = {
   'real-madrid': {
     es: ['real madrid', 'madrid', 'merengues', 'blancos', 'bernabéu', 'bernabeu', 'rmcf', 'madridista', 'florentino', 'ancelotti'],
     en: ['real madrid', 'madrid', 'los blancos', 'bernabeu', 'real'],
+    // Jugadores
+    players: ['vinicius', 'vini jr', 'bellingham', 'jude bellingham', 'mbappé', 'mbappe', 'kylian', 'rodrygo', 'valverde', 'fede valverde', 'modric', 'luka modric', 'courtois', 'thibaut', 'tchouaméni', 'tchouameni', 'camavinga', 'alaba', 'militao', 'eder militao', 'carvajal', 'dani carvajal', 'nacho', 'kroos', 'toni kroos', 'lunin', 'endrick', 'ceballos', 'güler', 'arda guler'],
   },
   'barcelona': {
     es: ['barcelona', 'barça', 'barca', 'blaugrana', 'culés', 'cules', 'fcb', 'camp nou', 'laporta', 'xavi', 'flick'],
     en: ['barcelona', 'barca', 'blaugrana', 'fcb', 'camp nou'],
+    players: ['lamine yamal', 'yamal', 'pedri', 'gavi', 'raphinha', 'lewandowski', 'robert lewandowski', 'ter stegen', 'araujo', 'ronald araujo', 'koundé', 'kounde', 'cubarsí', 'cubarsi', 'pau cubarsi', 'de jong', 'frenkie de jong', 'ferran torres', 'dani olmo', 'fermín', 'fermin lopez', 'balde', 'alejandro balde', 'iñigo martínez', 'inigo martinez', 'christensen', 'ansu fati'],
   },
   'atletico-madrid': {
     es: ['atlético', 'atletico', 'atleti', 'colchoneros', 'rojiblanco', 'simeone', 'metropolitano'],
     en: ['atletico madrid', 'atletico', 'atleti'],
+    players: ['griezmann', 'antoine griezmann', 'oblak', 'jan oblak', 'morata', 'alvaro morata', 'koke', 'marcos llorente', 'llorente', 'de paul', 'rodrigo de paul', 'giménez', 'gimenez', 'jose gimenez', 'savic', 'witsel', 'correa', 'angel correa', 'julian alvarez', 'sorloth', 'alexander sorloth', 'gallagher', 'conor gallagher', 'le normand'],
   },
   'sevilla': {
     es: ['sevilla', 'sevillista', 'nervión', 'nervion'],
     en: ['sevilla', 'sevilla fc'],
+    players: ['lukébakio', 'lukebakio', 'isaac romero', 'sergio ramos', 'ramos', 'ocampos', 'navas', 'jesus navas', 'saúl', 'saul', 'nyland', 'badé', 'bade', 'ejuke'],
   },
   'real-betis': {
     es: ['betis', 'real betis', 'béticos', 'beticos', 'verdiblanco', 'villamarín'],
     en: ['real betis', 'betis'],
+    players: ['isco', 'fekir', 'nabil fekir', 'ayoze pérez', 'ayoze', 'lo celso', 'giovani lo celso', 'ruibal', 'rui silva', 'marc roca', 'fornals', 'pablo fornals', 'johnny cardoso', 'abde', 'ez abde'],
   },
   'real-sociedad': {
     es: ['real sociedad', 'la real', 'txuri-urdin', 'anoeta', 'donostia'],
     en: ['real sociedad', 'la real'],
+    players: ['oyarzabal', 'mikel oyarzabal', 'take kubo', 'kubo', 'barrenetxea', 'brais méndez', 'brais mendez', 'merino', 'mikel merino', 'zubimendi', 'martin zubimendi', 'remiro', 'le normand', 'aritz elustondo', 'sergio gómez'],
   },
   'athletic-bilbao': {
     es: ['athletic', 'athletic bilbao', 'athletic club', 'leones', 'san mamés'],
     en: ['athletic bilbao', 'athletic club'],
+    players: ['nico williams', 'williams', 'iñaki williams', 'inaki williams', 'muniain', 'iker muniain', 'sancet', 'oihan sancet', 'vivian', 'yeray', 'unai simón', 'unai simon', 'berenguer', 'de marcos', 'guruzeta', 'gorka guruzeta', 'vesga', 'herrera'],
   },
   'villarreal': {
     es: ['villarreal', 'submarino amarillo', 'groguets'],
     en: ['villarreal', 'yellow submarine'],
+    players: ['gerard moreno', 'alex baena', 'baena', 'danjuma', 'pepe reina', 'albiol', 'raul albiol', 'parejo', 'dani parejo', 'yeremy pino', 'pino', 'comesaña', 'barry', 'thierno barry', 'pedraza', 'foyth', 'juan foyth'],
   },
   'valencia': {
     es: ['valencia', 'valencia cf', 'che', 'mestalla', 'murciélagos'],
     en: ['valencia', 'valencia cf'],
+    players: ['hugo duro', 'diego lópez', 'gayà', 'gaya', 'jose gaya', 'mamardashvili', 'giorgi mamardashvili', 'javi guerra', 'pepelu', 'thierry correia', 'caufriez', 'guillamon', 'hugo guillamon'],
   },
   // Premier League
   'manchester-city': {
     es: ['manchester city', 'man city', 'city', 'ciudadanos', 'citizens', 'guardiola', 'etihad'],
     en: ['manchester city', 'man city', 'city', 'citizens', 'cityzens', 'mcfc'],
+    players: ['haaland', 'erling haaland', 'de bruyne', 'kevin de bruyne', 'foden', 'phil foden', 'rodri', 'rodrigo hernández', 'bernardo silva', 'bernardo', 'ederson', 'gvardiol', 'josko gvardiol', 'ruben dias', 'dias', 'stones', 'john stones', 'walker', 'kyle walker', 'grealish', 'jack grealish', 'doku', 'jeremy doku', 'kovacic', 'mateo kovacic', 'akanji', 'savinho'],
   },
   'manchester-united': {
     es: ['manchester united', 'man united', 'united', 'diablos rojos', 'old trafford'],
     en: ['manchester united', 'man united', 'united', 'red devils', 'mufc', 'man utd'],
+    players: ['rashford', 'marcus rashford', 'bruno fernandes', 'bruno', 'hojlund', 'rasmus hojlund', 'garnacho', 'alejandro garnacho', 'mainoo', 'kobbie mainoo', 'casemiro', 'onana', 'andre onana', 'martinez', 'lisandro martinez', 'dalot', 'diogo dalot', 'varane', 'shaw', 'luke shaw', 'antony', 'eriksen', 'mount', 'mason mount', 'zirkzee', 'joshua zirkzee', 'ugarte', 'manuel ugarte', 'mazraoui', 'de ligt', 'matthijs de ligt'],
   },
   'liverpool': {
-    es: ['liverpool', 'reds', 'anfield', 'klopp'],
+    es: ['liverpool', 'reds', 'anfield', 'klopp', 'slot'],
     en: ['liverpool', 'reds', 'lfc', 'anfield', 'the kop'],
+    players: ['salah', 'mohamed salah', 'mo salah', 'nunez', 'darwin nunez', 'darwin', 'luis diaz', 'lucho diaz', 'diaz', 'mac allister', 'alexis mac allister', 'szoboszlai', 'dominik szoboszlai', 'alisson', 'alisson becker', 'van dijk', 'virgil van dijk', 'trent', 'alexander-arnold', 'trent alexander-arnold', 'robertson', 'andy robertson', 'konate', 'ibrahima konate', 'gakpo', 'cody gakpo', 'gravenberch', 'ryan gravenberch', 'chiesa', 'federico chiesa', 'jota', 'diogo jota', 'jones', 'curtis jones'],
   },
   'arsenal': {
     es: ['arsenal', 'gunners', 'cañoneros', 'emirates', 'arteta'],
     en: ['arsenal', 'gunners', 'afc', 'emirates'],
+    players: ['saka', 'bukayo saka', 'odegaard', 'martin odegaard', 'rice', 'declan rice', 'havertz', 'kai havertz', 'martinelli', 'gabriel martinelli', 'raya', 'david raya', 'saliba', 'william saliba', 'gabriel', 'gabriel magalhaes', 'white', 'ben white', 'zinchenko', 'timber', 'jurrien timber', 'trossard', 'leandro trossard', 'jesus', 'gabriel jesus', 'nketiah', 'tomiyasu', 'partey', 'thomas partey', 'jorginho', 'calafiori'],
   },
   'chelsea': {
-    es: ['chelsea', 'blues', 'stamford bridge'],
+    es: ['chelsea', 'blues', 'stamford bridge', 'maresca'],
     en: ['chelsea', 'blues', 'cfc', 'stamford bridge'],
+    players: ['palmer', 'cole palmer', 'jackson', 'nicolas jackson', 'enzo fernández', 'enzo fernandez', 'enzo', 'mudryk', 'mykhailo mudryk', 'caicedo', 'moises caicedo', 'nkunku', 'christopher nkunku', 'sterling', 'raheem sterling', 'sanchez', 'robert sanchez', 'fofana', 'wesley fofana', 'colwill', 'levi colwill', 'gusto', 'malo gusto', 'cucurella', 'marc cucurella', 'disasi', 'felix', 'joao felix', 'madueke', 'noni madueke', 'lavia', 'romeo lavia'],
   },
   'tottenham': {
-    es: ['tottenham', 'spurs', 'lilywhites'],
+    es: ['tottenham', 'spurs', 'lilywhites', 'postecoglou'],
     en: ['tottenham', 'spurs', 'thfc', 'lilywhites'],
+    players: ['son', 'son heung-min', 'heung-min son', 'richarlison', 'maddison', 'james maddison', 'kulusevski', 'dejan kulusevski', 'vicario', 'guglielmo vicario', 'romero', 'cristian romero', 'van de ven', 'micky van de ven', 'udogie', 'destiny udogie', 'porro', 'pedro porro', 'bissouma', 'yves bissouma', 'bentancur', 'rodrigo bentancur', 'sarr', 'pape sarr', 'johnson', 'brennan johnson', 'solanke', 'dominic solanke', 'werner', 'timo werner'],
   },
   'newcastle': {
-    es: ['newcastle', 'magpies', 'urracas'],
+    es: ['newcastle', 'magpies', 'urracas', 'howe'],
     en: ['newcastle', 'magpies', 'nufc', 'toon'],
+    players: ['isak', 'alexander isak', 'gordon', 'anthony gordon', 'bruno guimaraes', 'bruno guimarães', 'schar', 'fabian schar', 'trippier', 'kieran trippier', 'pope', 'nick pope', 'botman', 'sven botman', 'tonali', 'sandro tonali', 'joelinton', 'barnes', 'harvey barnes', 'wilson', 'callum wilson', 'longstaff', 'sean longstaff', 'hall', 'lewis hall', 'livramento', 'tino livramento'],
   },
   'aston-villa': {
-    es: ['aston villa', 'villa', 'villans'],
+    es: ['aston villa', 'villa', 'villans', 'emery', 'unai emery'],
     en: ['aston villa', 'villa', 'avfc', 'villans'],
+    players: ['watkins', 'ollie watkins', 'martinez', 'emi martinez', 'emiliano martinez', 'mcginn', 'john mcginn', 'douglas luiz', 'cash', 'matty cash', 'konsa', 'ezri konsa', 'digne', 'lucas digne', 'tielemans', 'youri tielemans', 'bailey', 'leon bailey', 'kamara', 'boubacar kamara', 'pau torres', 'diaby', 'moussa diaby', 'duran', 'jhon duran', 'rogers', 'morgan rogers', 'ramsey', 'jacob ramsey'],
   },
   // Serie A
   'juventus': {
-    es: ['juventus', 'juve', 'vecchia signora', 'bianconeri', 'turín'],
+    es: ['juventus', 'juve', 'vecchia signora', 'bianconeri', 'turín', 'thiago motta'],
     en: ['juventus', 'juve', 'old lady', 'bianconeri'],
+    players: ['vlahovic', 'dusan vlahovic', 'chiesa', 'federico chiesa', 'di maria', 'angel di maria', 'locatelli', 'manuel locatelli', 'rabiot', 'adrien rabiot', 'bremer', 'gleison bremer', 'danilo', 'kostic', 'filip kostic', 'gatti', 'federico gatti', 'szczesny', 'wojciech szczesny', 'milik', 'arkadiusz milik', 'cambiaso', 'andrea cambiaso', 'weah', 'timothy weah', 'yildiz', 'kenan yildiz', 'koopmeiners', 'teun koopmeiners', 'nico gonzalez', 'douglas luiz', 'conceicao', 'francisco conceicao'],
   },
   'inter-milan': {
-    es: ['inter', 'inter de milán', 'nerazzurri', 'internazionale'],
+    es: ['inter', 'inter de milán', 'nerazzurri', 'internazionale', 'inzaghi'],
     en: ['inter milan', 'inter', 'nerazzurri', 'internazionale'],
+    players: ['lautaro', 'lautaro martinez', 'thuram', 'marcus thuram', 'barella', 'nicolo barella', 'calhanoglu', 'hakan calhanoglu', 'bastoni', 'alessandro bastoni', 'dimarco', 'federico dimarco', 'sommer', 'yann sommer', 'dumfries', 'denzel dumfries', 'mkhitaryan', 'henrikh mkhitaryan', 'acerbi', 'francesco acerbi', 'darmian', 'matteo darmian', 'arnautovic', 'marko arnautovic', 'frattesi', 'davide frattesi', 'pavard', 'benjamin pavard'],
   },
   'ac-milan': {
-    es: ['milan', 'ac milan', 'rossoneri', 'san siro'],
+    es: ['milan', 'ac milan', 'rossoneri', 'san siro', 'pioli', 'fonseca'],
     en: ['ac milan', 'milan', 'rossoneri'],
+    players: ['leao', 'rafael leao', 'giroud', 'olivier giroud', 'theo hernandez', 'theo', 'tomori', 'fikayo tomori', 'maignan', 'mike maignan', 'bennacer', 'ismael bennacer', 'reijnders', 'tijjani reijnders', 'pulisic', 'christian pulisic', 'loftus-cheek', 'ruben loftus-cheek', 'okafor', 'noah okafor', 'calabria', 'davide calabria', 'thiaw', 'malick thiaw', 'musah', 'yunus musah', 'chukwueze', 'samuel chukwueze', 'morata', 'alvaro morata'],
   },
   'napoli': {
-    es: ['napoli', 'nápoles', 'partenopei', 'azzurri'],
+    es: ['napoli', 'nápoles', 'partenopei', 'azzurri', 'conte', 'antonio conte'],
     en: ['napoli', 'partenopei'],
+    players: ['osimhen', 'victor osimhen', 'kvara', 'kvaratskhelia', 'khvicha kvaratskhelia', 'di lorenzo', 'giovanni di lorenzo', 'lobotka', 'stanislav lobotka', 'anguissa', 'zambo anguissa', 'meret', 'alex meret', 'kim min-jae', 'min-jae', 'rrahmani', 'amir rrahmani', 'politano', 'matteo politano', 'raspadori', 'giacomo raspadori', 'zielinski', 'piotr zielinski', 'simeone', 'giovanni simeone', 'lukaku', 'romelu lukaku', 'mctominay', 'scott mctominay', 'neres', 'david neres'],
   },
   'roma': {
-    es: ['roma', 'as roma', 'giallorossi', 'lobos'],
+    es: ['roma', 'as roma', 'giallorossi', 'lobos', 'de rossi'],
     en: ['roma', 'as roma', 'giallorossi'],
+    players: ['dybala', 'paulo dybala', 'lukaku', 'romelu lukaku', 'pellegrini', 'lorenzo pellegrini', 'paredes', 'leandro paredes', 'mancini', 'gianluca mancini', 'smalling', 'chris smalling', 'svilar', 'mile svilar', 'abraham', 'tammy abraham', 'spinazzola', 'leonardo spinazzola', 'cristante', 'bryan cristante', 'el shaarawy', 'stephan el shaarawy', 'zalewski', 'nicola zalewski', 'dovbyk', 'artem dovbyk', 'soulé', 'soule', 'matias soule'],
   },
   'lazio': {
-    es: ['lazio', 'biancocelesti', 'águilas'],
+    es: ['lazio', 'biancocelesti', 'águilas', 'sarri', 'baroni'],
     en: ['lazio', 'biancocelesti'],
+    players: ['immobile', 'ciro immobile', 'felipe anderson', 'luis alberto', 'milinkovic-savic', 'sergej milinkovic-savic', 'provedel', 'ivan provedel', 'romagnoli', 'alessio romagnoli', 'casale', 'nicolo casale', 'guendouzi', 'matteo guendouzi', 'kamada', 'daichi kamada', 'pedro', 'pedro rodriguez', 'cataldi', 'danilo cataldi', 'marusic', 'adam marusic', 'castellanos', 'taty castellanos', 'zaccagni', 'mattia zaccagni', 'dia', 'boulaye dia'],
   },
   // Bundesliga
   'bayern-munich': {
-    es: ['bayern', 'bayern múnich', 'bayern munich', 'bávaros'],
+    es: ['bayern', 'bayern múnich', 'bayern munich', 'bávaros', 'kompany', 'vincent kompany'],
     en: ['bayern munich', 'bayern', 'bavarians', 'fcb'],
+    players: ['kane', 'harry kane', 'sane', 'leroy sane', 'musiala', 'jamal musiala', 'kimmich', 'joshua kimmich', 'neuer', 'manuel neuer', 'müller', 'muller', 'thomas müller', 'goretzka', 'leon goretzka', 'davies', 'alphonso davies', 'upamecano', 'dayot upamecano', 'de ligt', 'matthijs de ligt', 'coman', 'kingsley coman', 'gnabry', 'serge gnabry', 'tel', 'mathys tel', 'laimer', 'konrad laimer', 'kim min-jae', 'guerreiro', 'raphael guerreiro', 'olise', 'michael olise', 'palhinha', 'joao palhinha'],
   },
   'borussia-dortmund': {
-    es: ['dortmund', 'borussia dortmund', 'bvb', 'negriamarillos'],
+    es: ['dortmund', 'borussia dortmund', 'bvb', 'negriamarillos', 'sahin', 'nuri sahin'],
     en: ['borussia dortmund', 'dortmund', 'bvb'],
+    players: ['sancho', 'jadon sancho', 'reus', 'marco reus', 'brandt', 'julian brandt', 'fullkrug', 'niclas fullkrug', 'hummels', 'mats hummels', 'adeyemi', 'karim adeyemi', 'sabitzer', 'marcel sabitzer', 'schlotterbeck', 'nico schlotterbeck', 'kobel', 'gregor kobel', 'ryerson', 'julian ryerson', 'malen', 'donyell malen', 'can', 'emre can', 'nmecha', 'felix nmecha', 'bynoe-gittens', 'jamie bynoe-gittens', 'guirassy', 'serhou guirassy', 'groß', 'gross', 'pascal gross', 'beier', 'maximilian beier'],
   },
   'rb-leipzig': {
-    es: ['leipzig', 'rb leipzig', 'red bull'],
+    es: ['leipzig', 'rb leipzig', 'red bull', 'rose', 'marco rose'],
     en: ['rb leipzig', 'leipzig'],
+    players: ['nkunku', 'christopher nkunku', 'olmo', 'dani olmo', 'openda', 'lois openda', 'xavi simons', 'simons', 'gvardiol', 'josko gvardiol', 'orban', 'willi orban', 'gulacsi', 'peter gulacsi', 'kampl', 'kevin kampl', 'haidara', 'amadou haidara', 'raum', 'david raum', 'sesko', 'benjamin sesko', 'baumgartner', 'christoph baumgartner'],
   },
   'bayer-leverkusen': {
     es: ['leverkusen', 'bayer leverkusen', 'xabi alonso'],
     en: ['bayer leverkusen', 'leverkusen'],
+    players: ['wirtz', 'florian wirtz', 'schick', 'patrik schick', 'diaby', 'moussa diaby', 'frimpong', 'jeremie frimpong', 'tapsoba', 'edmond tapsoba', 'hradecky', 'lukas hradecky', 'grimaldo', 'alejandro grimaldo', 'andrich', 'robert andrich', 'hofmann', 'jonas hofmann', 'tah', 'jonathan tah', 'palacios', 'exequiel palacios', 'xhaka', 'granit xhaka', 'boniface', 'victor boniface', 'adli', 'amine adli', 'terrier', 'martin terrier', 'garcia', 'aleix garcia'],
   },
   // Ligue 1
   'psg': {
-    es: ['psg', 'paris saint-germain', 'paris', 'parisinos'],
+    es: ['psg', 'paris saint-germain', 'paris', 'parisinos', 'luis enrique'],
     en: ['psg', 'paris saint-germain', 'paris'],
+    players: ['mbappe', 'kylian mbappe', 'dembele', 'ousmane dembele', 'hakimi', 'achraf hakimi', 'marquinhos', 'donnarumma', 'gianluigi donnarumma', 'vitinha', 'ruiz', 'fabian ruiz', 'kolo muani', 'randal kolo muani', 'ugarte', 'manuel ugarte', 'ramos', 'sergio ramos', 'skriniar', 'milan skriniar', 'asensio', 'marco asensio', 'lee kang-in', 'kang-in lee', 'barcola', 'bradley barcola', 'zaïre-emery', 'zaire-emery', 'warren zaire-emery', 'neves', 'joao neves'],
   },
   'marseille': {
-    es: ['marsella', 'olympique marsella', 'om'],
+    es: ['marsella', 'olympique marsella', 'om', 'de zerbi'],
     en: ['marseille', 'om', 'olympique marseille'],
+    players: ['aubameyang', 'pierre-emerick aubameyang', 'sanchez', 'alexis sanchez', 'clauss', 'jonathan clauss', 'rongier', 'valentin rongier', 'balerdi', 'leonardo balerdi', 'mbemba', 'chancel mbemba', 'lopez', 'pau lopez', 'harit', 'amine harit', 'kondogbia', 'geoffrey kondogbia', 'ndiaye', 'iliman ndiaye', 'greenwood', 'mason greenwood'],
   },
   'lyon': {
     es: ['lyon', 'olympique lyon', 'ol'],
     en: ['lyon', 'olympique lyonnais'],
+    players: ['lacazette', 'alexandre lacazette', 'cherki', 'rayan cherki', 'caqueret', 'maxence caqueret', 'tolisso', 'corentin tolisso', 'lopes', 'anthony lopes', 'tagliafico', 'nicolas tagliafico', 'nuamah', 'ernest nuamah', 'mikautadze', 'georges mikautadze'],
   },
   'monaco': {
-    es: ['mónaco', 'monaco', 'as monaco'],
+    es: ['mónaco', 'monaco', 'as monaco', 'hütter'],
     en: ['monaco', 'as monaco'],
+    players: ['ben yedder', 'wissam ben yedder', 'golovin', 'aleksandr golovin', 'tchouameni', 'aurelien tchouameni', 'embolo', 'breel embolo', 'fofana', 'youssouf fofana', 'badiashile', 'benoit badiashile', 'nubel', 'alexander nubel', 'zakaria', 'denis zakaria', 'minamino', 'takumi minamino', 'balogun', 'folarin balogun', 'akliouche', 'maghnes akliouche'],
   },
   // Liga MX
   'america': {
-    es: ['américa', 'america', 'club américa', 'las águilas', 'aguilas', 'coapa', 'azulcremas'],
+    es: ['américa', 'america', 'club américa', 'las águilas', 'aguilas', 'coapa', 'azulcremas', 'jardine'],
     en: ['club america', 'america'],
+    players: ['henry martin', 'henry martín', 'richard sanchez', 'richard sánchez', 'diego valdes', 'diego valdés', 'alvaro fidalgo', 'álvaro fidalgo', 'luis fuentes', 'jorge sanchez', 'jorge sánchez', 'quiñones', 'quinones', 'jonathan rodriguez', 'jonathan rodríguez', 'brian rodriguez', 'brian rodríguez', 'rodrigo aguirre'],
   },
   'chivas': {
-    es: ['chivas', 'guadalajara', 'chivas guadalajara', 'rebaño', 'rojiblanco', 'akron'],
+    es: ['chivas', 'guadalajara', 'chivas guadalajara', 'rebaño', 'rojiblanco', 'akron', 'gago', 'fernando gago'],
     en: ['chivas', 'guadalajara'],
+    players: ['chicharito', 'javier hernandez', 'javier hernández', 'alexis vega', 'fernando beltran', 'fernando beltrán', 'gilberto sepulveda', 'gilberto sepúlveda', 'roberto alvarado', 'piojo alvarado', 'cade cowell', 'mozo', 'pável pérez', 'pavel perez', 'chiquete', 'jesús orozco', 'jesus orozco', 'cisneros', 'ricardo marin'],
   },
   'cruz-azul': {
-    es: ['cruz azul', 'la máquina', 'maquina', 'cementeros', 'azul'],
+    es: ['cruz azul', 'la máquina', 'maquina', 'cementeros', 'azul', 'anselmi'],
     en: ['cruz azul'],
+    players: ['martin anselmi', 'uriel antuna', 'carlos rotondi', 'angel romero', 'ángel romero', 'ignacio rivero', 'luis romo', 'erik lira', 'rodolfo rotondi', 'kevin mier', 'gonzalo piovi', 'giorgos giakoumakis', 'lorenzo faravelli'],
   },
   'tigres': {
-    es: ['tigres', 'tigres uanl', 'felinos', 'universitario'],
+    es: ['tigres', 'tigres uanl', 'felinos', 'universitario', 'piojo', 'herrera', 'miguel herrera'],
     en: ['tigres', 'tigres uanl'],
+    players: ['gignac', 'andre-pierre gignac', 'thauvin', 'florian thauvin', 'vigon', 'vigón', 'juan vigon', 'nahuel guzman', 'nahuel guzmán', 'pizarro', 'rodolfo pizarro', 'aquino', 'javier aquino', 'quinones', 'quiñones', 'luis quinones', 'samir', 'guido pizarro', 'rafael carioca', 'diego reyes', 'sebastian cordova', 'sebastián córdova'],
   },
   'monterrey': {
-    es: ['monterrey', 'rayados', 'pandilla', 'la pandilla'],
+    es: ['monterrey', 'rayados', 'pandilla', 'la pandilla', 'demichelis', 'martin demichelis'],
     en: ['monterrey', 'rayados'],
+    players: ['funes mori', 'rogelio funes mori', 'berterame', 'german berterame', 'germán berterame', 'canales', 'jesus gallardo', 'jesús gallardo', 'meza', 'maxi meza', 'maximiliano meza', 'vegas', 'esteban andrada', 'sergio canales', 'oliver torres', 'hector moreno', 'héctor moreno', 'johan rojas', 'jorge rodriguez'],
   },
   'pumas-unam': {
-    es: ['pumas', 'pumas unam', 'universitarios', 'cu', 'ciudad universitaria'],
+    es: ['pumas', 'pumas unam', 'universitarios', 'cu', 'ciudad universitaria', 'lema', 'gustavo lema'],
     en: ['pumas', 'pumas unam'],
+    players: ['dani alves', 'julio gonzalez', 'arturo ortiz', 'cesar huerta', 'césar huerta', 'guillermo martinez', 'guillermo martínez', 'pablo bennevendo', 'jorge ruvalcaba', 'piero quispe', 'ali avila', 'alí ávila', 'robert ergas', 'nathan silva'],
   },
   'santos-laguna': {
     es: ['santos', 'santos laguna', 'guerreros', 'laguneros'],
     en: ['santos laguna'],
+    players: ['acevedo', 'carlos acevedo', 'harold preciado', 'jordan carrillo', 'omar campos', 'fernando gorriaran', 'fernando gorriarán', 'leonardo suarez', 'leonardo suárez', 'juan brunetta'],
   },
   'leon': {
-    es: ['león', 'leon', 'club león', 'esmeraldas', 'la fiera'],
+    es: ['león', 'leon', 'club león', 'esmeraldas', 'la fiera', 'renato paiva'],
     en: ['leon', 'club leon'],
+    players: ['lucas di yorio', 'stiven barreiro', 'andres mosquera', 'andrés mosquera', 'elias hernandez', 'elías hernández', 'fidel ambriz', 'adonis frias', 'adonis frías', 'alfonso blanco'],
   },
   'toluca': {
-    es: ['toluca', 'diablos rojos', 'choriceros'],
+    es: ['toluca', 'diablos rojos', 'choriceros', 'renato paiva'],
     en: ['toluca'],
+    players: ['kevin castañeda', 'kevin castaneda', 'jesus angulo', 'jesús angulo', 'marcel ruiz', 'tiago volpi', 'alexis canelo', 'leo fernandez', 'leo fernández', 'jean meneses', 'brian garcia', 'brian garcía'],
   },
   'pachuca': {
-    es: ['pachuca', 'tuzos', 'tuzo'],
+    es: ['pachuca', 'tuzos', 'tuzo', 'almada'],
     en: ['pachuca', 'tuzos'],
+    players: ['salomon rondon', 'salomón rondón', 'nicolas ibañez', 'nicolás ibáñez', 'arturo gonzalez', 'arturo gonzález', 'oussama idrissi', 'carlos moreno', 'bryan gonzalez', 'bryan gonzález', 'marino hinestroza', 'nelson deossa', 'israel reyes'],
   },
   // Argentina
   'river-plate': {
-    es: ['river', 'river plate', 'millonarios', 'el monumental', 'núñez'],
+    es: ['river', 'river plate', 'millonarios', 'el monumental', 'núñez', 'demichelis', 'gallardo'],
     en: ['river plate', 'river'],
+    players: ['borja', 'miguel borja', 'de la cruz', 'nicolas de la cruz', 'fernandez', 'enzo fernandez', 'solari', 'pablo solari', 'martinez quarta', 'german pezzella', 'armani', 'franco armani', 'diaz', 'nacho fernandez', 'barco', 'esequiel barco', 'colidio', 'facundo colidio', 'aliendro', 'rodrigo aliendro', 'kranevitter', 'mastantuono', 'claudio echeverri'],
   },
   'boca-juniors': {
-    es: ['boca', 'boca juniors', 'xeneizes', 'la bombonera', 'azul y oro'],
+    es: ['boca', 'boca juniors', 'xeneizes', 'la bombonera', 'azul y oro', 'gago'],
     en: ['boca juniors', 'boca'],
+    players: ['cavani', 'edinson cavani', 'merentiel', 'miguel merentiel', 'zeballos', 'exequiel zeballos', 'romero', 'sergio romero', 'rojo', 'marcos rojo', 'fernandez', 'pol fernandez', 'medina', 'cristian medina', 'advíncula', 'advincula', 'luis advincula', 'saralegui', 'equi fernandez', 'equi fernández', 'anselmino', 'aaron anselmino', 'kevin zenon', 'kevin zenón', 'blondel', 'lucas blondel'],
   },
   // Brazil
   'flamengo': {
-    es: ['flamengo', 'mengão', 'rubro-negro', 'fla'],
+    es: ['flamengo', 'mengão', 'rubro-negro', 'fla', 'filipe luis'],
     en: ['flamengo', 'fla'],
+    players: ['gabigol', 'gabriel barbosa', 'pedro', 'arrascaeta', 'giorgian de arrascaeta', 'everton ribeiro', 'gerson', 'bruno henrique', 'david luiz', 'filipe luis', 'santos', 'wesley', 'matheuzinho', 'ayrton lucas', 'varela', 'guillermo varela', 'pulgar', 'erick pulgar', 'de la cruz', 'nicolas de la cruz', 'luiz araujo'],
   },
   'palmeiras': {
-    es: ['palmeiras', 'verdão', 'porco', 'alviverde'],
+    es: ['palmeiras', 'verdão', 'porco', 'alviverde', 'abel ferreira'],
     en: ['palmeiras'],
+    players: ['endrick', 'dudu', 'rony', 'raphael veiga', 'veiga', 'gustavo gomez', 'weverton', 'zé rafael', 'ze rafael', 'piquerez', 'rocha', 'murilo', 'richard rios', 'richard ríos', 'aníbal moreno', 'anibal moreno', 'flaco lopez', 'lopez', 'estevao', 'estêvão'],
   },
   'corinthians': {
-    es: ['corinthians', 'timão', 'corintiano'],
+    es: ['corinthians', 'timão', 'corintiano', 'mano menezes'],
     en: ['corinthians'],
+    players: ['cassio', 'cássio', 'yuri alberto', 'renato augusto', 'fagner', 'fausto vera', 'garro', 'rodrigo garro', 'rojas', 'hugo', 'depay', 'memphis depay', 'carrillo', 'andre carrillo', 'charles', 'felix torres', 'félix torres', 'coronado', 'angel romero', 'ángel romero'],
   },
   // Women's teams
   'barcelona-femeni': {
     es: ['barcelona femenino', 'barça femenino', 'barça femení', 'barcelona femeni'],
     en: ['barcelona women', 'barca women', 'barcelona femeni'],
+    players: ['alexia putellas', 'alexia', 'aitana bonmati', 'aitana bonmatí', 'aitana', 'salma paralluelo', 'paralluelo', 'caroline graham hansen', 'graham hansen', 'mapi leon', 'mapi león', 'sandra panos', 'sandra paños', 'patri guijarro', 'fridolina rolfo', 'rolfo', 'claudia pina', 'mariona caldentey', 'ona batlle', 'irene paredes', 'lucy bronze'],
   },
   'real-madrid-femenino': {
     es: ['real madrid femenino', 'madrid femenino', 'real madrid women'],
     en: ['real madrid women', 'madrid women'],
+    players: ['caroline weir', 'weir', 'esther gonzalez', 'esther gonzález', 'athenea del castillo', 'athenea', 'olga carmona', 'carmona', 'misa rodriguez', 'misa rodríguez', 'misa', 'teresa abelleira', 'nahikari garcia', 'nahikari garcía', 'linda caicedo', 'caicedo'],
   },
   'chelsea-women': {
     es: ['chelsea femenino', 'chelsea women'],
     en: ['chelsea women', 'chelsea fc women', 'chelsea ladies'],
+    players: ['sam kerr', 'kerr', 'millie bright', 'fran kirby', 'kirby', 'erin cuthbert', 'guro reiten', 'reiten', 'eve perisset', 'kadeisha buchanan', 'buchanan', 'lauren james', 'mayra ramirez'],
   },
   'arsenal-women': {
     es: ['arsenal femenino', 'arsenal women'],
     en: ['arsenal women', 'arsenal wfc', 'arsenal ladies'],
+    players: ['vivianne miedema', 'miedema', 'beth mead', 'mead', 'leah williamson', 'williamson', 'katie mccabe', 'mccabe', 'alessia russo', 'russo', 'stina blackstenius', 'blackstenius', 'kyra cooney-cross', 'manuela zinsberger', 'kim little'],
   },
   'lyon-feminin': {
     es: ['lyon femenino', 'olympique lyon femenino'],
     en: ['lyon women', 'olympique lyonnais women'],
     fr: ['ol féminin', 'lyon féminin'],
+    players: ['ada hegerberg', 'hegerberg', 'eugenie le sommer', 'le sommer', 'wendie renard', 'renard', 'catarina macario', 'macario', 'delphine cascarino', 'cascarino', 'lindsey horan', 'horan', 'christiane endler', 'endler'],
   },
   'america-femenil': {
     es: ['américa femenil', 'america femenil', 'águilas femenil'],
     en: ['club america women'],
+    players: ['katty martinez', 'katty martínez', 'sarah luebbert', 'scarlett camberos', 'jana gutierrez', 'jana gutiérrez', 'daniela espinosa', 'kiana palacios'],
   },
   'chivas-femenil': {
     es: ['chivas femenil', 'guadalajara femenil', 'rebaño femenil'],
     en: ['chivas women'],
+    players: ['alicia cervantes', 'licha cervantes', 'carolina jaramillo', 'joseline montoya', 'kinberly guzman', 'kinberly guzmán', 'casandra montero', 'michelle gonzalez', 'michelle gonzález'],
   },
   'tigres-femenil': {
     es: ['tigres femenil', 'amazonas', 'tigres uanl femenil'],
     en: ['tigres women'],
+    players: ['stephany mayor', 'jennifer hermoso', 'jenni hermoso', 'bianca sierra', 'nayeli rangel', 'lizbeth ovalle', 'maria sanchez', 'maría sánchez', 'belén cruz', 'belen cruz', 'natalia villarreal'],
   },
 };
 
@@ -877,7 +932,8 @@ export class ContentService {
     if (!keywords) return [teamId.replace(/-/g, ' ')];
 
     const allKeywords: string[] = [];
-    Object.values(keywords).forEach(langKeywords => {
+    Object.entries(keywords).forEach(([key, langKeywords]) => {
+      // Include all keywords: team names (es, en, fr, etc.) and players
       allKeywords.push(...langKeywords);
     });
     return [...new Set(allKeywords)];
