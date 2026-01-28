@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { BrandService } from './brand.service';
@@ -14,10 +14,12 @@ import { Template, TemplateSchema } from './schemas/template.schema';
 import { BrandMember, BrandMemberSchema } from './schemas/brand-member.schema';
 import { BrandInvitation, BrandInvitationSchema } from './schemas/brand-invitation.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     ConfigModule,
+    forwardRef(() => UsersModule),
     MongooseModule.forFeature([
       { name: Brand.name, schema: BrandSchema },
       { name: Template.name, schema: TemplateSchema },

@@ -2,7 +2,7 @@
 
 import { registerEnumType, Field, ObjectType, ID, Int } from '@nestjs/graphql'
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
-import { Document } from 'mongoose'
+import { Document, Types } from 'mongoose'
 
 export type UserDocument = User & Document
 
@@ -81,6 +81,10 @@ export class User extends Document {
 
   @Prop({ required: false })
   password?: string
+
+  @Prop({ type: Types.ObjectId, ref: 'Brand', required: false })
+  @Field(() => ID, { nullable: true })
+  activeBrandId?: Types.ObjectId
 }
 
 export const UserSchema = SchemaFactory.createForClass(User)

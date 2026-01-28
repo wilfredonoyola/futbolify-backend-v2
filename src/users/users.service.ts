@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { CurrentUserPayload } from 'src/auth/current-user-payload.interface';
 import { AuthService } from 'src/auth/auth.service';
@@ -84,5 +84,28 @@ export class UsersService {
     }
 
     await this.authService.deleteUser(removedUser.email);
+  }
+
+  async setActiveBrandId(userId: string, brandId: string): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { _id: userId },
+        { $set: { activeBrandId: new Types.ObjectId(brandId) } },
+      )
+      .exec();
+  }
+
+  async getActiveBrandId(userId: string): Promise<string | null> {
+    const user = await this.userModel.findById(userId).exec();
+    return user?.activeBrandId?.toString() || null;
+  }
+
+  async clearActiveBrandId(userId: string): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { _id: userId },
+        { $unset: { activeBrandId: 1 } },
+      )
+      .exec();
   }
 }

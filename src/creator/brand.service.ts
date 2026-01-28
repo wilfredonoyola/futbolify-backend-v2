@@ -1,16 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Brand } from './schemas/brand.schema';
 import { BrandMember, BrandMemberDocument, BrandMemberRole } from './schemas/brand-member.schema';
 import { CreateBrandInput } from './dto/create-brand.input';
 import { UpdateBrandInput } from './dto/update-brand.input';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class BrandService {
   constructor(
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     @InjectModel(BrandMember.name) private brandMemberModel: Model<BrandMemberDocument>,
+    @Inject(forwardRef(() => UsersService)) private usersService: UsersService,
   ) {}
 
   /**
@@ -69,7 +71,23 @@ export class BrandService {
    * Find active brand for a user (owned or member)
    */
   async findActiveBrand(userId: string): Promise<Brand | null> {
-    // First try to find an active owned brand
+    // First check if user has an activeBrandId set
+    const activeBrandId = await this.usersService.getActiveBrandId(userId);
+
+    if (activeBrandId) {
+      // Verify user still has access to this brand
+      const hasAccess = await this.hasAccess(activeBrandId, userId);
+      if (hasAccess) {
+        const brand = await this.brandModel.findById(activeBrandId).exec();
+        if (brand) {
+          return brand;
+        }
+      }
+      // If no access or brand not found, clear the activeBrandId
+      await this.usersService.clearActiveBrandId(userId);
+    }
+
+    // Fallback: try to find an active owned brand (legacy support)
     const activeBrand = await this.brandModel
       .findOne({
         userId: new Types.ObjectId(userId),
@@ -78,6 +96,8 @@ export class BrandService {
       .exec();
 
     if (activeBrand) {
+      // Set this as the user's activeBrandId for future use
+      await this.usersService.setActiveBrandId(userId, activeBrand._id.toString());
       return activeBrand;
     }
 
@@ -88,6 +108,7 @@ export class BrandService {
       .exec();
 
     if (firstOwnedBrand) {
+      await this.usersService.setActiveBrandId(userId, firstOwnedBrand._id.toString());
       return firstOwnedBrand;
     }
 
@@ -97,7 +118,11 @@ export class BrandService {
     });
 
     if (memberships.length > 0) {
-      return this.brandModel.findById(memberships[0].brandId).exec();
+      const memberBrand = await this.brandModel.findById(memberships[0].brandId).exec();
+      if (memberBrand) {
+        await this.usersService.setActiveBrandId(userId, memberBrand._id.toString());
+        return memberBrand;
+      }
     }
 
     return null;
@@ -221,24 +246,23 @@ export class BrandService {
       throw new ForbiddenException('You do not have access to this brand');
     }
 
-    // Deactivate all owned brands for this user
-    await this.brandModel.updateMany(
-      { userId: new Types.ObjectId(userId) },
-      { isActive: false },
-    );
-
-    // Note: We don't set isActive on the brand itself for member brands
-    // because isActive is user-specific state. Instead, the frontend
-    // should track the active brand per user session.
-
     const brand = await this.brandModel.findById(brandId).exec();
 
     if (!brand) {
       throw new NotFoundException(`Brand with ID ${brandId} not found`);
     }
 
-    // If user is the owner, update isActive
+    // Update the user's activeBrandId (works for both owners and members)
+    await this.usersService.setActiveBrandId(userId, brandId);
+
+    // Also update isActive flag on brands for owners (legacy support)
     if (brand.userId.toString() === userId) {
+      // Deactivate all owned brands for this user
+      await this.brandModel.updateMany(
+        { userId: new Types.ObjectId(userId) },
+        { isActive: false },
+      );
+      // Activate the selected brand
       brand.isActive = true;
       await brand.save();
     }
