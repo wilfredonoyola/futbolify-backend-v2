@@ -85,6 +85,22 @@ export class User extends Document {
   @Prop({ type: Types.ObjectId, ref: 'Brand', required: false })
   @Field(() => ID, { nullable: true })
   activeBrandId?: Types.ObjectId
+
+  // Streaming-related fields
+  @Prop({ type: String, enum: ['free', 'pro'], default: 'free' })
+  @Field({ nullable: true })
+  plan?: string
+
+  @Prop({ default: 0 })
+  @Field(() => Int, { defaultValue: 0 })
+  streamsThisMonth?: number
+
+  @Prop({ unique: true, sparse: true })
+  streamKey?: string // Not exposed via GraphQL for security
+
+  @Prop()
+  @Field({ nullable: true })
+  stripeCustomerId?: string
 }
 
 export const UserSchema = SchemaFactory.createForClass(User)

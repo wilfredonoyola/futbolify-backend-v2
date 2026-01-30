@@ -14,6 +14,7 @@ import { TeamsModule } from './teams/teams.module'
 import { UploadsModule } from './uploads/uploads.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { CreatorModule } from './creator/creator.module'
+import { StreamingModule } from './streaming/streaming.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -34,12 +35,26 @@ import { AppService } from './app.service'
       }),
     }),
 
-    // ✅ Configuración de GraphQL
+    // ✅ Configuración de GraphQL con WebSocket subscriptions
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       playground: true,
       autoSchemaFile: join(process.cwd(), 'schema.gql'),
       csrfPrevention: false,
+      subscriptions: {
+        'graphql-ws': {
+          onConnect: (context: { connectionParams?: { Authorization?: string } }) => {
+            const { connectionParams } = context
+            return { token: connectionParams?.Authorization }
+          },
+        },
+      },
+      context: ({ req, connection }: { req?: { headers: { authorization?: string } }; connection?: { context?: { token?: string } } }) => {
+        if (connection) {
+          return { req: { headers: { authorization: connection.context?.token } } }
+        }
+        return { req }
+      },
     }),
 
     // ✅ Tus módulos propios
@@ -50,6 +65,7 @@ import { AppService } from './app.service'
     UploadsModule,
     NotificationsModule,
     CreatorModule,
+    StreamingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

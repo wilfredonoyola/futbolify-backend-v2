@@ -17,6 +17,9 @@ type User {
   googleId: String
   authProvider: String
   activeBrandId: ID
+  plan: String
+  streamsThisMonth: Int!
+  stripeCustomerId: String
 }
 
 """
@@ -506,6 +509,128 @@ type BrandInvitationInfo {
   createdAt: DateTime!
 }
 
+type Stream {
+  id: ID!
+  title: String!
+  description: String
+  sport: StreamSport!
+  status: StreamStatus!
+  userId: ID!
+  rtmpUrl: String
+  hlsUrl: String
+  viewerCount: Int!
+  homeTeam: String
+  awayTeam: String
+  homeScore: Int!
+  awayScore: Int!
+  thumbnailUrl: String
+  startedAt: DateTime
+  endedAt: DateTime
+  scheduledAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""The sport type for a stream"""
+enum StreamSport {
+  SOCCER
+  BASKETBALL
+  TENNIS
+  BASEBALL
+  HOCKEY
+  FOOTBALL
+  OTHER
+}
+
+"""The status of a stream"""
+enum StreamStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+}
+
+type Message {
+  id: ID!
+  streamId: ID!
+  userId: ID!
+  userName: String!
+  content: String!
+  type: MessageType!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""The type of chat message"""
+enum MessageType {
+  TEXT
+  EMOJI
+  SYSTEM
+}
+
+type UserSubscription {
+  id: ID!
+  userId: ID!
+  plan: SubscriptionPlan!
+  status: SubscriptionStatus!
+  stripeCustomerId: String
+  stripeSubscriptionId: String
+  currentPeriodEnd: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Subscription plan types"""
+enum SubscriptionPlan {
+  FREE
+  PRO
+  PREMIUM
+}
+
+"""Subscription status types"""
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+type StreamAnalytics {
+  id: ID!
+  streamId: ID!
+  peakViewers: Int!
+  totalViews: Int!
+  uniqueViewers: Int!
+  totalMessages: Int!
+  durationSeconds: Int!
+  uniqueViewerIds: [String!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ViewerCountUpdate {
+  streamId: ID!
+  viewerCount: Int!
+}
+
+type ScoreUpdate {
+  streamId: ID!
+  homeScore: Int!
+  awayScore: Int!
+  homeTeam: String
+  awayTeam: String
+}
+
+type StreamStatusUpdate {
+  streamId: ID!
+  status: StreamStatus!
+  startedAt: DateTime
+  endedAt: DateTime
+}
+
+type CheckoutSessionOutput {
+  url: String!
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
@@ -547,6 +672,13 @@ type Query {
   brandInvitations(brandId: ID!): [BrandInvitationInfo!]!
   brandByInviteCode(code: String!): BrandPublicInfo!
   myBrandRole(brandId: ID!): BrandMemberRole
+  stream(id: ID!): Stream!
+  streams(status: StreamStatus): [Stream!]!
+  liveStreams: [Stream!]!
+  myStreams: [Stream!]!
+  streamAnalytics(streamId: ID!): StreamAnalytics
+  messages(streamId: ID!, limit: Int = 50, offset: Int = 0): [Message!]!
+  mySubscription: UserSubscription
 }
 
 input LateMatchOptionsDto {
@@ -626,6 +758,18 @@ type Mutation {
   removeBrandMember(brandId: ID!, userId: ID!): Boolean!
   leaveBrand(brandId: ID!): Boolean!
   revokeBrandInvitation(invitationId: ID!): Boolean!
+  createStream(input: CreateStreamInput!): Stream!
+  updateStream(id: ID!, input: UpdateStreamInput!): Stream!
+  startStream(id: ID!): Stream!
+  endStream(id: ID!): Stream!
+  updateScore(input: UpdateScoreInput!): Stream!
+  deleteStream(id: ID!): Boolean!
+  joinStream(streamId: ID!): Stream!
+  leaveStream(streamId: ID!): Stream!
+  regenerateStreamKey: String!
+  sendMessage(input: SendMessageInput!): Message!
+  createCheckoutSession: CheckoutSessionOutput!
+  cancelSubscription: UserSubscription!
 }
 
 input SigninInputDto {
@@ -818,4 +962,43 @@ input UpdateBrandMemberRoleInput {
   brandId: ID!
   userId: ID!
   role: BrandMemberRole!
+}
+
+input CreateStreamInput {
+  title: String!
+  description: String
+  sport: StreamSport = SOCCER
+  homeTeam: String
+  awayTeam: String
+  thumbnailUrl: String
+  scheduledAt: DateTime
+}
+
+input UpdateStreamInput {
+  title: String
+  description: String
+  sport: StreamSport
+  homeTeam: String
+  awayTeam: String
+  thumbnailUrl: String
+  scheduledAt: DateTime
+}
+
+input UpdateScoreInput {
+  streamId: ID!
+  homeScore: Int!
+  awayScore: Int!
+}
+
+input SendMessageInput {
+  streamId: ID!
+  content: String!
+  type: MessageType = TEXT
+}
+
+type Subscription {
+  viewerCountUpdated(streamId: ID!): ViewerCountUpdate!
+  scoreUpdated(streamId: ID!): ScoreUpdate!
+  streamStatusChanged(streamId: ID!): StreamStatusUpdate!
+  messageAdded(streamId: ID!): Message!
 }
