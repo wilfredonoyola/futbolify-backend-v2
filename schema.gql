@@ -448,6 +448,59 @@ type ContentSuggestionsResponse {
   error: String
 }
 
+type SourceContent {
+  title: String!
+  description: String!
+  sourceUrl: String!
+  sourceName: String!
+  imageUrl: String
+}
+
+type GenerationMetadata {
+  model: String!
+  promptVersion: String!
+  tokensUsed: Int!
+  generatedAt: DateTime!
+}
+
+type PostFeedback {
+  rating: Int!
+  notes: String
+}
+
+type Post {
+  id: ID!
+  origin: PostOrigin!
+  brandId: ID!
+  contentSuggestionId: String
+  contentType: ContentType!
+  priority: ContentPriority!
+  sourceContent: SourceContent!
+  generatedText: String!
+  finalText: String
+  generation: GenerationMetadata!
+  status: PostStatus!
+  claimedBy: ID
+  claimedAt: DateTime
+  rejectionReason: String
+  feedback: PostFeedback
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum PostOrigin {
+  REACTIVE
+  PROACTIVE
+}
+
+enum PostStatus {
+  PENDING
+  CLAIMED
+  READY
+  PUBLISHED
+  REJECTED
+}
+
 type BrandMemberUser {
   userId: ID!
   email: String!
@@ -672,6 +725,10 @@ type Query {
   brandInvitations(brandId: ID!): [BrandInvitationInfo!]!
   brandByInviteCode(code: String!): BrandPublicInfo!
   myBrandRole(brandId: ID!): BrandMemberRole
+  post(id: ID!): Post!
+  pendingPosts(brandId: ID!): [Post!]!
+  brandPosts(brandId: ID!, filter: PostFilterInput): [Post!]!
+  myClaimedPosts: [Post!]!
   stream(id: ID!): Stream!
   streams(status: StreamStatus): [Stream!]!
   liveStreams: [Stream!]!
@@ -702,6 +759,13 @@ input FetchContentInput {
   sourceLanguages: [String!] = ["es", "en"]
   limit: Int = 25
   brandId: String
+}
+
+input PostFilterInput {
+  brandId: ID
+  status: PostStatus
+  limit: Int = 50
+  offset: Int = 0
 }
 
 type Mutation {
@@ -758,6 +822,14 @@ type Mutation {
   removeBrandMember(brandId: ID!, userId: ID!): Boolean!
   leaveBrand(brandId: ID!): Boolean!
   revokeBrandInvitation(invitationId: ID!): Boolean!
+  generatePost(input: GeneratePostInput!): Post!
+  claimPost(id: ID!): Post!
+  releasePost(id: ID!): Post!
+  updatePostContent(input: UpdatePostContentInput!): Post!
+  markPostReady(id: ID!): Post!
+  markPostPublished(id: ID!): Post!
+  rejectPost(input: RejectPostInput!): Post!
+  submitPostFeedback(input: SubmitFeedbackInput!): Post!
   createStream(input: CreateStreamInput!): Stream!
   updateStream(id: ID!, input: UpdateStreamInput!): Stream!
   startStream(id: ID!): Stream!
@@ -962,6 +1034,27 @@ input UpdateBrandMemberRoleInput {
   brandId: ID!
   userId: ID!
   role: BrandMemberRole!
+}
+
+input GeneratePostInput {
+  suggestionId: String!
+  brandId: ID!
+}
+
+input UpdatePostContentInput {
+  postId: ID!
+  finalText: String!
+}
+
+input RejectPostInput {
+  postId: ID!
+  reason: String
+}
+
+input SubmitFeedbackInput {
+  postId: ID!
+  rating: Int!
+  notes: String
 }
 
 input CreateStreamInput {

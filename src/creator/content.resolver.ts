@@ -3,6 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ContentService } from './content.service';
+import { GenerationService } from './generation.service';
 import { ContentSuggestionsResponse } from './dto/content-suggestion.output';
 import { FetchContentInput } from './dto/fetch-content.input';
 import { BrandService } from './brand.service';
@@ -13,6 +14,7 @@ export class ContentResolver {
   constructor(
     private readonly contentService: ContentService,
     private readonly brandService: BrandService,
+    private readonly generationService: GenerationService,
   ) {}
 
   /**
@@ -23,12 +25,14 @@ export class ContentResolver {
     @CurrentUser() user: any,
     @Args('input') input: FetchContentInput,
   ): Promise<ContentSuggestionsResponse> {
+    let response: ContentSuggestionsResponse;
+
     // If brandId is provided, get the brand's content preferences
     if (input.brandId) {
       const brand = await this.brandService.findOne(input.brandId, user.userId);
       if (brand && brand.contentPreferences) {
         // Use brand preferences if not overridden in input
-        return this.contentService.fetchContent({
+        response = await this.contentService.fetchContent({
           pageType: input.pageType || brand.contentPreferences.pageType || 'single-team',
           teamId: input.teamId || brand.contentPreferences.teamId,
           teamIds: input.teamIds || brand.contentPreferences.additionalTeams || [],
@@ -36,10 +40,19 @@ export class ContentResolver {
           sourceLanguages: input.sourceLanguages || brand.contentPreferences.sourceLanguages,
           limit: input.limit,
         });
+      } else {
+        response = await this.contentService.fetchContent(input);
       }
+    } else {
+      response = await this.contentService.fetchContent(input);
     }
 
-    return this.contentService.fetchContent(input);
+    // Cache suggestions for post generation
+    if (response.success && response.content.length > 0) {
+      this.generationService.cacheSuggestions(response.content);
+    }
+
+    return response;
   }
 
   /**
@@ -69,7 +82,7 @@ export class ContentResolver {
 
     const contentPrefs = activeBrand.contentPreferences;
 
-    return this.contentService.fetchContent({
+    const response = await this.contentService.fetchContent({
       pageType: contentPrefs?.pageType || 'single-team',
       teamId: contentPrefs?.teamId,
       teamIds: contentPrefs?.additionalTeams || [],
@@ -77,5 +90,12 @@ export class ContentResolver {
       sourceLanguages: contentPrefs?.sourceLanguages || ['es', 'en'],
       limit,
     });
+
+    // Cache suggestions for post generation
+    if (response.success && response.content.length > 0) {
+      this.generationService.cacheSuggestions(response.content);
+    }
+
+    return response;
   }
 }
