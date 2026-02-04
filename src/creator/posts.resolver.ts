@@ -12,6 +12,7 @@ import {
   SubmitFeedbackInput,
   RejectPostInput,
   PostFilterInput,
+  SavePostTemplateInput,
 } from './dto/post.dto';
 
 @Resolver(() => Post)
@@ -57,11 +58,19 @@ export class PostsResolver {
   }
 
   /**
-   * Get posts claimed by the current user
+   * Get posts claimed by the current user (in progress)
    */
   @Query(() => [Post], { name: 'myClaimedPosts' })
   async getMyClaimedPosts(@CurrentUser() user: any): Promise<Post[]> {
     return this.postsService.findClaimedByUser(user.userId);
+  }
+
+  /**
+   * Get downloaded posts by the current user
+   */
+  @Query(() => [Post], { name: 'myDownloadedPosts' })
+  async getMyDownloadedPosts(@CurrentUser() user: any): Promise<Post[]> {
+    return this.postsService.findDownloadedByUser(user.userId);
   }
 
   // ============================================================================
@@ -150,6 +159,17 @@ export class PostsResolver {
   }
 
   /**
+   * Mark a post as downloaded
+   */
+  @Mutation(() => Post)
+  async markPostDownloaded(
+    @CurrentUser() user: any,
+    @Args('id', { type: () => ID }) id: string,
+  ): Promise<Post> {
+    return this.postsService.markDownloaded(id, user.userId);
+  }
+
+  /**
    * Mark a post as published
    */
   @Mutation(() => Post)
@@ -182,6 +202,21 @@ export class PostsResolver {
       input.postId,
       input.rating,
       input.notes,
+    );
+  }
+
+  /**
+   * Save template data for a post (editor state persistence)
+   */
+  @Mutation(() => Post)
+  async savePostTemplate(
+    @CurrentUser() user: any,
+    @Args('input') input: SavePostTemplateInput,
+  ): Promise<Post> {
+    return this.postsService.saveTemplate(
+      input.postId,
+      user.userId,
+      input.templateData,
     );
   }
 }

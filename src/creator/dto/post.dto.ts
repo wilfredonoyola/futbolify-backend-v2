@@ -1,6 +1,7 @@
 import { InputType, Field, ID, Int } from '@nestjs/graphql';
-import { IsNotEmpty, IsString, IsOptional, Min, Max, IsInt } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, Min, Max, IsInt, IsObject } from 'class-validator';
 import { PostStatus } from '../schemas/post.schema';
+import GraphQLJSON from 'graphql-type-json';
 
 @InputType()
 export class GeneratePostInput {
@@ -78,4 +79,16 @@ export class PostFilterInput {
   @IsInt()
   @Min(0)
   offset?: number;
+}
+
+@InputType()
+export class SavePostTemplateInput {
+  @Field(() => ID)
+  @IsNotEmpty()
+  postId: string;
+
+  @Field(() => GraphQLJSON)
+  @IsNotEmpty()
+  @IsObject()
+  templateData: Record<string, any>;
 }

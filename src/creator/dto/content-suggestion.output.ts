@@ -33,6 +33,28 @@ registerEnumType(ContentType, { name: 'ContentType' });
 registerEnumType(ContentPriority, { name: 'ContentPriority' });
 registerEnumType(PageType, { name: 'PageType' });
 
+export enum ContentStatus {
+  AVAILABLE = 'available',
+  CLAIMED = 'claimed',
+  IN_PROGRESS = 'in-progress',
+  DONE = 'done',
+  DISMISSED = 'dismissed',
+}
+
+registerEnumType(ContentStatus, { name: 'ContentStatus' });
+
+@ObjectType()
+export class ClaimedBy {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  name: string;
+
+  @Field({ nullable: true })
+  avatar?: string;
+}
+
 @ObjectType()
 export class ContentSuggestion {
   @Field(() => ID)
@@ -94,6 +116,118 @@ export class ContentSuggestion {
 
   @Field({ nullable: true })
   wasProcessedByAI?: boolean;
+
+  // Claim/collaboration fields
+  @Field(() => ContentStatus, { defaultValue: ContentStatus.AVAILABLE })
+  status: ContentStatus;
+
+  @Field(() => ClaimedBy, { nullable: true })
+  claimedBy?: ClaimedBy;
+
+  @Field({ nullable: true })
+  claimedAt?: Date;
+
+  @Field(() => [String], { defaultValue: [] })
+  seenBy: string[];
+}
+
+@ObjectType()
+export class NextMatchInfo {
+  @Field()
+  opponent: string;
+
+  @Field()
+  date: Date;
+
+  @Field()
+  time: string;
+
+  @Field()
+  competition: string;
+
+  @Field()
+  isHome: boolean;
+
+  @Field(() => Int)
+  hoursUntil: number;
+}
+
+@ObjectType()
+export class LastMatchInfo {
+  @Field()
+  opponent: string;
+
+  @Field()
+  date: Date;
+
+  @Field()
+  result: string;
+
+  @Field()
+  competition: string;
+
+  @Field()
+  wasHome: boolean;
+
+  @Field(() => Int)
+  daysAgo: number;
+}
+
+@ObjectType()
+export class LiveMatchInfo {
+  @Field(() => Int)
+  fixtureId: number;
+
+  @Field()
+  opponent: string;
+
+  @Field()
+  date: Date;
+
+  @Field()
+  time: string;
+
+  @Field()
+  competition: string;
+
+  @Field()
+  isHome: boolean;
+
+  @Field()
+  score: string;
+
+  @Field(() => Int)
+  minute: number;
+
+  @Field()
+  status: string;
+}
+
+@ObjectType()
+export class MatchContextOutput {
+  @Field()
+  hasMatchToday: boolean;
+
+  @Field()
+  hasMatchTomorrow: boolean;
+
+  @Field()
+  isLive: boolean;
+
+  @Field(() => LiveMatchInfo, { nullable: true })
+  liveMatch?: LiveMatchInfo;
+
+  @Field(() => NextMatchInfo, { nullable: true })
+  nextMatch?: NextMatchInfo;
+
+  @Field(() => LastMatchInfo, { nullable: true })
+  lastMatch?: LastMatchInfo;
+
+  @Field()
+  isMatchday: boolean;
+
+  @Field({ nullable: true })
+  matchdayPhase?: string;
 }
 
 @ObjectType()
@@ -133,6 +267,9 @@ export class ContentSuggestionsResponse {
 
   @Field(() => ContentMeta)
   meta: ContentMeta;
+
+  @Field(() => MatchContextOutput, { nullable: true })
+  matchContext?: MatchContextOutput;
 
   @Field({ nullable: true })
   error?: string;

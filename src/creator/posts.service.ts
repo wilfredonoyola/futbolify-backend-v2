@@ -121,7 +121,7 @@ export class PostsService {
   }
 
   /**
-   * Find posts claimed by a specific user
+   * Find posts claimed by a specific user (in progress)
    */
   async findClaimedByUser(userId: string): Promise<Post[]> {
     return this.postModel
@@ -130,6 +130,19 @@ export class PostsService {
         status: { $in: [PostStatus.CLAIMED, PostStatus.READY] },
       })
       .sort({ claimedAt: -1 })
+      .exec();
+  }
+
+  /**
+   * Find downloaded posts by a specific user
+   */
+  async findDownloadedByUser(userId: string): Promise<Post[]> {
+    return this.postModel
+      .find({
+        claimedBy: new Types.ObjectId(userId),
+        status: PostStatus.DOWNLOADED,
+      })
+      .sort({ downloadedAt: -1 })
       .exec();
   }
 
@@ -225,12 +238,37 @@ export class PostsService {
   }
 
   /**
+   * Mark a post as downloaded
+   */
+  async markDownloaded(postId: string, userId: string): Promise<Post> {
+    const post = await this.findById(postId);
+
+    // Allow from CLAIMED or READY status
+    if (post.status !== PostStatus.CLAIMED && post.status !== PostStatus.READY) {
+      throw new BadRequestException(
+        `Post cannot be marked as downloaded. Current status: ${post.status}`,
+      );
+    }
+
+    if (post.claimedBy?.toString() !== userId) {
+      throw new ForbiddenException(
+        'You can only mark downloaded posts you have claimed',
+      );
+    }
+
+    post.status = PostStatus.DOWNLOADED;
+    post.downloadedAt = new Date();
+    return post.save();
+  }
+
+  /**
    * Mark a post as published
    */
   async markPublished(postId: string, userId: string): Promise<Post> {
     const post = await this.findById(postId);
 
-    if (post.status !== PostStatus.READY) {
+    // Allow from READY or DOWNLOADED status
+    if (post.status !== PostStatus.READY && post.status !== PostStatus.DOWNLOADED) {
       throw new BadRequestException(
         `Post cannot be marked as published. Current status: ${post.status}`,
       );
@@ -315,5 +353,38 @@ export class PostsService {
       brandId: new Types.ObjectId(brandId),
     });
     return count > 0;
+  }
+
+  /**
+   * Save template data for a post (editor state)
+   */
+  async saveTemplate(
+    postId: string,
+    userId: string,
+    templateData: Record<string, any>,
+  ): Promise<Post> {
+    const post = await this.findById(postId);
+
+    // Only the user who claimed the post can save template
+    if (post.claimedBy?.toString() !== userId) {
+      throw new ForbiddenException(
+        'You can only save templates for posts you have claimed',
+      );
+    }
+
+    // Can save template while CLAIMED, READY, or DOWNLOADED
+    const allowedStatuses = [
+      PostStatus.CLAIMED,
+      PostStatus.READY,
+      PostStatus.DOWNLOADED,
+    ];
+    if (!allowedStatuses.includes(post.status)) {
+      throw new BadRequestException(
+        `Template cannot be saved. Current status: ${post.status}`,
+      );
+    }
+
+    post.templateData = templateData;
+    return post.save();
   }
 }

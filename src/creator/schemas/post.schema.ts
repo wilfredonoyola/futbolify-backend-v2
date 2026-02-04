@@ -1,12 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Field, ObjectType, ID, Int, registerEnumType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 import { ContentType, ContentPriority } from '../dto/content-suggestion.output';
 
 export enum PostStatus {
   PENDING = 'PENDING',
   CLAIMED = 'CLAIMED',
   READY = 'READY',
+  DOWNLOADED = 'DOWNLOADED',
   PUBLISHED = 'PUBLISHED',
   REJECTED = 'REJECTED',
 }
@@ -128,11 +130,19 @@ export class Post extends Document {
 
   @Field({ nullable: true })
   @Prop()
+  downloadedAt?: Date;
+
+  @Field({ nullable: true })
+  @Prop()
   rejectionReason?: string;
 
   @Field(() => PostFeedback, { nullable: true })
   @Prop({ type: PostFeedback })
   feedback?: PostFeedback;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  templateData?: Record<string, any>;
 
   @Field()
   createdAt: Date;

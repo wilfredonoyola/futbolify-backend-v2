@@ -1,20 +1,24 @@
-import { Resolver, Query, Args } from '@nestjs/graphql';
+import { Resolver, Query, Args, Mutation } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ContentService } from './content.service';
+import { ContentClaimService } from './content-claim.service';
 import { GenerationService } from './generation.service';
-import { ContentSuggestionsResponse } from './dto/content-suggestion.output';
+import { ContentSuggestionsResponse, ContentSuggestion, ContentStatus } from './dto/content-suggestion.output';
 import { FetchContentInput } from './dto/fetch-content.input';
 import { BrandService } from './brand.service';
+import { UsersService } from '../users/users.service';
 
 @Resolver()
 @UseGuards(GqlAuthGuard)
 export class ContentResolver {
   constructor(
     private readonly contentService: ContentService,
+    private readonly contentClaimService: ContentClaimService,
     private readonly brandService: BrandService,
     private readonly generationService: GenerationService,
+    private readonly usersService: UsersService,
   ) {}
 
   /**
@@ -97,5 +101,131 @@ export class ContentResolver {
     }
 
     return response;
+  }
+
+  /**
+   * Claim a content suggestion for the current user
+   */
+  @Mutation(() => ContentSuggestion, { name: 'claimContent' })
+  async claimContent(
+    @CurrentUser() user: any,
+    @Args('contentId') contentId: string,
+    @Args('brandId') brandId: string,
+  ): Promise<ContentSuggestion> {
+    // Get user details for the claim
+    const userDetails = await this.usersService.findById(user.userId);
+    const userName = userDetails?.name || userDetails?.email || 'Unknown';
+
+    const claim = await this.contentClaimService.claimContent(
+      contentId,
+      brandId,
+      user.userId,
+      userName,
+      userDetails?.avatarUrl,
+    );
+
+    // Get the cached suggestion and merge with claim data
+    const suggestion = this.generationService.getSuggestion(contentId);
+
+    return {
+      id: contentId,
+      type: suggestion?.type || ('general' as any),
+      priority: suggestion?.priority || ('normal' as any),
+      title: suggestion?.title || '',
+      description: suggestion?.description || '',
+      source: suggestion?.source,
+      sourceUrl: suggestion?.sourceUrl,
+      imageUrl: suggestion?.imageUrl,
+      timestamp: suggestion?.timestamp || new Date(),
+      suggestedTemplates: suggestion?.suggestedTemplates || [],
+      status: claim.status,
+      claimedBy: claim.claimedBy ? {
+        id: claim.claimedBy,
+        name: claim.claimedByName,
+        avatar: claim.claimedByAvatar,
+      } : undefined,
+      claimedAt: claim.claimedAt,
+      seenBy: claim.seenBy,
+    };
+  }
+
+  /**
+   * Unclaim a content suggestion
+   */
+  @Mutation(() => ContentSuggestion, { name: 'unclaimContent' })
+  async unclaimContent(
+    @CurrentUser() user: any,
+    @Args('contentId') contentId: string,
+    @Args('brandId') brandId: string,
+  ): Promise<ContentSuggestion> {
+    const claim = await this.contentClaimService.unclaimContent(contentId, brandId, user.userId);
+    const suggestion = this.generationService.getSuggestion(contentId);
+
+    return {
+      id: contentId,
+      type: suggestion?.type || ('general' as any),
+      priority: suggestion?.priority || ('normal' as any),
+      title: suggestion?.title || '',
+      description: suggestion?.description || '',
+      timestamp: suggestion?.timestamp || new Date(),
+      suggestedTemplates: suggestion?.suggestedTemplates || [],
+      status: claim.status,
+      seenBy: claim.seenBy,
+    };
+  }
+
+  /**
+   * Mark content as done/completed
+   */
+  @Mutation(() => ContentSuggestion, { name: 'markContentDone' })
+  async markContentDone(
+    @CurrentUser() user: any,
+    @Args('contentId') contentId: string,
+    @Args('brandId') brandId: string,
+  ): Promise<ContentSuggestion> {
+    const claim = await this.contentClaimService.markContentDone(contentId, brandId, user.userId);
+    const suggestion = this.generationService.getSuggestion(contentId);
+
+    return {
+      id: contentId,
+      type: suggestion?.type || ('general' as any),
+      priority: suggestion?.priority || ('normal' as any),
+      title: suggestion?.title || '',
+      description: suggestion?.description || '',
+      timestamp: suggestion?.timestamp || new Date(),
+      suggestedTemplates: suggestion?.suggestedTemplates || [],
+      status: claim.status,
+      claimedBy: claim.claimedBy ? {
+        id: claim.claimedBy,
+        name: claim.claimedByName,
+        avatar: claim.claimedByAvatar,
+      } : undefined,
+      seenBy: claim.seenBy,
+    };
+  }
+
+  /**
+   * Mark content as seen by the current user
+   */
+  @Mutation(() => ContentSuggestion, { name: 'markContentSeen' })
+  async markContentSeen(
+    @CurrentUser() user: any,
+    @Args('contentId') contentId: string,
+    @Args('brandId') brandId: string,
+  ): Promise<ContentSuggestion> {
+    const claim = await this.contentClaimService.markContentSeen(contentId, brandId, user.userId);
+    const suggestion = this.generationService.getSuggestion(contentId);
+
+    return {
+      id: contentId,
+      type: suggestion?.type || ('general' as any),
+      priority: suggestion?.priority || ('normal' as any),
+      title: suggestion?.title || '',
+      description: suggestion?.description || '',
+      timestamp: suggestion?.timestamp || new Date(),
+      suggestedTemplates: suggestion?.suggestedTemplates || [],
+      status: claim.status,
+      seenBy: claim.seenBy,
+    };
   }
 }

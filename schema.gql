@@ -378,6 +378,12 @@ The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://
 """
 scalar JSON
 
+type ClaimedBy {
+  id: ID!
+  name: String!
+  avatar: String
+}
+
 type ContentSuggestion {
   id: ID!
   type: ContentType!
@@ -399,6 +405,10 @@ type ContentSuggestion {
   relevanceScore: Int
   isRelevant: Boolean
   wasProcessedByAI: Boolean
+  status: ContentStatus!
+  claimedBy: ClaimedBy
+  claimedAt: DateTime
+  seenBy: [String!]!
 }
 
 enum ContentType {
@@ -420,6 +430,55 @@ enum ContentPriority {
   HIGH
   NORMAL
   LOW
+}
+
+enum ContentStatus {
+  AVAILABLE
+  CLAIMED
+  IN_PROGRESS
+  DONE
+  DISMISSED
+}
+
+type NextMatchInfo {
+  opponent: String!
+  date: DateTime!
+  time: String!
+  competition: String!
+  isHome: Boolean!
+  hoursUntil: Int!
+}
+
+type LastMatchInfo {
+  opponent: String!
+  date: DateTime!
+  result: String!
+  competition: String!
+  wasHome: Boolean!
+  daysAgo: Int!
+}
+
+type LiveMatchInfo {
+  fixtureId: Int!
+  opponent: String!
+  date: DateTime!
+  time: String!
+  competition: String!
+  isHome: Boolean!
+  score: String!
+  minute: Int!
+  status: String!
+}
+
+type MatchContextOutput {
+  hasMatchToday: Boolean!
+  hasMatchTomorrow: Boolean!
+  isLive: Boolean!
+  liveMatch: LiveMatchInfo
+  nextMatch: NextMatchInfo
+  lastMatch: LastMatchInfo
+  isMatchday: Boolean!
+  matchdayPhase: String
 }
 
 type ContentMeta {
@@ -445,6 +504,7 @@ type ContentSuggestionsResponse {
   success: Boolean!
   content: [ContentSuggestion!]!
   meta: ContentMeta!
+  matchContext: MatchContextOutput
   error: String
 }
 
@@ -482,8 +542,10 @@ type Post {
   status: PostStatus!
   claimedBy: ID
   claimedAt: DateTime
+  downloadedAt: DateTime
   rejectionReason: String
   feedback: PostFeedback
+  templateData: JSON
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -497,6 +559,7 @@ enum PostStatus {
   PENDING
   CLAIMED
   READY
+  DOWNLOADED
   PUBLISHED
   REJECTED
 }
@@ -560,6 +623,96 @@ type BrandInvitationInfo {
   status: InvitationStatus!
   expiresAt: DateTime!
   createdAt: DateTime!
+}
+
+type MatchTeam {
+  id: Int!
+  name: String!
+  logo: String
+  goals: Int
+  winner: Boolean
+}
+
+type MatchEvent {
+  minute: Int!
+  extraMinute: Int
+  type: String!
+  detail: String
+  playerName: String
+  playerPhoto: String
+  assistName: String
+  teamName: String!
+  teamLogo: String
+  comments: String
+}
+
+type MatchStatistic {
+  type: String!
+  home: String
+  away: String
+}
+
+type MatchLineupPlayer {
+  id: Int!
+  name: String!
+  number: Int!
+  pos: String
+  grid: String
+  photo: String
+}
+
+type MatchLineup {
+  teamName: String!
+  teamLogo: String
+  formation: String
+  startXI: [MatchLineupPlayer!]!
+  substitutes: [MatchLineupPlayer!]!
+  coach: String
+}
+
+type LiveMatchData {
+  fixtureId: Int!
+  date: DateTime!
+  status: String!
+  statusLong: String!
+  elapsed: Int
+  venue: String
+  referee: String
+  league: String!
+  leagueLogo: String
+  round: String
+  homeTeam: MatchTeam!
+  awayTeam: MatchTeam!
+  events: [MatchEvent!]!
+  statistics: [MatchStatistic!]!
+  lineups: [MatchLineup!]!
+  halftimeHome: Int
+  halftimeAway: Int
+  fulltimeHome: Int
+  fulltimeAway: Int
+}
+
+type LiveMatchResponse {
+  success: Boolean!
+  match: LiveMatchData
+  error: String
+  cachedAt: DateTime!
+  cacheExpiresIn: Int!
+}
+
+type ViralContentOption {
+  angle: String!
+  emoji: String!
+  content: String!
+  hashtags: [String!]!
+}
+
+type ViralContentResponse {
+  success: Boolean!
+  eventSummary: String
+  options: [ViralContentOption!]
+  generatedAt: DateTime
+  error: String
 }
 
 type Stream {
@@ -729,6 +882,9 @@ type Query {
   pendingPosts(brandId: ID!): [Post!]!
   brandPosts(brandId: ID!, filter: PostFilterInput): [Post!]!
   myClaimedPosts: [Post!]!
+  myDownloadedPosts: [Post!]!
+  liveMatch(fixtureId: Int!): LiveMatchResponse!
+  liveFixtureId(teamApiId: Int!): Int
   stream(id: ID!): Stream!
   streams(status: StreamStatus): [Stream!]!
   liveStreams: [Stream!]!
@@ -759,6 +915,9 @@ input FetchContentInput {
   sourceLanguages: [String!] = ["es", "en"]
   limit: Int = 25
   brandId: String
+
+  """Enable AI-powered content analysis (Cerebro Futbolero)"""
+  useAI: Boolean = true
 }
 
 input PostFilterInput {
@@ -816,6 +975,10 @@ type Mutation {
   updateTemplate(input: UpdateTemplateInput!): Template!
   duplicateTemplate(templateId: ID!, newName: String): Template!
   deleteTemplate(id: ID!): Boolean!
+  claimContent(contentId: String!, brandId: String!): ContentSuggestion!
+  unclaimContent(contentId: String!, brandId: String!): ContentSuggestion!
+  markContentDone(contentId: String!, brandId: String!): ContentSuggestion!
+  markContentSeen(contentId: String!, brandId: String!): ContentSuggestion!
   inviteToBrand(input: InviteToBrandInput!): BrandInvitationResult!
   joinBrand(input: JoinBrandInput!): Brand!
   updateBrandMemberRole(input: UpdateBrandMemberRoleInput!): BrandMemberWithUser!
@@ -827,9 +990,12 @@ type Mutation {
   releasePost(id: ID!): Post!
   updatePostContent(input: UpdatePostContentInput!): Post!
   markPostReady(id: ID!): Post!
+  markPostDownloaded(id: ID!): Post!
   markPostPublished(id: ID!): Post!
   rejectPost(input: RejectPostInput!): Post!
   submitPostFeedback(input: SubmitFeedbackInput!): Post!
+  savePostTemplate(input: SavePostTemplateInput!): Post!
+  generateViralContent(input: GenerateViralContentInput!): ViralContentResponse!
   createStream(input: CreateStreamInput!): Stream!
   updateStream(id: ID!, input: UpdateStreamInput!): Stream!
   startStream(id: ID!): Stream!
@@ -1055,6 +1221,51 @@ input SubmitFeedbackInput {
   postId: ID!
   rating: Int!
   notes: String
+}
+
+input SavePostTemplateInput {
+  postId: ID!
+  templateData: JSON!
+}
+
+input GenerateViralContentInput {
+  eventType: MatchEventType!
+  minute: Int!
+  playerName: String
+  assistName: String
+  detail: String
+  homeTeam: String!
+  awayTeam: String!
+  homeScore: Int!
+  awayScore: Int!
+  competition: String!
+  round: String
+  venue: String
+  isHome: Boolean!
+  ourTeam: String!
+  possession: PossessionInput
+  shots: ShotsInput
+  shotsOnTarget: ShotsInput
+}
+
+enum MatchEventType {
+  GOAL
+  CARD
+  SUBSTITUTION
+  VAR
+  HALFTIME
+  FULLTIME
+  KICKOFF
+}
+
+input PossessionInput {
+  home: Int!
+  away: Int!
+}
+
+input ShotsInput {
+  home: Int!
+  away: Int!
 }
 
 input CreateStreamInput {
