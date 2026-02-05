@@ -209,6 +209,7 @@ export class TemplateService {
 
   /**
    * Duplicate a template
+   * Preserves the type of the original (design or template)
    */
   async duplicate(userId: string, templateId: string, newName?: string): Promise<Template> {
     const original = await this.findOne(templateId, userId);
@@ -227,6 +228,8 @@ export class TemplateService {
       tags: original.tags,
       isPublished: false, // Duplicated templates are private by default
       isPreset: false,
+      type: original.type, // Preserve the type (design or template)
+      presetCategory: original.presetCategory,
     });
 
     return duplicated.save();
