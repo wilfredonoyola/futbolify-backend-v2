@@ -1,42 +1,42 @@
 ---
 name: My Designs Feature
-overview: Implementar "Mis Disenos" con campo `type` en Template, migrar 140 presets al backend, permitir publicar disenos como templates publicos con thumbnail automatico via Bunny CDN.
+overview: Implementar "Mis Disenos" y "Mis Templates" con dos acciones - guardar como template privado o publicar para comunidad, con thumbnail automatico via Bunny CDN.
 todos:
   - id: backend-schema
-    content: Agregar campos `type`, `postId`, y `presetCategory` al Template schema en futbolify-backend-v2
+    content: Agregar campos `type`, `postId`, `presetCategory` al Template schema
     status: pending
   - id: backend-service
-    content: Agregar metodos findUserDesigns, findPresetsByCategory, findPublishedTemplates y publishAsTemplate
+    content: Agregar metodos findUserDesigns, findMyTemplates, findCommunityTemplates, saveAsMyTemplate, publishToCommunity
     status: pending
   - id: backend-resolver
-    content: Agregar queries myDesigns, presetTemplates, publishedTemplates y mutation publishAsTemplate
+    content: Agregar queries myDesigns, myTemplates, presetTemplates, communityTemplates y mutations saveAsMyTemplate, publishToCommunity
     status: pending
   - id: backend-thumbnail-endpoint
-    content: Crear endpoint /direct-upload/template-thumbnail/init y /complete para subir thumbnails a Bunny
+    content: Crear endpoint /direct-upload/template-thumbnail para subir thumbnails a Bunny
     status: pending
   - id: seed-script
     content: Exportar 140 presets de FE a JSON y crear seed script en BE
     status: pending
   - id: graphql-schema
-    content: Crear template.graphql con todas las queries y mutations
+    content: Crear template.graphql con queries y mutations actualizadas
     status: pending
   - id: designs-page
-    content: Crear pagina /creator/designs con grid, filtros y acciones
+    content: Crear pagina /creator/designs con tabs Disenos y Templates, grid y acciones
     status: pending
-  - id: templates-page
-    content: Actualizar selector de plantillas para cargar desde backend
+  - id: templates-selector
+    content: Actualizar selector de plantillas con tabs Sistema, Comunidad, Mis Templates
     status: pending
   - id: navigation
-    content: Agregar link Mis Disenos en navegacion del creator (layout.tsx)
+    content: Agregar link Mis Disenos en navegacion del creator
     status: pending
   - id: editor-save-logic
-    content: Actualizar TemplateEditor para guardar como Design cuando no es Post
+    content: Actualizar TemplateEditor para auto-guardar como Design
     status: pending
   - id: autosave-hook
-    content: Extender useAutoSaveTemplate para soportar designId ademas de postId
+    content: Extender useAutoSaveTemplate con auto-save silencioso al salir
     status: pending
-  - id: publish-feature
-    content: Crear PublishTemplateDialog con captura canvas y upload a Bunny
+  - id: save-template-dialog
+    content: Crear dialogo con dos opciones - Guardar como Mi Template o Publicar para Comunidad
     status: pending
 isProject: false
 ---
@@ -52,56 +52,72 @@ isProject: false
 
 ## Arquitectura
 
-El enfoque simplificado usa la entidad Template con 3 niveles de visibilidad:
+El enfoque usa la entidad Template con 4 niveles:
 
 ```mermaid
 flowchart TD
     subgraph Levels [Niveles de Template]
         SystemPresets["Sistema (isPreset=true)<br/>140 presets migrados"]
-        UserPublished["Publicados (isPublished=true)<br/>Templates de usuarios"]
-        UserPrivate["Privados (type='design')<br/>Disenos del usuario"]
+        CommunityTemplates["Comunidad (isPublished=true)<br/>Templates publicos de usuarios"]
+        MyTemplates["Mis Templates (type=template, isPublished=false)<br/>Templates privados reutilizables"]
+        MyDesigns["Mis Disenos (type=design)<br/>Trabajos en progreso"]
     end
     
-    subgraph Visibility [Visibilidad en Galeria]
-        PublicGallery["Galeria Publica<br/>Sistema + Publicados"]
-        PrivateGallery["Mis Disenos<br/>Solo propios"]
+    subgraph GaleriaSelector [Selector de Plantillas]
+        TabSystem["Tab: Sistema"]
+        TabCommunity["Tab: Comunidad"]
+        TabMine["Tab: Mis Templates"]
     end
     
-    subgraph Actions [Acciones]
-        Create[Crear Diseno]
-        Publish[Publicar como Template]
-        Capture[Captura Thumbnail]
+    subgraph Actions [Acciones desde Diseno]
+        SaveAsTemplate["Guardar como Mi Template"]
+        PublishCommunity["Publicar para Comunidad"]
     end
     
-    SystemPresets --> PublicGallery
-    UserPublished --> PublicGallery
-    UserPrivate --> PrivateGallery
+    SystemPresets --> TabSystem
+    CommunityTemplates --> TabCommunity
+    MyTemplates --> TabMine
     
-    Create --> UserPrivate
-    UserPrivate --> |"Publicar"| Publish
-    Publish --> Capture
-    Capture --> UserPublished
+    MyDesigns --> SaveAsTemplate
+    MyDesigns --> PublishCommunity
+    SaveAsTemplate --> MyTemplates
+    PublishCommunity --> CommunityTemplates
 ```
-
-
 
 **Tipos de Template:**
 
+| isPreset | isPublished | type | Quien ve | Descripcion |
+|----------|-------------|------|----------|-------------|
+| true | - | template | Todos | Preset del sistema (140) |
+| false | true | template | Todos | Template comunidad (publico) |
+| false | false | template | Solo creador | Mi Template (privado reutilizable) |
+| false | false | design | Solo creador | Mi Diseno (trabajo en progreso) |
 
-| isPreset | isPublished | type     | Quien ve     | Descripcion                    |
-| -------- | ----------- | -------- | ------------ | ------------------------------ |
-| true     | -           | template | Todos        | Preset del sistema (140)       |
-| false    | true        | template | Todos        | Template publicado por usuario |
-| false    | false       | design   | Solo creador | Diseno privado del usuario     |
+**Dos acciones al guardar un diseno:**
 
+1. **"Guardar como Mi Template"** → `type: 'template', isPublished: false`
+   - Solo yo lo veo en "Mis Templates"
+   - Puedo reutilizarlo en futuros disenos
+   
+2. **"Publicar para Comunidad"** → `type: 'template', isPublished: true`
+   - Todos los usuarios lo ven en "Comunidad"
+   - Genera thumbnail automatico
 
-**Flujo de Publicacion:**
+**Flujos:**
 
-1. Usuario crea diseno (privado)
-2. Click "Publicar como Template"
-3. Se captura thumbnail del canvas automaticamente
-4. Se sube imagen y se marca `isPublished: true`
-5. Aparece en galeria publica
+**A) Guardar como Mi Template (privado):**
+1. Usuario tiene un diseno (type='design')
+2. Click "Guardar como Mi Template"
+3. Se captura thumbnail automaticamente
+4. Se cambia `type: 'template'`, `isPublished: false`
+5. Aparece en "Mis Templates" (solo yo)
+
+**B) Publicar para Comunidad (publico):**
+1. Usuario tiene un diseno o template privado
+2. Click "Publicar para Comunidad"
+3. Se captura thumbnail automaticamente
+4. Se marca `isPublished: true`
+5. Aparece en "Comunidad" (todos ven)
 
 ## Cambios en Backend
 
@@ -132,7 +148,7 @@ presetCategory?: string; // Para templates preset: 'transfer', 'matchday', etc.
 Agregar metodos:
 
 ```typescript
-// Obtener disenos del usuario (privados)
+// Obtener MIS DISENOS (trabajos en progreso)
 async findUserDesigns(userId: string): Promise<Template[]> {
   return this.templateModel
     .find({ userId, type: 'design' })
@@ -140,22 +156,30 @@ async findUserDesigns(userId: string): Promise<Template[]> {
     .exec();
 }
 
-// Obtener presets del sistema por categoria
+// Obtener MIS TEMPLATES (privados reutilizables)
+async findMyTemplates(userId: string): Promise<Template[]> {
+  return this.templateModel
+    .find({ userId, type: 'template', isPublished: false, isPreset: false })
+    .sort({ updatedAt: -1 })
+    .exec();
+}
+
+// Obtener PRESETS del sistema por categoria
 async findPresetsByCategory(category?: string): Promise<Template[]> {
   const query: any = { isPreset: true };
   if (category) query.presetCategory = category;
   return this.templateModel.find(query).sort({ name: 1 }).exec();
 }
 
-// Obtener templates publicados por usuarios (galeria publica)
-async findPublishedTemplates(category?: string): Promise<Template[]> {
+// Obtener TEMPLATES COMUNIDAD (publicados por usuarios)
+async findCommunityTemplates(category?: string): Promise<Template[]> {
   const query: any = { isPublished: true, isPreset: false };
   if (category) query.category = category;
   return this.templateModel.find(query).sort({ createdAt: -1 }).exec();
 }
 
-// Publicar diseno como template
-async publishAsTemplate(
+// Guardar como MI TEMPLATE (privado)
+async saveAsMyTemplate(
   designId: string, 
   userId: string, 
   thumbnailUrl: string
@@ -163,10 +187,25 @@ async publishAsTemplate(
   const design = await this.templateModel.findOne({ _id: designId, userId });
   if (!design) throw new Error('Design not found');
   
-  design.isPublished = true;
   design.type = 'template';
+  design.isPublished = false; // Privado
   design.thumbnail = thumbnailUrl;
   return design.save();
+}
+
+// Publicar para COMUNIDAD (publico)
+async publishToCommunity(
+  templateId: string, 
+  userId: string, 
+  thumbnailUrl: string
+): Promise<Template> {
+  const template = await this.templateModel.findOne({ _id: templateId, userId });
+  if (!template) throw new Error('Template not found');
+  
+  template.type = 'template';
+  template.isPublished = true; // Publico
+  template.thumbnail = thumbnailUrl;
+  return template.save();
 }
 ```
 
@@ -174,21 +213,55 @@ async publishAsTemplate(
 
 **Archivo:** `futbolify-backend-v2/src/creator/template.resolver.ts`
 
-Agregar queries y mutation:
+Agregar queries y mutations:
 
 ```typescript
-// Mis disenos privados
+// MIS DISENOS (trabajos en progreso)
 @Query(() => [Template])
 async myDesigns(@CurrentUser() user: any): Promise<Template[]> {
   return this.templateService.findUserDesigns(user.userId);
 }
 
-// Presets del sistema
+// MIS TEMPLATES (privados reutilizables)
+@Query(() => [Template])
+async myTemplates(@CurrentUser() user: any): Promise<Template[]> {
+  return this.templateService.findMyTemplates(user.userId);
+}
+
+// PRESETS del sistema
 @Query(() => [Template])
 async presetTemplates(
   @Args('category', { nullable: true }) category?: string
 ): Promise<Template[]> {
   return this.templateService.findPresetsByCategory(category);
+}
+
+// TEMPLATES COMUNIDAD
+@Query(() => [Template])
+async communityTemplates(
+  @Args('category', { nullable: true }) category?: string
+): Promise<Template[]> {
+  return this.templateService.findCommunityTemplates(category);
+}
+
+// Guardar como MI TEMPLATE
+@Mutation(() => Template)
+async saveAsMyTemplate(
+  @CurrentUser() user: any,
+  @Args('designId') designId: string,
+  @Args('thumbnailUrl') thumbnailUrl: string
+): Promise<Template> {
+  return this.templateService.saveAsMyTemplate(designId, user.userId, thumbnailUrl);
+}
+
+// Publicar para COMUNIDAD
+@Mutation(() => Template)
+async publishToCommunity(
+  @CurrentUser() user: any,
+  @Args('templateId') templateId: string,
+  @Args('thumbnailUrl') thumbnailUrl: string
+): Promise<Template> {
+  return this.templateService.publishToCommunity(templateId, user.userId, thumbnailUrl);
 }
 
 // Templates publicados por usuarios
