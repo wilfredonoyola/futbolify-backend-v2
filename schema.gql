@@ -17,6 +17,9 @@ type User {
   googleId: String
   authProvider: String
   activeBrandId: ID
+  plan: String
+  streamsThisMonth: Int!
+  stripeCustomerId: String
 }
 
 """
@@ -366,6 +369,10 @@ type Template {
   isPublished: Boolean!
   isPreset: Boolean!
   presetId: String
+  type: String!
+  postId: ID
+  presetCategory: String
+  imageAssets: [String!]
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -374,6 +381,12 @@ type Template {
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
 scalar JSON
+
+type ClaimedBy {
+  id: ID!
+  name: String!
+  avatar: String
+}
 
 type ContentSuggestion {
   id: ID!
@@ -396,6 +409,10 @@ type ContentSuggestion {
   relevanceScore: Int
   isRelevant: Boolean
   wasProcessedByAI: Boolean
+  status: ContentStatus!
+  claimedBy: ClaimedBy
+  claimedAt: DateTime
+  seenBy: [String!]!
 }
 
 enum ContentType {
@@ -417,6 +434,55 @@ enum ContentPriority {
   HIGH
   NORMAL
   LOW
+}
+
+enum ContentStatus {
+  AVAILABLE
+  CLAIMED
+  IN_PROGRESS
+  DONE
+  DISMISSED
+}
+
+type NextMatchInfo {
+  opponent: String!
+  date: DateTime!
+  time: String!
+  competition: String!
+  isHome: Boolean!
+  hoursUntil: Int!
+}
+
+type LastMatchInfo {
+  opponent: String!
+  date: DateTime!
+  result: String!
+  competition: String!
+  wasHome: Boolean!
+  daysAgo: Int!
+}
+
+type LiveMatchInfo {
+  fixtureId: Int!
+  opponent: String!
+  date: DateTime!
+  time: String!
+  competition: String!
+  isHome: Boolean!
+  score: String!
+  minute: Int!
+  status: String!
+}
+
+type MatchContextOutput {
+  hasMatchToday: Boolean!
+  hasMatchTomorrow: Boolean!
+  isLive: Boolean!
+  liveMatch: LiveMatchInfo
+  nextMatch: NextMatchInfo
+  lastMatch: LastMatchInfo
+  isMatchday: Boolean!
+  matchdayPhase: String
 }
 
 type ContentMeta {
@@ -442,7 +508,70 @@ type ContentSuggestionsResponse {
   success: Boolean!
   content: [ContentSuggestion!]!
   meta: ContentMeta!
+  matchContext: MatchContextOutput
   error: String
+}
+
+type SourceContent {
+  title: String!
+  description: String!
+  sourceUrl: String!
+  sourceName: String!
+  imageUrl: String
+}
+
+type GenerationMetadata {
+  model: String!
+  promptVersion: String!
+  tokensUsed: Int!
+  generatedAt: DateTime!
+}
+
+type PostFeedback {
+  rating: Int!
+  notes: String
+}
+
+type Post {
+  id: ID!
+  origin: PostOrigin!
+  brandId: ID!
+  contentSuggestionId: String
+  contentType: ContentType!
+  priority: ContentPriority!
+  sourceContent: SourceContent!
+  generatedText: String!
+  finalText: String
+  generation: GenerationMetadata!
+  status: PostStatus!
+  claimedBy: ID
+  claimedAt: DateTime
+  downloadedAt: DateTime
+  rejectionReason: String
+  feedback: PostFeedback
+  templateData: JSON
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum PostOrigin {
+  REACTIVE
+  PROACTIVE
+}
+
+enum PostStatus {
+  PENDING
+  CLAIMED
+  READY
+  DOWNLOADED
+  PUBLISHED
+  REJECTED
+}
+
+type ThumbnailUploadResult {
+  url: String!
+  cdnUrl: String!
+  path: String!
 }
 
 type BrandMemberUser {
@@ -506,6 +635,218 @@ type BrandInvitationInfo {
   createdAt: DateTime!
 }
 
+type MatchTeam {
+  id: Int!
+  name: String!
+  logo: String
+  goals: Int
+  winner: Boolean
+}
+
+type MatchEvent {
+  minute: Int!
+  extraMinute: Int
+  type: String!
+  detail: String
+  playerName: String
+  playerPhoto: String
+  assistName: String
+  teamName: String!
+  teamLogo: String
+  comments: String
+}
+
+type MatchStatistic {
+  type: String!
+  home: String
+  away: String
+}
+
+type MatchLineupPlayer {
+  id: Int!
+  name: String!
+  number: Int!
+  pos: String
+  grid: String
+  photo: String
+}
+
+type MatchLineup {
+  teamName: String!
+  teamLogo: String
+  formation: String
+  startXI: [MatchLineupPlayer!]!
+  substitutes: [MatchLineupPlayer!]!
+  coach: String
+}
+
+type LiveMatchData {
+  fixtureId: Int!
+  date: DateTime!
+  status: String!
+  statusLong: String!
+  elapsed: Int
+  venue: String
+  referee: String
+  league: String!
+  leagueLogo: String
+  round: String
+  homeTeam: MatchTeam!
+  awayTeam: MatchTeam!
+  events: [MatchEvent!]!
+  statistics: [MatchStatistic!]!
+  lineups: [MatchLineup!]!
+  halftimeHome: Int
+  halftimeAway: Int
+  fulltimeHome: Int
+  fulltimeAway: Int
+}
+
+type LiveMatchResponse {
+  success: Boolean!
+  match: LiveMatchData
+  error: String
+  cachedAt: DateTime!
+  cacheExpiresIn: Int!
+}
+
+type ViralContentOption {
+  angle: String!
+  emoji: String!
+  content: String!
+  hashtags: [String!]!
+}
+
+type ViralContentResponse {
+  success: Boolean!
+  eventSummary: String
+  options: [ViralContentOption!]
+  generatedAt: DateTime
+  error: String
+}
+
+type Stream {
+  id: ID!
+  title: String!
+  description: String
+  sport: StreamSport!
+  status: StreamStatus!
+  userId: ID!
+  rtmpUrl: String
+  hlsUrl: String
+  viewerCount: Int!
+  homeTeam: String
+  awayTeam: String
+  homeScore: Int!
+  awayScore: Int!
+  thumbnailUrl: String
+  startedAt: DateTime
+  endedAt: DateTime
+  scheduledAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""The sport type for a stream"""
+enum StreamSport {
+  SOCCER
+  BASKETBALL
+  TENNIS
+  BASEBALL
+  HOCKEY
+  FOOTBALL
+  OTHER
+}
+
+"""The status of a stream"""
+enum StreamStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+}
+
+type Message {
+  id: ID!
+  streamId: ID!
+  userId: ID!
+  userName: String!
+  content: String!
+  type: MessageType!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""The type of chat message"""
+enum MessageType {
+  TEXT
+  EMOJI
+  SYSTEM
+}
+
+type UserSubscription {
+  id: ID!
+  userId: ID!
+  plan: SubscriptionPlan!
+  status: SubscriptionStatus!
+  stripeCustomerId: String
+  stripeSubscriptionId: String
+  currentPeriodEnd: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Subscription plan types"""
+enum SubscriptionPlan {
+  FREE
+  PRO
+  PREMIUM
+}
+
+"""Subscription status types"""
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+type StreamAnalytics {
+  id: ID!
+  streamId: ID!
+  peakViewers: Int!
+  totalViews: Int!
+  uniqueViewers: Int!
+  totalMessages: Int!
+  durationSeconds: Int!
+  uniqueViewerIds: [String!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ViewerCountUpdate {
+  streamId: ID!
+  viewerCount: Int!
+}
+
+type ScoreUpdate {
+  streamId: ID!
+  homeScore: Int!
+  awayScore: Int!
+  homeTeam: String
+  awayTeam: String
+}
+
+type StreamStatusUpdate {
+  streamId: ID!
+  status: StreamStatus!
+  startedAt: DateTime
+  endedAt: DateTime
+}
+
+type CheckoutSessionOutput {
+  url: String!
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
@@ -541,12 +882,31 @@ type Query {
   template(id: ID!): Template!
   templateByPresetId(presetId: String!): Template
   searchTemplates(query: String!): [Template!]!
+  myDesigns: [Template!]!
+  myPrivateTemplates: [Template!]!
+  presetsByCategory(category: String): [Template!]!
+  communityTemplates(category: String): [Template!]!
+  publishedTemplates(category: String): [Template!]!
   contentSuggestions(input: FetchContentInput!): ContentSuggestionsResponse!
   activeBrandContent(limit: Float = 25): ContentSuggestionsResponse!
   brandMembers(brandId: ID!): [BrandMemberWithUser!]!
   brandInvitations(brandId: ID!): [BrandInvitationInfo!]!
   brandByInviteCode(code: String!): BrandPublicInfo!
   myBrandRole(brandId: ID!): BrandMemberRole
+  post(id: ID!): Post!
+  pendingPosts(brandId: ID!): [Post!]!
+  brandPosts(brandId: ID!, filter: PostFilterInput): [Post!]!
+  myClaimedPosts: [Post!]!
+  myDownloadedPosts: [Post!]!
+  liveMatch(fixtureId: Int!): LiveMatchResponse!
+  liveFixtureId(teamApiId: Int!): Int
+  stream(id: ID!): Stream!
+  streams(status: StreamStatus): [Stream!]!
+  liveStreams: [Stream!]!
+  myStreams: [Stream!]!
+  streamAnalytics(streamId: ID!): StreamAnalytics
+  messages(streamId: ID!, limit: Int = 50, offset: Int = 0): [Message!]!
+  mySubscription: UserSubscription
 }
 
 input LateMatchOptionsDto {
@@ -570,6 +930,16 @@ input FetchContentInput {
   sourceLanguages: [String!] = ["es", "en"]
   limit: Int = 25
   brandId: String
+
+  """Enable AI-powered content analysis (Cerebro Futbolero)"""
+  useAI: Boolean = true
+}
+
+input PostFilterInput {
+  brandId: ID
+  status: PostStatus
+  limit: Int = 50
+  offset: Int = 0
 }
 
 type Mutation {
@@ -620,12 +990,46 @@ type Mutation {
   updateTemplate(input: UpdateTemplateInput!): Template!
   duplicateTemplate(templateId: ID!, newName: String): Template!
   deleteTemplate(id: ID!): Boolean!
+  saveAsMyTemplate(designId: ID!, thumbnailUrl: String!): Template!
+  publishAsTemplate(designId: ID!, thumbnailUrl: String!): Template!
+  unpublishTemplate(templateId: ID!): Template!
+  uploadTemplateThumbnail(base64Data: String!, templateId: ID!, format: String = "png"): ThumbnailUploadResult!
+  uploadTemplateImage(base64Data: String!, templateId: ID!, imageId: String!, format: String = "jpg"): ThumbnailUploadResult!
+  deleteTemplateImage(path: String!, templateId: ID!): Boolean!
+  deleteTemplateImages(paths: [String!]!, templateId: ID!): Int!
+  claimContent(contentId: String!, brandId: String!): ContentSuggestion!
+  unclaimContent(contentId: String!, brandId: String!): ContentSuggestion!
+  markContentDone(contentId: String!, brandId: String!): ContentSuggestion!
+  markContentSeen(contentId: String!, brandId: String!): ContentSuggestion!
   inviteToBrand(input: InviteToBrandInput!): BrandInvitationResult!
   joinBrand(input: JoinBrandInput!): Brand!
   updateBrandMemberRole(input: UpdateBrandMemberRoleInput!): BrandMemberWithUser!
   removeBrandMember(brandId: ID!, userId: ID!): Boolean!
   leaveBrand(brandId: ID!): Boolean!
   revokeBrandInvitation(invitationId: ID!): Boolean!
+  generatePost(input: GeneratePostInput!): Post!
+  claimPost(id: ID!): Post!
+  releasePost(id: ID!): Post!
+  updatePostContent(input: UpdatePostContentInput!): Post!
+  markPostReady(id: ID!): Post!
+  markPostDownloaded(id: ID!): Post!
+  markPostPublished(id: ID!): Post!
+  rejectPost(input: RejectPostInput!): Post!
+  submitPostFeedback(input: SubmitFeedbackInput!): Post!
+  savePostTemplate(input: SavePostTemplateInput!): Post!
+  generateViralContent(input: GenerateViralContentInput!): ViralContentResponse!
+  createStream(input: CreateStreamInput!): Stream!
+  updateStream(id: ID!, input: UpdateStreamInput!): Stream!
+  startStream(id: ID!): Stream!
+  endStream(id: ID!): Stream!
+  updateScore(input: UpdateScoreInput!): Stream!
+  deleteStream(id: ID!): Boolean!
+  joinStream(streamId: ID!): Stream!
+  leaveStream(streamId: ID!): Stream!
+  regenerateStreamKey: String!
+  sendMessage(input: SendMessageInput!): Message!
+  createCheckoutSession: CheckoutSessionOutput!
+  cancelSubscription: UserSubscription!
 }
 
 input SigninInputDto {
@@ -788,6 +1192,7 @@ input CreateTemplateInput {
   tags: [String!]
   isPublished: Boolean = false
   presetId: String
+  type: String = "template"
 }
 
 input UpdateTemplateInput {
@@ -818,4 +1223,109 @@ input UpdateBrandMemberRoleInput {
   brandId: ID!
   userId: ID!
   role: BrandMemberRole!
+}
+
+input GeneratePostInput {
+  suggestionId: String!
+  brandId: ID!
+}
+
+input UpdatePostContentInput {
+  postId: ID!
+  finalText: String!
+}
+
+input RejectPostInput {
+  postId: ID!
+  reason: String
+}
+
+input SubmitFeedbackInput {
+  postId: ID!
+  rating: Int!
+  notes: String
+}
+
+input SavePostTemplateInput {
+  postId: ID!
+  templateData: JSON!
+}
+
+input GenerateViralContentInput {
+  eventType: MatchEventType!
+  minute: Int!
+  playerName: String
+  assistName: String
+  detail: String
+  homeTeam: String!
+  awayTeam: String!
+  homeScore: Int!
+  awayScore: Int!
+  competition: String!
+  round: String
+  venue: String
+  isHome: Boolean!
+  ourTeam: String!
+  possession: PossessionInput
+  shots: ShotsInput
+  shotsOnTarget: ShotsInput
+}
+
+enum MatchEventType {
+  GOAL
+  CARD
+  SUBSTITUTION
+  VAR
+  HALFTIME
+  FULLTIME
+  KICKOFF
+}
+
+input PossessionInput {
+  home: Int!
+  away: Int!
+}
+
+input ShotsInput {
+  home: Int!
+  away: Int!
+}
+
+input CreateStreamInput {
+  title: String!
+  description: String
+  sport: StreamSport = SOCCER
+  homeTeam: String
+  awayTeam: String
+  thumbnailUrl: String
+  scheduledAt: DateTime
+}
+
+input UpdateStreamInput {
+  title: String
+  description: String
+  sport: StreamSport
+  homeTeam: String
+  awayTeam: String
+  thumbnailUrl: String
+  scheduledAt: DateTime
+}
+
+input UpdateScoreInput {
+  streamId: ID!
+  homeScore: Int!
+  awayScore: Int!
+}
+
+input SendMessageInput {
+  streamId: ID!
+  content: String!
+  type: MessageType = TEXT
+}
+
+type Subscription {
+  viewerCountUpdated(streamId: ID!): ViewerCountUpdate!
+  scoreUpdated(streamId: ID!): ScoreUpdate!
+  streamStatusChanged(streamId: ID!): StreamStatusUpdate!
+  messageAdded(streamId: ID!): Message!
 }

@@ -36,6 +36,7 @@
     "@nestjs/mongoose": "^10.0.10",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.3.10",
+    "@nestjs/websockets": "^11.1.12",
     "@types/graphql-upload": "^17.0.0",
     "@types/passport-local": "^1.0.38",
     "axios": "^1.7.9",
@@ -52,6 +53,7 @@
     "graphql-subscriptions": "2.0.0",
     "graphql-type-json": "^0.3.2",
     "graphql-upload": "^17.0.0",
+    "graphql-ws": "^6.0.7",
     "moment": "^2.30.1",
     "mongoose": "^8.5.2",
     "openai": "^4.96.0",
@@ -62,7 +64,8 @@
     "rimraf": "^3.0.2",
     "rxjs": "^7",
     "ts-morph": "^21.0.0",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.0",

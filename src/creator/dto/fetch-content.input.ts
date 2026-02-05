@@ -1,6 +1,5 @@
 import { InputType, Field, Int } from '@nestjs/graphql';
-import { IsString, IsOptional, IsArray, IsInt, Min, Max } from 'class-validator';
-import { PageType } from './content-suggestion.output';
+import { IsString, IsOptional, IsArray, IsInt, Min, Max, IsBoolean } from 'class-validator';
 
 @InputType()
 export class FetchContentInput {
@@ -40,4 +39,9 @@ export class FetchContentInput {
   @IsString()
   @IsOptional()
   brandId?: string;
+
+  @Field({ nullable: true, defaultValue: true, description: 'Enable AI-powered content analysis (Cerebro Futbolero)' })
+  @IsBoolean()
+  @IsOptional()
+  useAI?: boolean;
 }

@@ -6,8 +6,11 @@ import {
   ContentMeta,
   ContentType,
   ContentPriority,
+  ContentStatus,
   PageType,
+  MatchContextOutput,
 } from './dto/content-suggestion.output';
+import { MatchContextService } from './match-context.service';
 import { FetchContentInput } from './dto/fetch-content.input';
 
 // ============================================================================
@@ -479,8 +482,24 @@ const TYPE_TO_TEMPLATES: Record<ContentType, string[]> = {
 @Injectable()
 export class ContentService {
   private readonly logger = new Logger(ContentService.name);
+  private contentAnalyzer: any; // Injected lazily to avoid circular dependency
+  private matchContextService: MatchContextService | null = null;
 
   constructor(private readonly configService: ConfigService) {}
+
+  /**
+   * Set the content analyzer service (called from module)
+   */
+  setContentAnalyzer(analyzer: any): void {
+    this.contentAnalyzer = analyzer;
+  }
+
+  /**
+   * Set the match context service (called from module)
+   */
+  setMatchContextService(service: MatchContextService): void {
+    this.matchContextService = service;
+  }
 
   // --------------------------------------------------------------------------
   // Main fetch method
@@ -494,6 +513,7 @@ export class ContentService {
       leagueId,
       sourceLanguages = ['es', 'en'],
       limit = 25,
+      useAI = true, // Enable AI by default
     } = input;
 
     try {
@@ -534,16 +554,78 @@ export class ContentService {
           return this.errorResponse(`Unknown page type: ${pageType}`, PageType.SINGLE_TEAM);
       }
 
-      // Process content
+      // Process content (basic filtering and classification)
       const contextTeamId = teamId || teamIds[0] || '';
       const processedContent = this.processContent(rawContent, contextTeamId, teamKeywords);
 
       // Convert to ContentSuggestion format
-      const suggestions = processedContent.slice(0, limit).map(item => this.toContentSuggestion(item));
+      let suggestions = processedContent.slice(0, limit).map(item => this.toContentSuggestion(item));
+
+      // 🧠 CEREBRO FUTBOLERO: AI-powered content analysis
+      if (useAI && this.contentAnalyzer && suggestions.length > 0) {
+        this.logger.log(`🧠 Cerebro Futbolero: Analyzing ${suggestions.length} content items with AI...`);
+        const teamContext = this.getTeamDisplayName(contextTeamId);
+
+        try {
+          // Enrich with AI analysis (includes match context if available)
+          suggestions = await this.contentAnalyzer.enrichSuggestions(suggestions, teamContext, contextTeamId);
+          // Filter and sort by relevance/viral potential
+          suggestions = this.contentAnalyzer.filterAndSort(suggestions);
+          this.logger.log(`🧠 Cerebro Futbolero: Analysis complete. ${suggestions.length} relevant items.`);
+        } catch (aiError) {
+          this.logger.error('🧠 Cerebro Futbolero: AI analysis failed, returning basic content', aiError);
+          // Continue with basic content if AI fails
+        }
+      }
 
       // Calculate stats
       const urgentCount = suggestions.filter(c => c.priority === ContentPriority.URGENT).length;
       const highPriorityCount = suggestions.filter(c => c.priority === ContentPriority.HIGH).length;
+
+      // Get match context for the response
+      let matchContext: MatchContextOutput | undefined;
+      if (this.matchContextService && contextTeamId) {
+        try {
+          const context = await this.matchContextService.getMatchContext(contextTeamId);
+          matchContext = {
+            hasMatchToday: context.hasMatchToday,
+            hasMatchTomorrow: context.hasMatchTomorrow,
+            isLive: context.isLive,
+            isMatchday: context.isMatchday,
+            matchdayPhase: context.matchdayPhase,
+            liveMatch: context.liveMatch ? {
+              fixtureId: context.liveMatch.fixtureId,
+              opponent: context.liveMatch.opponent,
+              date: context.liveMatch.date,
+              time: context.liveMatch.time,
+              competition: context.liveMatch.competition,
+              isHome: context.liveMatch.isHome,
+              score: context.liveMatch.score,
+              minute: context.liveMatch.minute,
+              status: context.liveMatch.status,
+            } : undefined,
+            nextMatch: context.nextMatch ? {
+              opponent: context.nextMatch.opponent,
+              date: context.nextMatch.date,
+              time: context.nextMatch.time,
+              competition: context.nextMatch.competition,
+              isHome: context.nextMatch.isHome,
+              hoursUntil: context.nextMatch.hoursUntil,
+            } : undefined,
+            lastMatch: context.lastMatch ? {
+              opponent: context.lastMatch.opponent,
+              date: context.lastMatch.date,
+              result: context.lastMatch.result,
+              competition: context.lastMatch.competition,
+              wasHome: context.lastMatch.wasHome,
+              daysAgo: context.lastMatch.daysAgo,
+            } : undefined,
+          };
+          this.logger.log(`🏟️ Match context: ${context.isMatchday ? 'MATCHDAY' : 'Normal day'}${context.nextMatch ? ` - Next: vs ${context.nextMatch.opponent}` : ''}`);
+        } catch (error) {
+          this.logger.warn(`Failed to get match context: ${error.message}`);
+        }
+      }
 
       return {
         success: true,
@@ -558,6 +640,7 @@ export class ContentService {
           highPriorityCount,
           fetchedAt: new Date(),
         },
+        matchContext,
       };
     } catch (error) {
       this.logger.error('Error fetching content:', error);
@@ -566,6 +649,28 @@ export class ContentService {
         (input.pageType as PageType) || PageType.SINGLE_TEAM,
       );
     }
+  }
+
+  /**
+   * Get a human-readable team name for AI context
+   */
+  private getTeamDisplayName(teamId: string): string {
+    const teamNames: Record<string, string> = {
+      'real-madrid': 'Real Madrid',
+      'barcelona': 'FC Barcelona',
+      'atletico-madrid': 'Atlético de Madrid',
+      'manchester-city': 'Manchester City',
+      'manchester-united': 'Manchester United',
+      'liverpool': 'Liverpool',
+      'arsenal': 'Arsenal',
+      'chelsea': 'Chelsea',
+      'bayern-munich': 'Bayern Munich',
+      'psg': 'Paris Saint-Germain',
+      'juventus': 'Juventus',
+      'inter-milan': 'Inter de Milán',
+      'ac-milan': 'AC Milan',
+    };
+    return teamNames[teamId] || teamId.replace(/-/g, ' ');
   }
 
   // --------------------------------------------------------------------------
@@ -985,6 +1090,13 @@ export class ContentService {
       suggestedCaption: item.suggestedCaption,
       hashtags: item.hashtags,
       relevanceScore: item.relevanceScore,
+      // Default values for claim-related fields
+      status: ContentStatus.AVAILABLE,
+      seenBy: [],
+      // AI fields will be populated by ContentAnalyzerService if enabled
+      viralScore: undefined,
+      isRelevant: undefined,
+      wasProcessedByAI: false,
     };
   }
 
