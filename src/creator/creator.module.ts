@@ -26,11 +26,13 @@ import { BrandInvitation, BrandInvitationSchema } from './schemas/brand-invitati
 import { Post, PostSchema } from './schemas/post.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { UsersModule } from '../users/users.module';
+import { BunnyModule } from '../bunny/bunny.module';
 
 @Module({
   imports: [
     ConfigModule,
     forwardRef(() => UsersModule),
+    BunnyModule,
     MongooseModule.forFeature([
       { name: Brand.name, schema: BrandSchema },
       { name: Template.name, schema: TemplateSchema },
