@@ -313,12 +313,29 @@ export class TemplateService {
 
   /**
    * Find user's private designs (type='design')
+   * These are work-in-progress designs
    */
   async findUserDesigns(userId: string): Promise<Template[]> {
     return this.templateModel
       .find({
         userId: new Types.ObjectId(userId),
         type: 'design',
+      })
+      .sort({ updatedAt: -1 })
+      .exec();
+  }
+
+  /**
+   * Find user's private templates (type='template', isPublished=false, isPreset=false)
+   * These are reusable templates saved by the user
+   */
+  async findMyPrivateTemplates(userId: string): Promise<Template[]> {
+    return this.templateModel
+      .find({
+        userId: new Types.ObjectId(userId),
+        type: 'template',
+        isPublished: false,
+        isPreset: false,
       })
       .sort({ updatedAt: -1 })
       .exec();
@@ -338,9 +355,9 @@ export class TemplateService {
   }
 
   /**
-   * Find templates published by users (not system presets)
+   * Find templates published by users (community templates, not system presets)
    */
-  async findPublishedTemplates(category?: string): Promise<Template[]> {
+  async findCommunityTemplates(category?: string): Promise<Template[]> {
     const filter: any = {
       isPublished: true,
       isPreset: false,
@@ -354,7 +371,40 @@ export class TemplateService {
   }
 
   /**
-   * Publish a user design as a public template
+   * Find templates published by users (not system presets)
+   * @deprecated Use findCommunityTemplates instead
+   */
+  async findPublishedTemplates(category?: string): Promise<Template[]> {
+    return this.findCommunityTemplates(category);
+  }
+
+  /**
+   * Save a design as a private reusable template
+   * Changes type from 'design' to 'template', keeps isPublished=false
+   */
+  async saveAsMyTemplate(
+    designId: string,
+    userId: string,
+    thumbnailUrl: string,
+  ): Promise<Template> {
+    const design = await this.templateModel.findOne({
+      _id: new Types.ObjectId(designId),
+      userId: new Types.ObjectId(userId),
+    });
+
+    if (!design) {
+      throw new NotFoundException(`Design with ID ${designId} not found`);
+    }
+
+    design.type = 'template';
+    design.isPublished = false; // Keep private
+    design.thumbnail = thumbnailUrl;
+
+    return design.save();
+  }
+
+  /**
+   * Publish a user design/template as a public community template
    */
   async publishAsTemplate(
     designId: string,
@@ -375,5 +425,24 @@ export class TemplateService {
     design.thumbnail = thumbnailUrl;
 
     return design.save();
+  }
+
+  /**
+   * Unpublish a template (make it private again)
+   */
+  async unpublishTemplate(templateId: string, userId: string): Promise<Template> {
+    const template = await this.templateModel.findOne({
+      _id: new Types.ObjectId(templateId),
+      userId: new Types.ObjectId(userId),
+      isPreset: false, // Can't unpublish system presets
+    });
+
+    if (!template) {
+      throw new NotFoundException(`Template with ID ${templateId} not found`);
+    }
+
+    template.isPublished = false;
+
+    return template.save();
   }
 }

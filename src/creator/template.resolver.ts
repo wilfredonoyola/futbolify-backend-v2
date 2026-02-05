@@ -112,10 +112,20 @@ export class TemplateResolver {
 
   /**
    * Get user's private designs (type='design')
+   * These are work-in-progress designs
    */
   @Query(() => [Template])
   async myDesigns(@CurrentUser() user: any): Promise<Template[]> {
     return this.templateService.findUserDesigns(user.userId);
+  }
+
+  /**
+   * Get user's private templates (type='template', isPublished=false)
+   * These are reusable templates saved by the user
+   */
+  @Query(() => [Template])
+  async myPrivateTemplates(@CurrentUser() user: any): Promise<Template[]> {
+    return this.templateService.findMyPrivateTemplates(user.userId);
   }
 
   /**
@@ -133,6 +143,17 @@ export class TemplateResolver {
    * Get templates published by users (community templates, not system presets)
    */
   @Query(() => [Template])
+  async communityTemplates(
+    @Args('category', { nullable: true }) category?: string,
+  ): Promise<Template[]> {
+    return this.templateService.findCommunityTemplates(category);
+  }
+
+  /**
+   * Get templates published by users (community templates)
+   * @deprecated Use communityTemplates instead
+   */
+  @Query(() => [Template])
   async publishedTemplates(
     @Args('category', { nullable: true }) category?: string,
   ): Promise<Template[]> {
@@ -140,7 +161,23 @@ export class TemplateResolver {
   }
 
   /**
-   * Publish a user design as a public template
+   * Save a design as a private reusable template
+   */
+  @Mutation(() => Template)
+  async saveAsMyTemplate(
+    @CurrentUser() user: any,
+    @Args('designId', { type: () => ID }) designId: string,
+    @Args('thumbnailUrl') thumbnailUrl: string,
+  ): Promise<Template> {
+    return this.templateService.saveAsMyTemplate(
+      designId,
+      user.userId,
+      thumbnailUrl,
+    );
+  }
+
+  /**
+   * Publish a user design/template as a public community template
    */
   @Mutation(() => Template)
   async publishAsTemplate(
@@ -153,6 +190,17 @@ export class TemplateResolver {
       user.userId,
       thumbnailUrl,
     );
+  }
+
+  /**
+   * Unpublish a template (make it private again)
+   */
+  @Mutation(() => Template)
+  async unpublishTemplate(
+    @CurrentUser() user: any,
+    @Args('templateId', { type: () => ID }) templateId: string,
+  ): Promise<Template> {
+    return this.templateService.unpublishTemplate(templateId, user.userId);
   }
 
   // ==================== Thumbnail Upload ====================

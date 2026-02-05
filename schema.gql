@@ -883,7 +883,9 @@ type Query {
   templateByPresetId(presetId: String!): Template
   searchTemplates(query: String!): [Template!]!
   myDesigns: [Template!]!
+  myPrivateTemplates: [Template!]!
   presetsByCategory(category: String): [Template!]!
+  communityTemplates(category: String): [Template!]!
   publishedTemplates(category: String): [Template!]!
   contentSuggestions(input: FetchContentInput!): ContentSuggestionsResponse!
   activeBrandContent(limit: Float = 25): ContentSuggestionsResponse!
@@ -988,7 +990,9 @@ type Mutation {
   updateTemplate(input: UpdateTemplateInput!): Template!
   duplicateTemplate(templateId: ID!, newName: String): Template!
   deleteTemplate(id: ID!): Boolean!
+  saveAsMyTemplate(designId: ID!, thumbnailUrl: String!): Template!
   publishAsTemplate(designId: ID!, thumbnailUrl: String!): Template!
+  unpublishTemplate(templateId: ID!): Template!
   uploadTemplateThumbnail(base64Data: String!, templateId: ID!, format: String = "png"): ThumbnailUploadResult!
   uploadTemplateImage(base64Data: String!, templateId: ID!, imageId: String!, format: String = "jpg"): ThumbnailUploadResult!
   deleteTemplateImage(path: String!, templateId: ID!): Boolean!
