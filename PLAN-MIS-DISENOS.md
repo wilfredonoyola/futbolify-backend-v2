@@ -1,15 +1,15 @@
 ---
-name: My Designs Feature
-overview: Implementar "Mis Disenos" y "Mis Templates" con dos acciones - guardar como template privado o publicar para comunidad, con thumbnail automatico via Bunny CDN.
+name: My Designs Feature v2
+overview: Implementar "Mis Disenos" (trabajos en progreso) y "Mis Templates" (plantillas reutilizables) con nombre editable estilo Canva, publicacion a comunidad, y auto-save silencioso.
 todos:
   - id: backend-schema
     content: Agregar campos `type`, `postId`, `presetCategory` al Template schema
     status: pending
   - id: backend-service
-    content: Agregar metodos findUserDesigns, findMyTemplates, findCommunityTemplates, saveAsMyTemplate, publishToCommunity
+    content: Agregar metodos findUserDesigns, findMyTemplates, findCommunityTemplates, saveAsMyTemplate, publishToCommunity, unpublishFromCommunity
     status: pending
   - id: backend-resolver
-    content: Agregar queries myDesigns, myTemplates, presetTemplates, communityTemplates y mutations saveAsMyTemplate, publishToCommunity
+    content: Agregar queries myDesigns, myTemplates, presetTemplates, communityTemplates y mutations saveAsMyTemplate, publishToCommunity, unpublishFromCommunity
     status: pending
   - id: backend-thumbnail-endpoint
     content: Crear endpoint /direct-upload/template-thumbnail para subir thumbnails a Bunny
@@ -18,10 +18,10 @@ todos:
     content: Exportar 140 presets de FE a JSON y crear seed script en BE
     status: pending
   - id: graphql-schema
-    content: Crear template.graphql con queries y mutations actualizadas
+    content: Crear template.graphql con TODAS las queries y mutations (myDesigns, myTemplates, communityTemplates, saveAsMyTemplate, publishToCommunity, unpublishFromCommunity)
     status: pending
   - id: designs-page
-    content: Crear pagina /creator/designs con tabs Disenos y Templates, grid y acciones
+    content: Crear pagina /creator/designs con DOS tabs - Mis Disenos (trabajos) y Mis Templates (reutilizables)
     status: pending
   - id: templates-selector
     content: Actualizar selector de plantillas con tabs Sistema, Comunidad, Mis Templates
@@ -29,14 +29,14 @@ todos:
   - id: navigation
     content: Agregar link Mis Disenos en navegacion del creator
     status: pending
-  - id: editor-save-logic
-    content: Actualizar TemplateEditor para auto-guardar como Design
+  - id: editor-name-field
+    content: Agregar campo nombre editable en el editor (estilo Canva) con auto-save
     status: pending
   - id: autosave-hook
-    content: Extender useAutoSaveTemplate con auto-save silencioso al salir
+    content: Extender useAutoSaveTemplate con auto-save silencioso al salir incluyendo nombre
     status: pending
   - id: save-template-dialog
-    content: Crear dialogo con dos opciones - Guardar como Mi Template o Publicar para Comunidad
+    content: Crear dialogo con opciones - Guardar como Mi Template, Publicar para Comunidad, Despublicar
     status: pending
 isProject: false
 ---
@@ -93,31 +93,34 @@ flowchart TD
 | false | false | template | Solo creador | Mi Template (privado reutilizable) |
 | false | false | design | Solo creador | Mi Diseno (trabajo en progreso) |
 
-**Dos acciones al guardar un diseno:**
+**Conceptos clave:**
+
+- **Mis Diseños** = Cualquier edicion que estoy haciendo (trabajo en progreso)
+- **Mis Templates** = Plantillas que guardo para reutilizar siempre (ej: "Mi formato de resultado")
+
+**Tres acciones disponibles:**
 
 1. **"Guardar como Mi Template"** → `type: 'template', isPublished: false`
+   - Convierte un diseño en template reutilizable
    - Solo yo lo veo en "Mis Templates"
-   - Puedo reutilizarlo en futuros disenos
+   - Puedo darle un nombre personalizado
    
-2. **"Publicar para Comunidad"** → `type: 'template', isPublished: true`
-   - Todos los usuarios lo ven en "Comunidad"
-   - Genera thumbnail automatico
+2. **"Publicar para Comunidad"** → `isPublished: true`
+   - Hace el template publico para todos
+   - Aparece en tab "Comunidad" del selector
+   - Genera thumbnail automatico de alta calidad
+   
+3. **"Despublicar de Comunidad"** → `isPublished: false`
+   - Vuelve el template privado
+   - Desaparece de "Comunidad", sigue en "Mis Templates"
 
 **Flujos:**
 
-**A) Guardar como Mi Template (privado):**
-1. Usuario tiene un diseno (type='design')
-2. Click "Guardar como Mi Template"
-3. Se captura thumbnail automaticamente
-4. Se cambia `type: 'template'`, `isPublished: false`
-5. Aparece en "Mis Templates" (solo yo)
-
-**B) Publicar para Comunidad (publico):**
-1. Usuario tiene un diseno o template privado
-2. Click "Publicar para Comunidad"
-3. Se captura thumbnail automaticamente
-4. Se marca `isPublished: true`
-5. Aparece en "Comunidad" (todos ven)
+```
+Diseño (trabajo) --[Guardar como Template]--> Mi Template (privado)
+Mi Template (privado) --[Publicar]--> Template Comunidad (publico)
+Template Comunidad (publico) --[Despublicar]--> Mi Template (privado)
+```
 
 ## Cambios en Backend
 
@@ -178,22 +181,24 @@ async findCommunityTemplates(category?: string): Promise<Template[]> {
   return this.templateModel.find(query).sort({ createdAt: -1 }).exec();
 }
 
-// Guardar como MI TEMPLATE (privado)
+// Guardar como MI TEMPLATE (privado reutilizable)
 async saveAsMyTemplate(
   designId: string, 
-  userId: string, 
+  userId: string,
+  name: string,           // Nombre editable
   thumbnailUrl: string
 ): Promise<Template> {
   const design = await this.templateModel.findOne({ _id: designId, userId });
   if (!design) throw new Error('Design not found');
   
+  design.name = name;     // Usuario puede renombrar
   design.type = 'template';
   design.isPublished = false; // Privado
   design.thumbnail = thumbnailUrl;
   return design.save();
 }
 
-// Publicar para COMUNIDAD (publico)
+// Publicar para COMUNIDAD (publico para todos)
 async publishToCommunity(
   templateId: string, 
   userId: string, 
@@ -205,6 +210,18 @@ async publishToCommunity(
   template.type = 'template';
   template.isPublished = true; // Publico
   template.thumbnail = thumbnailUrl;
+  return template.save();
+}
+
+// Despublicar de COMUNIDAD (volver privado)
+async unpublishFromCommunity(
+  templateId: string, 
+  userId: string
+): Promise<Template> {
+  const template = await this.templateModel.findOne({ _id: templateId, userId });
+  if (!template) throw new Error('Template not found');
+  
+  template.isPublished = false; // Volver privado
   return template.save();
 }
 ```
@@ -244,17 +261,18 @@ async communityTemplates(
   return this.templateService.findCommunityTemplates(category);
 }
 
-// Guardar como MI TEMPLATE
+// Guardar como MI TEMPLATE (privado reutilizable)
 @Mutation(() => Template)
 async saveAsMyTemplate(
   @CurrentUser() user: any,
   @Args('designId') designId: string,
+  @Args('name') name: string,
   @Args('thumbnailUrl') thumbnailUrl: string
 ): Promise<Template> {
-  return this.templateService.saveAsMyTemplate(designId, user.userId, thumbnailUrl);
+  return this.templateService.saveAsMyTemplate(designId, user.userId, name, thumbnailUrl);
 }
 
-// Publicar para COMUNIDAD
+// Publicar para COMUNIDAD (publico)
 @Mutation(() => Template)
 async publishToCommunity(
   @CurrentUser() user: any,
@@ -264,22 +282,13 @@ async publishToCommunity(
   return this.templateService.publishToCommunity(templateId, user.userId, thumbnailUrl);
 }
 
-// Templates publicados por usuarios
-@Query(() => [Template])
-async publishedTemplates(
-  @Args('category', { nullable: true }) category?: string
-): Promise<Template[]> {
-  return this.templateService.findPublishedTemplates(category);
-}
-
-// Publicar diseno como template
+// Despublicar de COMUNIDAD (volver privado)
 @Mutation(() => Template)
-async publishAsTemplate(
+async unpublishFromCommunity(
   @CurrentUser() user: any,
-  @Args('designId') designId: string,
-  @Args('thumbnailUrl') thumbnailUrl: string
+  @Args('templateId') templateId: string
 ): Promise<Template> {
-  return this.templateService.publishAsTemplate(designId, user.userId, thumbnailUrl);
+  return this.templateService.unpublishFromCommunity(templateId, user.userId);
 }
 ```
 
@@ -355,16 +364,36 @@ async function seedPresets() {
 
 ## Cambios en Frontend
 
-### 5. Crear Pagina Mis Disenos
+### 5. Crear Pagina Mis Disenos con DOS Tabs
 
 **Archivo:** `app/[locale]/(creator)/creator/designs/page.tsx`
 
-Pagina que muestra grid de disenos del usuario con:
+Pagina con dos tabs claramente separados:
 
-- Filtros por origen (todos, en blanco, desde plantilla, desde post)
-- Busqueda por nombre
-- Acciones: abrir, duplicar, eliminar
-- Estado vacio con CTA para crear
+**Tab 1: "Mis Diseños"** (trabajos en progreso)
+- Query: `useMyDesignsQuery()`
+- Son ediciones en las que estoy trabajando
+- Acciones: Abrir, Duplicar, Eliminar, **Guardar como Template**
+
+**Tab 2: "Mis Templates"** (plantillas reutilizables)
+- Query: `useMyTemplatesQuery()`
+- Son plantillas que guardo para reutilizar siempre
+- Acciones: Abrir, Duplicar, Eliminar, **Publicar para Comunidad**, **Despublicar**
+
+```typescript
+<Tabs defaultValue="designs">
+  <TabsList>
+    <TabsTrigger value="designs">Mis Diseños</TabsTrigger>
+    <TabsTrigger value="templates">Mis Templates</TabsTrigger>
+  </TabsList>
+  <TabsContent value="designs">
+    <DesignsGrid items={myDesigns} type="design" />
+  </TabsContent>
+  <TabsContent value="templates">
+    <DesignsGrid items={myTemplates} type="template" />
+  </TabsContent>
+</Tabs>
+```
 
 ### 6. Componente DesignsGrid
 
@@ -372,11 +401,11 @@ Pagina que muestra grid de disenos del usuario con:
 
 Grid de tarjetas mostrando:
 
-- Thumbnail del diseno
-- Nombre
+- Thumbnail del diseno/template
+- **Nombre editable** (click para renombrar)
 - Fecha de modificacion
-- Badge de origen (blanco, plantilla, post)
-- Menu de acciones
+- Badge: "En progreso" | "Template" | "Publicado"
+- Menu de acciones segun tipo
 
 ### 7. Agregar Link en Navegacion
 
@@ -416,7 +445,28 @@ Beneficios:
 - Mismas plantillas en web y Flutter
 - Menos peso en el bundle JS inicial
 
-### 9. Actualizar Editor para Guardar Disenos
+### 9. Agregar Campo Nombre Editable (Estilo Canva)
+
+**Archivo:** `components/Creator/editor/TemplateEditor.tsx`
+
+Agregar campo de nombre en el header del editor:
+
+```typescript
+// Estado del nombre
+const [designName, setDesignName] = useState('Diseño sin título');
+
+// En el header del editor
+<Input
+  value={designName}
+  onChange={(e) => setDesignName(e.target.value)}
+  className="text-lg font-semibold bg-transparent border-none focus:ring-0"
+  placeholder="Nombre del diseño..."
+/>
+```
+
+El nombre se guarda automaticamente con el auto-save.
+
+### 10. Actualizar Editor para Guardar Disenos
 
 **Archivo:** `components/Creator/editor/TemplateEditor.tsx`
 
@@ -424,18 +474,22 @@ Modificar logica de guardado:
 
 - Si viene de un Post: guardar `templateData` en el Post (comportamiento actual)
 - Si es diseno libre o desde plantilla: crear/actualizar Template con `type='design'`
-- Mostrar dialogo "Guardar como" para nuevos disenos
+- **Incluir `name` en cada guardado**
 
-### 10. Actualizar Hook de AutoSave
+### 11. Actualizar Hook de AutoSave
 
 **Archivo:** `hooks/useAutoSaveTemplate.ts`
 
-Extender para soportar guardado en Template (no solo Post):
+Extender para soportar:
+- Guardado en Template (no solo Post)
+- **Incluir nombre en el guardado**
+- Auto-save silencioso al salir
 
 ```typescript
 interface UseAutoSaveTemplateOptions {
   postId?: string;        // Guardar en Post.templateData
   designId?: string;      // Guardar en Template (type='design')
+  name?: string;          // Nombre del diseno (NUEVO)
   enabled?: boolean;
 }
 ```
@@ -467,46 +521,74 @@ fragment TemplateFields on Template {
   updatedAt
 }
 
-# Mis disenos privados
+# ============ QUERIES ============
+
+# MIS DISENOS - Trabajos en progreso (type='design')
 query MyDesigns {
   myDesigns {
     ...TemplateFields
   }
 }
 
-# Presets del sistema (140)
+# MIS TEMPLATES - Plantillas privadas reutilizables (type='template', isPublished=false)
+query MyTemplates {
+  myTemplates {
+    ...TemplateFields
+  }
+}
+
+# PRESETS DEL SISTEMA - 140 plantillas migradas (isPreset=true)
 query PresetTemplates($category: String) {
   presetTemplates(category: $category) {
     ...TemplateFields
   }
 }
 
-# Templates publicados por usuarios
-query PublishedTemplates($category: String) {
-  publishedTemplates(category: $category) {
+# TEMPLATES COMUNIDAD - Publicados por usuarios (isPublished=true)
+query CommunityTemplates($category: String) {
+  communityTemplates(category: $category) {
     ...TemplateFields
   }
 }
 
+# ============ MUTATIONS ============
+
+# Crear nuevo diseno
 mutation CreateDesign($input: CreateTemplateInput!) {
   createTemplate(input: $input) {
     ...TemplateFields
   }
 }
 
+# Actualizar diseno (incluye nombre)
 mutation UpdateDesign($input: UpdateTemplateInput!) {
   updateTemplate(input: $input) {
     ...TemplateFields
   }
 }
 
+# Eliminar diseno o template
 mutation DeleteDesign($id: ID!) {
   deleteTemplate(id: $id)
 }
 
-# Publicar diseno como template publico
-mutation PublishAsTemplate($designId: ID!, $thumbnailUrl: String!) {
-  publishAsTemplate(designId: $designId, thumbnailUrl: $thumbnailUrl) {
+# GUARDAR COMO MI TEMPLATE - Convertir diseno a template privado reutilizable
+mutation SaveAsMyTemplate($designId: ID!, $name: String!, $thumbnailUrl: String!) {
+  saveAsMyTemplate(designId: $designId, name: $name, thumbnailUrl: $thumbnailUrl) {
+    ...TemplateFields
+  }
+}
+
+# PUBLICAR PARA COMUNIDAD - Hacer template publico para todos
+mutation PublishToCommunity($templateId: ID!, $thumbnailUrl: String!) {
+  publishToCommunity(templateId: $templateId, thumbnailUrl: $thumbnailUrl) {
+    ...TemplateFields
+  }
+}
+
+# DESPUBLICAR DE COMUNIDAD - Volver template privado
+mutation UnpublishFromCommunity($templateId: ID!) {
+  unpublishFromCommunity(templateId: $templateId) {
     ...TemplateFields
   }
 }
@@ -629,46 +711,87 @@ templates/{userId}/thumbnail_{templateId}_{timestamp}.jpg
 https://futbolify.b-cdn.net/templates/{userId}/thumbnail_{templateId}_{timestamp}.jpg
 ```
 
-### 14. Flujo completo de publicacion
+### 14. Dialogos de Acciones
 
-**Archivo:** `components/Creator/designs/PublishTemplateDialog.tsx`
+**Archivo:** `components/Creator/designs/SaveAsTemplateDialog.tsx`
+
+Dialogo para convertir diseño → Mi Template:
 
 ```typescript
-import { captureCanvasAsBlob } from './utils/captureCanvas';
-import { uploadTemplateThumbnail } from './utils/uploadThumbnail';
-import { usePublishAsTemplateMutation } from '@/generated/graphql';
+export function SaveAsTemplateDialog({ designId, currentName, canvasRef, onSuccess }: Props) {
+  const [saveAsMyTemplate] = useSaveAsMyTemplateMutation();
+  const [name, setName] = useState(currentName || 'Mi Template');
+  const [isSaving, setIsSaving] = useState(false);
+  
+  async function handleSave() {
+    setIsSaving(true);
+    try {
+      const blob = await captureCanvasAsBlob(canvasRef.current);
+      const token = await getAccessToken();
+      const thumbnailUrl = await uploadTemplateThumbnail(blob, designId, token);
+      
+      await saveAsMyTemplate({
+        variables: { designId, name, thumbnailUrl },
+      });
+      
+      toast.success('Guardado como Mi Template');
+      onSuccess?.();
+    } catch (error) {
+      toast.error('Error al guardar');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+  
+  return (
+    <Dialog>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Guardar como Mi Template</DialogTitle>
+          <DialogDescription>
+            Este template estara disponible solo para ti en "Mis Templates"
+          </DialogDescription>
+        </DialogHeader>
+        <Input 
+          value={name} 
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nombre del template..."
+        />
+        <DialogFooter>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Guardando...' : 'Guardar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
 
-export function PublishTemplateDialog({ 
-  designId, 
-  canvasRef, 
-  onSuccess 
-}: Props) {
-  const [publishAsTemplate] = usePublishAsTemplateMutation();
+**Archivo:** `components/Creator/designs/PublishToCommunityDialog.tsx`
+
+Dialogo para publicar template para todos:
+
+```typescript
+export function PublishToCommunityDialog({ templateId, canvasRef, onSuccess }: Props) {
+  const [publishToCommunity] = usePublishToCommunityMutation();
   const [isPublishing, setIsPublishing] = useState(false);
   
   async function handlePublish() {
     setIsPublishing(true);
     try {
-      // 1. Capturar canvas en alta calidad
-      const blob = await captureCanvasAsBlob(canvasRef.current, {
-        scale: 2,        // Alta resolucion
-        quality: 0.92,   // Alta calidad JPEG
-        maxWidth: 800,   // Thumbnail razonable
+      const blob = await captureCanvasAsBlob(canvasRef.current);
+      const token = await getAccessToken();
+      const thumbnailUrl = await uploadTemplateThumbnail(blob, templateId, token);
+      
+      await publishToCommunity({
+        variables: { templateId, thumbnailUrl },
       });
       
-      // 2. Subir a Bunny Storage
-      const token = await getAccessToken(); // NextAuth
-      const thumbnailUrl = await uploadTemplateThumbnail(blob, designId, token);
-      
-      // 3. Marcar como publicado
-      await publishAsTemplate({
-        variables: { designId, thumbnailUrl },
-      });
-      
-      toast.success('Template publicado exitosamente');
+      toast.success('Publicado para la comunidad');
       onSuccess?.();
     } catch (error) {
-      toast.error('Error al publicar template');
+      toast.error('Error al publicar');
     } finally {
       setIsPublishing(false);
     }
@@ -678,9 +801,9 @@ export function PublishTemplateDialog({
     <Dialog>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Publicar como Template</DialogTitle>
+          <DialogTitle>Publicar para Comunidad</DialogTitle>
           <DialogDescription>
-            Tu diseno estara disponible para todos los usuarios
+            Tu template estara disponible para TODOS los usuarios
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -691,6 +814,17 @@ export function PublishTemplateDialog({
       </DialogContent>
     </Dialog>
   );
+}
+```
+
+**Accion Despublicar** (en el menu del template):
+
+```typescript
+const [unpublishFromCommunity] = useUnpublishFromCommunityMutation();
+
+async function handleUnpublish(templateId: string) {
+  await unpublishFromCommunity({ variables: { templateId } });
+  toast.success('Template despublicado - ahora es privado');
 }
 ```
 
@@ -768,14 +902,16 @@ src/direct-upload/                         # Endpoint para thumbnail upload
 **Frontend (futbolify-web-v2):**
 
 ```
-app/[locale]/(creator)/layout.tsx                    # Agregar nav link
-app/[locale]/(creator)/creator/designs/page.tsx      # NUEVO - pagina mis disenos
-components/Creator/designs/DesignsGrid.tsx           # NUEVO - grid de disenos
-components/Creator/designs/PublishTemplateDialog.tsx # NUEVO - dialog publicar
-components/Creator/designs/utils/captureCanvas.ts    # NUEVO - captura canvas
-components/Creator/designs/utils/uploadThumbnail.ts  # NUEVO - upload bunny
-components/Creator/graphql/template.graphql          # NUEVO - schema graphql
-hooks/useAutoSaveTemplate.ts                         # Extender con designId
+app/[locale]/(creator)/layout.tsx                        # Agregar nav link
+app/[locale]/(creator)/creator/designs/page.tsx          # NUEVO - pagina con 2 tabs
+components/Creator/designs/DesignsGrid.tsx               # NUEVO - grid de disenos/templates
+components/Creator/designs/SaveAsTemplateDialog.tsx      # NUEVO - dialog guardar como template
+components/Creator/designs/PublishToCommunityDialog.tsx  # NUEVO - dialog publicar comunidad
+components/Creator/designs/utils/captureCanvas.ts        # NUEVO - captura canvas alta calidad
+components/Creator/designs/utils/uploadThumbnail.ts      # NUEVO - upload bunny
+components/Creator/graphql/template.graphql              # NUEVO - schema graphql COMPLETO
+components/Creator/editor/TemplateEditor.tsx             # MODIFICAR - agregar campo nombre
+hooks/useAutoSaveTemplate.ts                             # Extender con designId y name
 ```
 
 ### Patrones a Reusar
