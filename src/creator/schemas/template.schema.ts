@@ -67,6 +67,31 @@ export class Template extends Document {
   @Prop()
   presetId?: string;
 
+  // Type: 'template' for presets/published, 'design' for private user designs
+  @Field(() => String)
+  @Prop({
+    type: String,
+    enum: ['template', 'design'],
+    default: 'template',
+    index: true,
+  })
+  type: 'template' | 'design';
+
+  // Reference to Post if this design is linked to a post
+  @Field(() => ID, { nullable: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Post', index: true })
+  postId?: MongooseSchema.Types.ObjectId;
+
+  // Category for preset templates (transfer, matchday, result, etc.)
+  @Field({ nullable: true })
+  @Prop({ index: true })
+  presetCategory?: string;
+
+  // Track CDN image paths for cleanup (background, element images, thumbnail)
+  @Field(() => [String], { nullable: true })
+  @Prop({ type: [String], default: [] })
+  imageAssets?: string[];
+
   @Field()
   createdAt: Date;
 
@@ -83,3 +108,7 @@ TemplateSchema.index({ category: 1 });
 TemplateSchema.index({ tags: 1 });
 TemplateSchema.index({ isPublished: 1 });
 TemplateSchema.index({ userId: 1, category: 1 });
+// New indexes for Mis Diseños feature
+TemplateSchema.index({ userId: 1, type: 1 }); // User's designs
+TemplateSchema.index({ isPreset: 1, presetCategory: 1 }); // Preset templates by category
+TemplateSchema.index({ isPublished: 1, isPreset: 1 }); // Published user templates

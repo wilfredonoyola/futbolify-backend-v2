@@ -60,4 +60,10 @@ export class CreateTemplateInput {
   @IsString()
   @IsOptional()
   presetId?: string;
+
+  // Type: 'template' for presets/published, 'design' for private user designs
+  @Field({ nullable: true, defaultValue: 'template' })
+  @IsString()
+  @IsOptional()
+  type?: 'template' | 'design';
 }

@@ -369,6 +369,10 @@ type Template {
   isPublished: Boolean!
   isPreset: Boolean!
   presetId: String
+  type: String!
+  postId: ID
+  presetCategory: String
+  imageAssets: [String!]
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -562,6 +566,12 @@ enum PostStatus {
   DOWNLOADED
   PUBLISHED
   REJECTED
+}
+
+type ThumbnailUploadResult {
+  url: String!
+  cdnUrl: String!
+  path: String!
 }
 
 type BrandMemberUser {
@@ -872,6 +882,9 @@ type Query {
   template(id: ID!): Template!
   templateByPresetId(presetId: String!): Template
   searchTemplates(query: String!): [Template!]!
+  myDesigns: [Template!]!
+  presetsByCategory(category: String): [Template!]!
+  publishedTemplates(category: String): [Template!]!
   contentSuggestions(input: FetchContentInput!): ContentSuggestionsResponse!
   activeBrandContent(limit: Float = 25): ContentSuggestionsResponse!
   brandMembers(brandId: ID!): [BrandMemberWithUser!]!
@@ -975,6 +988,11 @@ type Mutation {
   updateTemplate(input: UpdateTemplateInput!): Template!
   duplicateTemplate(templateId: ID!, newName: String): Template!
   deleteTemplate(id: ID!): Boolean!
+  publishAsTemplate(designId: ID!, thumbnailUrl: String!): Template!
+  uploadTemplateThumbnail(base64Data: String!, templateId: ID!, format: String = "png"): ThumbnailUploadResult!
+  uploadTemplateImage(base64Data: String!, templateId: ID!, imageId: String!, format: String = "jpg"): ThumbnailUploadResult!
+  deleteTemplateImage(path: String!, templateId: ID!): Boolean!
+  deleteTemplateImages(paths: [String!]!, templateId: ID!): Int!
   claimContent(contentId: String!, brandId: String!): ContentSuggestion!
   unclaimContent(contentId: String!, brandId: String!): ContentSuggestion!
   markContentDone(contentId: String!, brandId: String!): ContentSuggestion!
@@ -1170,6 +1188,7 @@ input CreateTemplateInput {
   tags: [String!]
   isPublished: Boolean = false
   presetId: String
+  type: String = "template"
 }
 
 input UpdateTemplateInput {
