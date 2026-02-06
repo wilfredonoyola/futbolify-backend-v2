@@ -15,6 +15,7 @@ import { UploadsModule } from './uploads/uploads.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { CreatorModule } from './creator/creator.module'
 import { StreamingModule } from './streaming/streaming.module'
+import { FrasesModule } from './frases/frases.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -66,6 +67,7 @@ import { AppService } from './app.service'
     NotificationsModule,
     CreatorModule,
     StreamingModule,
+    FrasesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
