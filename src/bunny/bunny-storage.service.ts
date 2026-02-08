@@ -319,6 +319,86 @@ export class BunnyStorageService {
   }
 
   /**
+   * Uploads a user avatar to Bunny Storage
+   * @param file - File buffer
+   * @param filename - Original filename
+   * @param userId - User ID for organizing files
+   * @returns Upload result with URLs
+   */
+  async uploadAvatar(
+    file: Buffer,
+    filename: string,
+    userId: string,
+  ): Promise<UploadResult> {
+    this.checkConfiguration();
+
+    try {
+      // Generate unique filename with timestamp
+      const timestamp = Date.now();
+      const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `avatars/${userId}/${timestamp}.${ext}`;
+
+      // Upload to Bunny Storage
+      const storageUrl = `https://${this.region}.bunnycdn.com/${this.storageZoneName}/${path}`;
+
+      const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+
+      const response = await axios.put(storageUrl, file, {
+        headers: {
+          'AccessKey': this.accessKey,
+          'Content-Type': contentType,
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      });
+
+      if (response.status !== 201 && response.status !== 200) {
+        throw new InternalServerErrorException('Failed to upload avatar to Bunny Storage');
+      }
+
+      // Generate CDN URL with cache-busting timestamp
+      const cdnUrl = `https://${this.cdnHostname}/${path}?v=${timestamp}`;
+
+      return {
+        url: `https://${this.cdnHostname}/${path}`,
+        cdnUrl,
+        path,
+      };
+    } catch (error) {
+      console.error('Bunny Storage avatar upload error:', error.response?.data || error.message);
+      throw new InternalServerErrorException(
+        `Failed to upload avatar: ${error.response?.data?.Message || error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Deletes old avatar from Bunny Storage
+   * @param path - File path in storage
+   */
+  async deleteAvatar(path: string): Promise<boolean> {
+    try {
+      if (!path || !this.storageZoneName || !this.accessKey) {
+        return false;
+      }
+
+      const storageUrl = `https://${this.region}.bunnycdn.com/${this.storageZoneName}/${path}`;
+
+      const response = await axios.delete(storageUrl, {
+        headers: {
+          'AccessKey': this.accessKey,
+        },
+      });
+
+      console.log(`[Bunny] Deleted avatar: ${path}`);
+      return response.status === 200 || response.status === 204;
+    } catch (error) {
+      console.error('Bunny Storage avatar delete error:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
+  /**
    * Get direct upload info for frontend to upload directly to Bunny
    * @param path - File path in storage
    */
