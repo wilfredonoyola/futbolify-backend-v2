@@ -213,6 +213,7 @@ type Media {
   createdAt: DateTime!
   updatedAt: DateTime!
   tags: [MediaTag!]
+  uploader: User
 }
 
 """Type of media content"""
@@ -924,6 +925,7 @@ type Query {
   userMedia(userId: ID!, type: String): [Media!]!
   profileStats(userId: ID): ProfileStats!
   allMyProfileStats: ProfileStats!
+  allMyTeamsMedia(type: String, limit: Float = 50, offset: Float = 0): [Media!]!
   pendingTags(mediaId: ID!): [PendingTag!]!
   teamPendingInvitations(teamId: ID!): [PendingTag!]!
   myPendingTags: [PendingTag!]!
