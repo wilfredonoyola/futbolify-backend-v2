@@ -28,9 +28,22 @@ export class MediaResolver {
   }
 
   @ResolveField(() => User, { nullable: true })
-  async uploader(@Parent() media: Media): Promise<User | null> {
-    if (!media.uploadedBy) return null;
-    return this.userModel.findById(media.uploadedBy).exec();
+  async uploader(@Parent() media: Media): Promise<any | null> {
+    try {
+      console.log('[uploader] Resolving for media:', media._id, 'uploadedBy:', media.uploadedBy);
+      if (!media.uploadedBy) return null;
+      const user = await this.userModel.findById(media.uploadedBy).exec();
+      console.log('[uploader] Found user:', user?.userName);
+      if (!user) return null;
+      // Return with userId explicitly set (getter doesn't work on plain docs)
+      return {
+        ...user.toObject(),
+        userId: user._id.toString(),
+      };
+    } catch (error) {
+      console.error('[uploader] Error:', error);
+      return null;
+    }
   }
 
   // ============== QUERIES ==============
@@ -123,7 +136,10 @@ export class MediaResolver {
     @Args('offset', { type: () => Number, nullable: true, defaultValue: 0 }) offset: number,
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<Media[]> {
-    return this.mediaService.getAllMyTeamsMedia(user.userId, type, limit, offset);
+    console.log('[allMyTeamsMedia] Called with:', { userId: user?.userId, type, limit, offset });
+    const result = await this.mediaService.getAllMyTeamsMedia(user.userId, type, limit, offset);
+    console.log('[allMyTeamsMedia] Result count:', result.length);
+    return result;
   }
 
   // ============== MUTATIONS ==============

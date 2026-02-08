@@ -634,12 +634,14 @@ export class MediaService {
     limit: number = 50,
     offset: number = 0,
   ): Promise<Media[]> {
+    console.log('[getAllMyTeamsMedia] Service called with:', { userId, type, limit, offset });
     const userObjectId = new Types.ObjectId(userId);
 
     // 1. Get all teams where user is a member
     const TeamMember = this.teamMatchModel.db.model('TeamMember');
     const memberships = await TeamMember.find({ userId: userObjectId });
     const teamIds = memberships.map((m: any) => m.teamId);
+    console.log('[getAllMyTeamsMedia] Found teams:', teamIds.length);
 
     if (teamIds.length === 0) {
       return [];
@@ -648,6 +650,7 @@ export class MediaService {
     // 2. Get all matches from those teams
     const matches = await this.teamMatchModel.find({ teamId: { $in: teamIds } });
     const matchIds = matches.map((m) => m._id);
+    console.log('[getAllMyTeamsMedia] Found matches:', matchIds.length);
 
     if (matchIds.length === 0) {
       return [];
@@ -659,16 +662,17 @@ export class MediaService {
       // Handle both lowercase and uppercase type values
       query.type = type.toUpperCase();
     }
+    console.log('[getAllMyTeamsMedia] Query:', JSON.stringify(query));
 
-    // Return media with uploader populated
+    // Return media (uploader is resolved via field resolver)
     const media = await this.mediaModel
       .find(query)
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit)
-      .populate('uploadedBy')
       .exec();
 
+    console.log('[getAllMyTeamsMedia] Found media:', media.length);
     return media;
   }
 }
