@@ -624,4 +624,50 @@ export class MediaService {
   async getProfileStats(userId: string) {
     return StatsUtils.getProfileStats(userId, this.mediaTagModel, this.mediaModel);
   }
+
+  /**
+   * Get ALL media from ALL teams the user belongs to (for feed)
+   */
+  async getAllMyTeamsMedia(
+    userId: string,
+    type?: MediaType,
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<Media[]> {
+    const userObjectId = new Types.ObjectId(userId);
+
+    // 1. Get all teams where user is a member
+    const TeamMember = this.teamMatchModel.db.model('TeamMember');
+    const memberships = await TeamMember.find({ userId: userObjectId });
+    const teamIds = memberships.map((m: any) => m.teamId);
+
+    if (teamIds.length === 0) {
+      return [];
+    }
+
+    // 2. Get all matches from those teams
+    const matches = await this.teamMatchModel.find({ teamId: { $in: teamIds } });
+    const matchIds = matches.map((m) => m._id);
+
+    if (matchIds.length === 0) {
+      return [];
+    }
+
+    // 3. Get all media from those matches
+    const query: any = { matchId: { $in: matchIds } };
+    if (type) {
+      query.type = type;
+    }
+
+    // Return media with uploader populated
+    const media = await this.mediaModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .skip(offset)
+      .limit(limit)
+      .populate('uploadedBy')
+      .exec();
+
+    return media;
+  }
 }

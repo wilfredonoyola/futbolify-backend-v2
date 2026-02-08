@@ -6,19 +6,31 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { CurrentUserPayload } from '../auth/current-user-payload.interface';
 import { Media, MediaType, MediaCategory } from './schemas/media.schema';
 import { MediaTag } from './schemas/media-tag.schema';
+import { User } from '../users/schemas/user.schema';
 import { UploadMediaInput, UpdateMediaInput, MediaFiltersInput, ProfileStats } from './dto';
 import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
 import { FileUpload } from 'graphql-upload/Upload.mjs';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
 @Resolver(() => Media)
 export class MediaResolver {
-  constructor(private readonly mediaService: MediaService) {}
+  constructor(
+    private readonly mediaService: MediaService,
+    @InjectModel(User.name) private userModel: Model<User>,
+  ) {}
 
   // ============== FIELD RESOLVERS ==============
 
   @ResolveField(() => [MediaTag], { nullable: true })
   async tags(@Parent() media: Media): Promise<MediaTag[]> {
     return this.mediaService.getMediaTags(media._id.toString());
+  }
+
+  @ResolveField(() => User, { nullable: true })
+  async uploader(@Parent() media: Media): Promise<User | null> {
+    if (!media.uploadedBy) return null;
+    return this.userModel.findById(media.uploadedBy).exec();
   }
 
   // ============== QUERIES ==============
@@ -98,6 +110,20 @@ export class MediaResolver {
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<ProfileStats> {
     return this.mediaService.getAllMyProfileStats(user.userId);
+  }
+
+  /**
+   * Get ALL media from ALL teams the user belongs to (feed)
+   */
+  @Query(() => [Media], { name: 'allMyTeamsMedia' })
+  @UseGuards(GqlAuthGuard)
+  async getAllMyTeamsMedia(
+    @Args('type', { type: () => String, nullable: true }) type: MediaType,
+    @Args('limit', { type: () => Number, nullable: true, defaultValue: 50 }) limit: number,
+    @Args('offset', { type: () => Number, nullable: true, defaultValue: 0 }) offset: number,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<Media[]> {
+    return this.mediaService.getAllMyTeamsMedia(user.userId, type, limit, offset);
   }
 
   // ============== MUTATIONS ==============
