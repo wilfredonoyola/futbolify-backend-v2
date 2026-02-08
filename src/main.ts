@@ -4,6 +4,7 @@ import { AppModule } from './app.module'
 import { ConfigService } from '@nestjs/config'
 import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.mjs'
 import { json, urlencoded } from 'express'
+import * as passport from 'passport'
 
 const logger = new Logger('App')
 
@@ -11,6 +12,9 @@ async function bootstrap() {
   Logger.overrideLogger(['log', 'error', 'warn', 'debug', 'verbose'])
 
   const app = await NestFactory.create(AppModule)
+
+  // Initialize passport
+  app.use(passport.initialize())
 
   // Increase body size limit for base64 image uploads (thumbnails, template images)
   app.use(json({ limit: '50mb' }))
