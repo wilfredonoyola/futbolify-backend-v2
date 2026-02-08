@@ -8,5 +8,11 @@ export class UpdateUserInput extends PartialType(UserOutputDto) {
   roles?: UserRole[];
 
   @Field({ nullable: true })
+  userName?: string;
+
+  @Field({ nullable: true })
   name?: string;
+
+  @Field({ nullable: true })
+  avatarUrl?: string;
 }

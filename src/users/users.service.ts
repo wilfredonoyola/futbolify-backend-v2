@@ -18,6 +18,19 @@ export class UsersService {
     return this.userModel.findOne({ email }).exec();
   }
 
+  async findByUserName(userName: string): Promise<UserDocument | null> {
+    return this.userModel.findOne({ userName }).exec();
+  }
+
+  async isUserNameAvailable(userName: string, excludeUserId?: string): Promise<boolean> {
+    const query: any = { userName: userName.toLowerCase() };
+    if (excludeUserId) {
+      query._id = { $ne: excludeUserId };
+    }
+    const existingUser = await this.userModel.findOne(query).exec();
+    return !existingUser;
+  }
+
   async findAll(user: CurrentUserPayload): Promise<UserDocument[]> {
     if (!user || !user.roles) {
       throw new Error('User or user roles are undefined');
@@ -51,9 +64,19 @@ export class UsersService {
     // Only allow updating own profile or if admin
     const isAdmin = user.roles.includes('SUPER_ADMIN') || user.roles.includes('ADMIN');
     const isOwnProfile = user.userId === id;
-    
+
     if (!isAdmin && !isOwnProfile) {
       throw new ConflictException('You can only update your own profile');
+    }
+
+    // Validate userName uniqueness if being updated
+    if (updateUserDto.userName) {
+      const isAvailable = await this.isUserNameAvailable(updateUserDto.userName, id);
+      if (!isAvailable) {
+        throw new ConflictException('Username is already taken');
+      }
+      // Normalize username to lowercase
+      updateUserDto.userName = updateUserDto.userName.toLowerCase();
     }
 
     const updatedUser = await this.userModel

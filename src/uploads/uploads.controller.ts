@@ -12,10 +12,16 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MediaService } from '../teams/media.service';
 import { MediaCategory } from '../teams/schemas/media.schema';
+import { BunnyStorageService } from '../bunny/bunny-storage.service';
+import { UsersService } from '../users/users.service';
 
 @Controller('uploads')
 export class UploadsController {
-  constructor(private readonly mediaService: MediaService) {}
+  constructor(
+    private readonly mediaService: MediaService,
+    private readonly bunnyStorageService: BunnyStorageService,
+    private readonly usersService: UsersService,
+  ) {}
 
   /**
    * Upload photo with real progress tracking
@@ -110,6 +116,57 @@ export class UploadsController {
     return {
       success: true,
       data: media,
+    };
+  }
+
+  /**
+   * Upload user avatar
+   * POST /uploads/avatar
+   */
+  @Post('avatar')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    // Validate file type
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('Only image files are allowed');
+    }
+
+    // Validate file size (max 2MB)
+    const maxSize = 2 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size must be less than 2MB');
+    }
+
+    const userId = req.user.userId;
+
+    // Upload to Bunny Storage
+    const result = await this.bunnyStorageService.uploadAvatar(
+      file.buffer,
+      file.originalname,
+      userId,
+    );
+
+    // Update user's avatarUrl in database
+    await this.usersService.update(
+      userId,
+      { avatarUrl: result.cdnUrl },
+      req.user,
+    );
+
+    return {
+      success: true,
+      data: {
+        url: result.cdnUrl,
+        path: result.path,
+      },
     };
   }
 }

@@ -47,8 +47,10 @@ type SigninOutputDto {
 type UserOutputDto {
   id: String!
   email: String!
+  userName: String
   name: String
   phone: String
+  avatarUrl: String
   roles: [UserRole!]!
 }
 
@@ -847,9 +849,64 @@ type CheckoutSessionOutput {
   url: String!
 }
 
+type Frase {
+  id: ID!
+  texto: String!
+  autor: String
+  categoria: FraseCategory!
+  tono: FraseTone
+  equipo: String
+  emoji: String
+  tag: String
+  userId: ID!
+  isPublic: Boolean!
+  likesCount: Int!
+  exportedImageUrl: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Categorias de frases de futbol"""
+enum FraseCategory {
+  CANCHA
+  TECNICOS
+  FUTBOLISTAS
+  PERIODISTAS
+  ARROGANCIA
+  POLEMICAS
+  MEMES
+  MOTIVACIONAL
+  PERSONAL
+}
+
+"""Tonos de las frases"""
+enum FraseTone {
+  SARCASTICO
+  EPICO
+  GRACIOSO
+  POLEMICO
+  MOTIVACIONAL
+  ARROGANTE
+  DRAMATICO
+}
+
+type GeneratedFrase {
+  texto: String!
+  autor: String
+  emoji: String
+  tag: String
+}
+
+type GenerateResponse {
+  frases: [GeneratedFrase!]!
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
+  me: UserOutputDto
+  userByUserName(userName: String!): UserOutputDto
+  isUserNameAvailable(userName: String!): Boolean!
   liveMatches: [LiveMatchOutputDto!]!
   lateMatches(options: LateMatchOptionsDto): [LiveMatchOutputDto!]!
   matchById(id: Float!): LiveMatchOutputDto
@@ -864,6 +921,7 @@ type Query {
   media(id: ID!): Media!
   myTaggedMedia(type: String): [Media!]!
   allMyMedia(type: String): [Media!]!
+  userMedia(userId: ID!, type: String): [Media!]!
   profileStats(userId: ID): ProfileStats!
   allMyProfileStats: ProfileStats!
   pendingTags(mediaId: ID!): [PendingTag!]!
@@ -907,6 +965,21 @@ type Query {
   streamAnalytics(streamId: ID!): StreamAnalytics
   messages(streamId: ID!, limit: Int = 50, offset: Int = 0): [Message!]!
   mySubscription: UserSubscription
+
+  """Obtener frases con filtros"""
+  frases(filter: FilterFrasesInput): [Frase!]!
+
+  """Obtener mis frases"""
+  myFrases(filter: FilterFrasesInput): [Frase!]!
+
+  """Obtener una frase por ID"""
+  frase(id: ID!): Frase!
+
+  """Obtener una frase aleatoria"""
+  randomFrase(categoria: FraseCategory): Frase!
+
+  """Obtener frases trending (más likes)"""
+  trendingFrases(limit: Int! = 10): [Frase!]!
 }
 
 input LateMatchOptionsDto {
@@ -940,6 +1013,16 @@ input PostFilterInput {
   status: PostStatus
   limit: Int = 50
   offset: Int = 0
+}
+
+input FilterFrasesInput {
+  categoria: FraseCategory
+  tono: FraseTone
+  search: String
+  equipo: String
+  onlyPublic: Boolean! = false
+  limit: Int! = 20
+  offset: Int! = 0
 }
 
 type Mutation {
@@ -1030,6 +1113,24 @@ type Mutation {
   sendMessage(input: SendMessageInput!): Message!
   createCheckoutSession: CheckoutSessionOutput!
   cancelSubscription: UserSubscription!
+
+  """Generar frases con IA (requiere autenticación)"""
+  generateFrases(input: GenerateFraseInput!): GenerateResponse!
+
+  """Guardar una frase generada"""
+  saveFrase(input: SaveFraseInput!): Frase!
+
+  """Dar like a una frase"""
+  toggleLike(id: ID!): Frase!
+
+  """Cambiar visibilidad pública/privada de una frase"""
+  togglePublic(id: ID!): Frase!
+
+  """Eliminar una frase"""
+  deleteFrase(id: ID!): Boolean!
+
+  """Actualizar URL de imagen exportada"""
+  updateExportedImage(id: ID!, imageUrl: String!): Frase!
 }
 
 input SigninInputDto {
@@ -1075,7 +1176,9 @@ input UpdateProfileInputDto {
 
 input UpdateUserInput {
   roles: [UserRole!]
+  userName: String
   name: String
+  avatarUrl: String
 }
 
 input CreateTeamInput {
@@ -1321,6 +1424,24 @@ input SendMessageInput {
   streamId: ID!
   content: String!
   type: MessageType = TEXT
+}
+
+input GenerateFraseInput {
+  categoria: FraseCategory!
+  tono: FraseTone
+  equipo: String
+  count: Int! = 3
+}
+
+input SaveFraseInput {
+  texto: String!
+  autor: String
+  categoria: FraseCategory!
+  tono: FraseTone
+  equipo: String
+  emoji: String
+  tag: String
+  exportedImageUrl: String
 }
 
 type Subscription {

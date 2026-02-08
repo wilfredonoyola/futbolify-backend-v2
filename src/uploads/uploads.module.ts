@@ -5,6 +5,7 @@ import { UploadsController } from './uploads.controller';
 import { DirectUploadController } from './direct-upload.controller';
 import { TeamsModule } from '../teams/teams.module';
 import { BunnyModule } from '../bunny/bunny.module';
+import { UsersModule } from '../users/users.module';
 import { Media, MediaSchema } from '../teams/schemas/media.schema';
 
 @Module({
@@ -17,6 +18,7 @@ import { Media, MediaSchema } from '../teams/schemas/media.schema';
     MongooseModule.forFeature([{ name: Media.name, schema: MediaSchema }]),
     TeamsModule,
     BunnyModule,
+    UsersModule,
   ],
   controllers: [UploadsController, DirectUploadController],
 })

@@ -65,6 +65,20 @@ export class MediaResolver {
     return this.mediaService.getAllMyMedia(user.userId, type);
   }
 
+  /**
+   * Get ALL media for a specific user (public profile):
+   * - Media where user is tagged
+   * - Media uploaded by user
+   */
+  @Query(() => [Media], { name: 'userMedia' })
+  @UseGuards(GqlAuthGuard)
+  async getUserMedia(
+    @Args('userId', { type: () => ID }) userId: string,
+    @Args('type', { type: () => String, nullable: true }) type: MediaType,
+  ): Promise<Media[]> {
+    return this.mediaService.getAllMyMedia(userId, type);
+  }
+
   @Query(() => ProfileStats, { name: 'profileStats' })
   @UseGuards(GqlAuthGuard)
   async getProfileStats(
