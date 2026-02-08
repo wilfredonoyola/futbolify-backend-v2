@@ -336,6 +336,40 @@ export class TeamsService {
     return match;
   }
 
+  async getOrCreateTodayMatch(userId: string, teamId: string): Promise<TeamMatch> {
+    // Verify user is a member
+    await this.verifyTeamMember(userId, teamId);
+
+    // Get start and end of today (UTC)
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+
+    // Try to find existing match for today
+    let match = await this.teamMatchModel.findOne({
+      teamId: new Types.ObjectId(teamId),
+      date: { $gte: startOfDay, $lte: endOfDay },
+    }).sort({ date: -1 });
+
+    if (match) {
+      // Return existing match with stats
+      const stats = await StatsUtils.getMatchStats(match._id.toString(), this.mediaModel);
+      return {
+        ...match.toObject(),
+        ...stats,
+      } as any;
+    }
+
+    // Create new match for today
+    match = await this.teamMatchModel.create({
+      teamId: new Types.ObjectId(teamId),
+      date: today,
+      createdBy: new Types.ObjectId(userId),
+    });
+
+    return match;
+  }
+
   async getTeamMatches(teamId: string, userId: string): Promise<TeamMatch[]> {
     // Verify user is a member
     await this.verifyTeamMember(userId, teamId);

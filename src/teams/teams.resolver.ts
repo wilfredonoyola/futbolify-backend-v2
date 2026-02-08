@@ -166,6 +166,15 @@ export class TeamsResolver {
     return this.teamsService.createMatch(user.userId, input);
   }
 
+  @Mutation(() => TeamMatch, { description: 'Get existing match for today or create one if none exists' })
+  @UseGuards(GqlAuthGuard)
+  async getOrCreateTodayMatch(
+    @Args('teamId', { type: () => ID }) teamId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<TeamMatch> {
+    return this.teamsService.getOrCreateTodayMatch(user.userId, teamId);
+  }
+
   @Mutation(() => TeamMatch)
   @UseGuards(GqlAuthGuard)
   async updateMatch(

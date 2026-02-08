@@ -1045,6 +1045,9 @@ type Mutation {
   removeTeamMember(teamId: ID!, userId: ID!): Boolean!
   updateMemberRole(teamId: ID!, userId: ID!, role: String!): TeamMember!
   createMatch(input: CreateMatchInput!): TeamMatch!
+
+  """Get existing match for today or create one if none exists"""
+  getOrCreateTodayMatch(teamId: ID!): TeamMatch!
   updateMatch(id: ID!, input: UpdateMatchInput!): TeamMatch!
   deleteMatch(id: ID!): Boolean!
   uploadPhoto(matchId: ID!, file: Upload!, category: String, isHighlight: Boolean = false): Media!
