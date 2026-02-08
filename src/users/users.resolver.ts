@@ -50,8 +50,42 @@ export class UsersResolver {
     }
   }
 
+  @Query(() => UserOutputDto, { nullable: true })
+  @Roles(UserRole.USER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  async me(@CurrentUser() currentUser: CurrentUserPayload): Promise<UserOutputDto | null> {
+    const user = await this.usersService.findById(currentUser.userId);
+    if (!user) {
+      return null;
+    }
+    return this.mapUserToDto(user);
+  }
+
+  @Query(() => UserOutputDto, { nullable: true })
+  @Roles(UserRole.USER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  async userByUserName(
+    @Args('userName') userName: string,
+  ): Promise<UserOutputDto | null> {
+    const user = await this.usersService.findByUserName(userName);
+    if (!user) {
+      return null;
+    }
+    return this.mapUserToDto(user);
+  }
+
+  @Query(() => Boolean)
+  @Roles(UserRole.USER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  async isUserNameAvailable(
+    @Args('userName') userName: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<boolean> {
+    return this.usersService.isUserNameAvailable(userName, user.userId);
+  }
+
   @Mutation(() => UserOutputDto)
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.USER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @UseGuards(GqlAuthGuard, RolesGuard)
   async updateUser(
     @Args('id') id: string,
@@ -81,8 +115,10 @@ export class UsersResolver {
     return {
       id: user._id.toString(),
       email: user.email,
+      userName: user.userName,
       name: user.name,
       phone: user?.phone,
+      avatarUrl: user?.avatarUrl,
       roles: user.roles.map((role: string) => this.mapRoleToEnum(role)),
     };
   }
