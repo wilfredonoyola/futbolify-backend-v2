@@ -12,7 +12,7 @@ import { AwsCognitoAuthStrategy } from './strategies/jwt-auth.strategy';
   imports: [
     forwardRef(() => UsersModule),
     MongooseModule.forFeature([{ name: 'User', schema: UserSchema }]),
-    PassportModule.register({ defaultStrategy: 'cognito' }),
+    PassportModule,
     JwtModule.register({
       secret: 'secretKey',
       signOptions: { expiresIn: '1h' },
