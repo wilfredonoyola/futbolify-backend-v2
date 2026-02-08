@@ -656,7 +656,8 @@ export class MediaService {
     // 3. Get all media from those matches
     const query: any = { matchId: { $in: matchIds } };
     if (type) {
-      query.type = type;
+      // Handle both lowercase and uppercase type values
+      query.type = type.toUpperCase();
     }
 
     // Return media with uploader populated
