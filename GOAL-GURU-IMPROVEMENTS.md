@@ -40,8 +40,9 @@ const odds = await oddsApiService.getMatchOdds(homeTeam, awayTeam)
 - Fallback si API no disponible
 - Cache de 1 hora
 
-**Costo:** $10/mes (plan básico)  
-**Website:** https://the-odds-api.com/
+**Costo:** **GRATIS** (500 créditos/mes) o $30/mes (20K créditos)  
+**Website:** https://the-odds-api.com/  
+**Recomendación:** Plan gratis es suficiente para uso personal
 
 ---
 
@@ -141,13 +142,16 @@ API_FOOTBALL_KEY=tu_key_actual
 ODDS_API_KEY=tu_odds_api_key_aqui
 ```
 
-### 2. Obtener The Odds API Key
+### 2. Obtener The Odds API Key (GRATIS)
 
 1. Ve a: https://the-odds-api.com/
-2. Regístrate (gratis para testing)
-3. Plan recomendado: $10/mes (500 requests/mes)
-4. Copia tu API key
-5. Agrégala al `.env`
+2. Click "START" en el plan FREE (500 créditos/mes)
+3. Regístrate con tu email
+4. Confirma tu email
+5. Copia tu API key del dashboard
+6. Agrégala al `.env`
+
+**Nota:** 500 créditos/mes = ~100-150 análisis = suficiente para uso personal
 
 ### 3. Reiniciar el Servidor
 
@@ -217,12 +221,12 @@ VALUE en Over 2.5 @ 1.80 y BTTS @ 1.85"
 
 | Recurso | Costo | Beneficio |
 |---------|-------|-----------|
-| The Odds API | $10/mes | Odds reales > AI adivinando |
+| The Odds API | **$0** (plan gratis) | Odds reales > AI adivinando |
 | API-Football | $0 | Ya lo tienes |
 | Desarrollo | $0 | Hecho |
-| **Total** | **$10/mes** | **+30% credibilidad** |
+| **Total** | **$0** ✅ | **+30% credibilidad GRATIS** |
 
-**ROI:** Si haces 1 apuesta por semana con mejor información = vale totalmente la pena.
+**ROI:** Inversión $0, mejora +30% credibilidad = **ROI INFINITO** ✅
 
 ---
 
@@ -257,9 +261,10 @@ console.log(h2h)
 ### Limits & Rate Limiting
 
 **The Odds API:**
-- Plan gratis: 500 requests/mes
-- Plan $10/mes: 10,000 requests/mes
-- Cache de 1 hora implementado
+- Plan gratis: 500 créditos/mes (suficiente para uso personal)
+- Plan $30/mes: 20,000 créditos/mes
+- Plan $59/mes: 100,000 créditos/mes
+- Cache de 1 hora implementado para ahorrar créditos
 
 **API-Football:**
 - Límites según tu plan actual
