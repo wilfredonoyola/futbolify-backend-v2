@@ -16,6 +16,7 @@ import { NotificationsModule } from './notifications/notifications.module'
 import { CreatorModule } from './creator/creator.module'
 import { StreamingModule } from './streaming/streaming.module'
 import { FrasesModule } from './frases/frases.module'
+import { GoalGuruModule } from './goal-guru/goal-guru.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -68,6 +69,7 @@ import { AppService } from './app.service'
     CreatorModule,
     StreamingModule,
     FrasesModule,
+    GoalGuruModule,
   ],
   controllers: [AppController],
   providers: [AppService],

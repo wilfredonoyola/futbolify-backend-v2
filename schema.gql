@@ -902,6 +902,115 @@ type GenerateResponse {
   frases: [GeneratedFrase!]!
 }
 
+type GoalGuruLeagueDto {
+  id: String!
+  name: String!
+  flag: String!
+  search: String!
+}
+
+type GoalGuruMatchDto {
+  home: String!
+  away: String!
+  date: String!
+  time: String!
+  comp: String!
+}
+
+type OddsDto {
+  o25: Float!
+  u25: Float!
+  btts_y: Float!
+  btts_n: Float!
+  o15: Float!
+  o35: Float!
+  g1h: Float!
+}
+
+type MatchContextDto {
+  homePos: String!
+  awayPos: String!
+  homeForm: String!
+  awayForm: String!
+  homeGoals: String!
+  awayGoals: String!
+  h2h: String!
+  injuries: String!
+  context: String!
+  odds: OddsDto!
+  keyStats: String!
+}
+
+type GoalGuruPickDto {
+  id: ID!
+  userId: ID!
+  sessionId: ID
+  match: String!
+  mercado: String!
+  odds: Float!
+  confianza: Int!
+  stake: Int!
+  riesgo: RiskLevel!
+  result: PickResult!
+  profit: Float!
+  league: String!
+  resolvedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Risk level for Goal Guru betting picks"""
+enum RiskLevel {
+  BAJO
+  MEDIO
+  ALTO
+}
+
+"""Result status of a Goal Guru pick"""
+enum PickResult {
+  PENDING
+  WON
+  LOST
+}
+
+type PickDetailDto {
+  match: String!
+  mercado: String!
+  odds: Float!
+  confianza: Int!
+  stake: Int!
+  riesgo: RiskLevel!
+  capas: String!
+  c1: String!
+  c2: String!
+  maestro: String!
+  score: String!
+  alt: String
+  alerta: String
+}
+
+type SkipDetailDto {
+  match: String!
+  razon: String!
+}
+
+type AnalysisResultDto {
+  picks: [PickDetailDto!]!
+  skip: [SkipDetailDto!]!
+  top: String!
+  parlay: String
+  bank: String!
+}
+
+type GoalGuruStatsDto {
+  totalBets: Int!
+  wins: Int!
+  losses: Int!
+  winRate: Float!
+  totalProfit: Float!
+  roi: Float!
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
@@ -982,6 +1091,11 @@ type Query {
 
   """Obtener frases trending (más likes)"""
   trendingFrases(limit: Int! = 10): [Frase!]!
+  goalGuruLeagues: [GoalGuruLeagueDto!]!
+  findGoalGuruMatches(leagueId: String!): [GoalGuruMatchDto!]!
+  getGoalGuruMatchContext(input: MatchContextInput!): MatchContextDto
+  goalGuruHistory(limit: Int, offset: Int): [GoalGuruPickDto!]!
+  goalGuruStats: GoalGuruStatsDto!
 }
 
 input LateMatchOptionsDto {
@@ -1025,6 +1139,15 @@ input FilterFrasesInput {
   onlyPublic: Boolean! = false
   limit: Int! = 20
   offset: Int! = 0
+}
+
+input MatchContextInput {
+  home: String!
+  away: String!
+  date: String!
+  time: String!
+  comp: String!
+  leagueName: String!
 }
 
 type Mutation {
@@ -1136,6 +1259,9 @@ type Mutation {
 
   """Actualizar URL de imagen exportada"""
   updateExportedImage(id: ID!, imageUrl: String!): Frase!
+  analyzeGoalGuruMatches(input: AnalyzeMatchesInput!): AnalysisResultDto
+  markGoalGuruPickResult(input: MarkResultInput!): GoalGuruPickDto!
+  clearGoalGuruHistory: Boolean!
 }
 
 input SigninInputDto {
@@ -1447,6 +1573,56 @@ input SaveFraseInput {
   emoji: String
   tag: String
   exportedImageUrl: String
+}
+
+input AnalyzeMatchesInput {
+  matches: [MatchInput!]!
+  contexts: [ContextInput!]!
+  leagueName: String!
+}
+
+input MatchInput {
+  home: String!
+  away: String!
+  date: String!
+  time: String!
+  comp: String!
+}
+
+input ContextInput {
+  homePos: String!
+  awayPos: String!
+  homeForm: String!
+  awayForm: String!
+  homeGoals: String!
+  awayGoals: String!
+  h2h: String!
+  injuries: String!
+  context: String!
+  odds: OddsInput!
+  keyStats: String!
+}
+
+input OddsInput {
+  o25: Float!
+  u25: Float!
+  btts_y: Float!
+  btts_n: Float!
+  o15: Float!
+  o35: Float!
+  g1h: Float!
+}
+
+input MarkResultInput {
+  match: String!
+  mercado: String!
+  odds: Float!
+  confianza: Int!
+  stake: Int!
+  riesgo: RiskLevel!
+  won: Boolean!
+  league: String!
+  unitValue: Int!
 }
 
 type Subscription {
