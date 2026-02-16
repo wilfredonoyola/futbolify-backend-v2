@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 import { MongooseModule } from '@nestjs/mongoose'
 import { GraphQLModule } from '@nestjs/graphql'
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo'
+import { ScheduleModule } from '@nestjs/schedule'
 import { join } from 'path'
 
 import { AuthModule } from './auth/auth.module'
@@ -27,6 +28,9 @@ import { AppService } from './app.service'
       isGlobal: true, // disponible globalmente
       envFilePath: '.env', // puedes omitirlo si usas el nombre estándar ".env"
     }),
+
+    // ✅ ScheduleModule para cron jobs (FHG-ENGINE automation)
+    ScheduleModule.forRoot(),
 
     // ✅ Conexión a MongoDB de manera asíncrona
     MongooseModule.forRootAsync({

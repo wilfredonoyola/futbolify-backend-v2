@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+import { FhgLogService } from './services/fhg-log.service';
+import { FhgLogCategory } from './enums/fhg-log-category.enum';
 
 interface OddsApiResponse {
   id: string;
@@ -16,9 +18,31 @@ interface OddsApiResponse {
       outcomes: Array<{
         name: string;
         price: number;
+        point?: number;
       }>;
     }>;
   }>;
+}
+
+/**
+ * First Half Goal odds for a match
+ */
+export interface FirstHalfOdds {
+  homeTeam: string;
+  awayTeam: string;
+  commenceTime: string;
+  bookmakers: Array<{
+    bookmaker: string;
+    g1hYes: number | null;
+    g1hNo: number | null;
+  }>;
+  bestG1hYes: number | null;
+  bestG1hYesBookmaker: string | null;
+  bestG1hNo: number | null;
+  bestG1hNoBookmaker: string | null;
+  avgG1hYes: number | null;
+  avgG1hNo: number | null;
+  impliedProbG1hYes: number | null;
 }
 
 interface MatchOdds {
@@ -36,8 +60,25 @@ export class OddsApiService {
   private readonly baseUrl = 'https://api.the-odds-api.com/v4';
   private cache: Map<string, { data: MatchOdds; expiresAt: number }> = new Map();
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @Optional() private readonly fhgLogService?: FhgLogService
+  ) {
     this.apiKey = this.configService.get<string>('ODDS_API_KEY') || '';
+  }
+
+  /**
+   * Log to both console and FHG dashboard
+   */
+  private async logError(message: string, data?: Record<string, unknown>): Promise<void> {
+    this.logger.error(message);
+    if (this.fhgLogService) {
+      try {
+        await this.fhgLogService.error(FhgLogCategory.ODDS, message, data);
+      } catch {
+        // Ignore
+      }
+    }
   }
 
   /**
@@ -106,7 +147,7 @@ export class OddsApiService {
 
       return result;
     } catch (error) {
-      this.logger.error(`Error fetching odds: ${error.message}`);
+      await this.handleOddsApiError(error, `${homeTeam} vs ${awayTeam}`);
       return this.getFallbackOdds();
     }
   }
@@ -137,8 +178,44 @@ export class OddsApiService {
 
       return response.data;
     } catch (error) {
-      this.logger.error(`Error fetching league odds: ${error.message}`);
+      await this.handleOddsApiError(error, `league: ${league}`);
       return [];
+    }
+  }
+
+  /**
+   * Handle OddsAPI errors with specific messages
+   */
+  private async handleOddsApiError(error: unknown, context: string): Promise<void> {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    const status = axiosError.response?.status;
+    const message = axiosError.message || 'Unknown error';
+
+    if (status === 401) {
+      await this.logError(
+        `❌ ODDS API AUTH ERROR: Invalid API key. Check ODDS_API_KEY in .env`,
+        { provider: 'the-odds-api', status, context }
+      );
+    } else if (status === 402) {
+      await this.logError(
+        `❌ ODDS API QUOTA ERROR: Monthly quota exceeded. Upgrade at the-odds-api.com`,
+        { provider: 'the-odds-api', status, context }
+      );
+    } else if (status === 429) {
+      await this.logError(
+        `⚠️ ODDS API RATE LIMIT: Too many requests. Try again later.`,
+        { provider: 'the-odds-api', status, context }
+      );
+    } else if (status === 500 || status === 503) {
+      await this.logError(
+        `⚠️ ODDS API SERVER ERROR: Service temporarily unavailable`,
+        { provider: 'the-odds-api', status, context }
+      );
+    } else {
+      await this.logError(
+        `❌ ODDS API ERROR: ${message} (${context})`,
+        { provider: 'the-odds-api', status, context, error: message }
+      );
     }
   }
 
@@ -213,5 +290,175 @@ export class OddsApiService {
     };
 
     return mapping[league] || 'soccer_epl';
+  }
+
+  /**
+   * Map FHG league codes to The Odds API sport keys
+   */
+  private mapFhgLeagueToSportKey(leagueCode: string): string | null {
+    const mapping: Record<string, string> = {
+      'premier-league': 'soccer_epl',
+      'bundesliga': 'soccer_germany_bundesliga',
+      'serie-a': 'soccer_italy_serie_a',
+      'la-liga': 'soccer_spain_la_liga',
+      'ligue-1': 'soccer_france_ligue_one',
+      'champions': 'soccer_uefa_champs_league',
+      'eredivisie': 'soccer_netherlands_eredivisie',
+      'danish-superliga': 'soccer_denmark_superliga',
+      'norwegian-eliteserien': 'soccer_norway_eliteserien',
+      'liga-mx': 'soccer_mexico_ligamx',
+    };
+
+    return mapping[leagueCode] || null;
+  }
+
+  /**
+   * Get First Half Goal (G1H) odds for a league
+   * Uses the totals_h1 market with Over 0.5 line
+   *
+   * @param leagueCode FHG league code (e.g., 'premier-league', 'bundesliga')
+   * @returns Array of FirstHalfOdds for all matches in the league
+   */
+  async getFirstHalfOdds(leagueCode: string): Promise<FirstHalfOdds[]> {
+    if (!this.apiKey) {
+      this.logger.warn('ODDS_API_KEY not configured, cannot fetch G1H odds');
+      return [];
+    }
+
+    const sportKey = this.mapFhgLeagueToSportKey(leagueCode);
+    if (!sportKey) {
+      this.logger.warn(`No sport key mapping for league: ${leagueCode}`);
+      return [];
+    }
+
+    try {
+      // Fetch totals_h1 market (First Half Over/Under)
+      const response = await axios.get<OddsApiResponse[]>(
+        `${this.baseUrl}/sports/${sportKey}/odds`,
+        {
+          params: {
+            apiKey: this.apiKey,
+            regions: 'eu,uk',
+            markets: 'totals_h1',
+            oddsFormat: 'decimal',
+          },
+          timeout: 10000,
+        }
+      );
+
+      const results: FirstHalfOdds[] = [];
+
+      for (const match of response.data) {
+        const bookmakerOdds: Array<{
+          bookmaker: string;
+          g1hYes: number | null;
+          g1hNo: number | null;
+        }> = [];
+
+        let bestG1hYes: number | null = null;
+        let bestG1hYesBookmaker: string | null = null;
+        let bestG1hNo: number | null = null;
+        let bestG1hNoBookmaker: string | null = null;
+        let totalG1hYes = 0;
+        let totalG1hNo = 0;
+        let countYes = 0;
+        let countNo = 0;
+
+        for (const bookmaker of match.bookmakers) {
+          const totalsMarket = bookmaker.markets.find(
+            (m) => m.key === 'totals_h1'
+          );
+
+          if (!totalsMarket) continue;
+
+          // Find Over 0.5 (G1H Yes) and Under 0.5 (G1H No)
+          const overOutcome = totalsMarket.outcomes.find(
+            (o) => o.name === 'Over' && o.point === 0.5
+          );
+          const underOutcome = totalsMarket.outcomes.find(
+            (o) => o.name === 'Under' && o.point === 0.5
+          );
+
+          const g1hYes = overOutcome?.price ?? null;
+          const g1hNo = underOutcome?.price ?? null;
+
+          bookmakerOdds.push({
+            bookmaker: bookmaker.title,
+            g1hYes,
+            g1hNo,
+          });
+
+          // Track best odds
+          if (g1hYes !== null) {
+            totalG1hYes += g1hYes;
+            countYes++;
+            if (bestG1hYes === null || g1hYes > bestG1hYes) {
+              bestG1hYes = g1hYes;
+              bestG1hYesBookmaker = bookmaker.title;
+            }
+          }
+
+          if (g1hNo !== null) {
+            totalG1hNo += g1hNo;
+            countNo++;
+            if (bestG1hNo === null || g1hNo > bestG1hNo) {
+              bestG1hNo = g1hNo;
+              bestG1hNoBookmaker = bookmaker.title;
+            }
+          }
+        }
+
+        // Calculate averages
+        const avgG1hYes = countYes > 0
+          ? parseFloat((totalG1hYes / countYes).toFixed(2))
+          : null;
+        const avgG1hNo = countNo > 0
+          ? parseFloat((totalG1hNo / countNo).toFixed(2))
+          : null;
+
+        // Calculate implied probability
+        const impliedProbG1hYes = avgG1hYes
+          ? parseFloat((1 / avgG1hYes).toFixed(4))
+          : null;
+
+        results.push({
+          homeTeam: match.home_team,
+          awayTeam: match.away_team,
+          commenceTime: match.commence_time,
+          bookmakers: bookmakerOdds,
+          bestG1hYes,
+          bestG1hYesBookmaker,
+          bestG1hNo,
+          bestG1hNoBookmaker,
+          avgG1hYes,
+          avgG1hNo,
+          impliedProbG1hYes,
+        });
+      }
+
+      await this.logInfo(
+        `Fetched G1H odds for ${leagueCode}: ${results.length} matches`,
+        { leagueCode, matchCount: results.length }
+      );
+
+      return results;
+    } catch (error) {
+      await this.handleOddsApiError(error, `G1H odds for ${leagueCode}`);
+      return [];
+    }
+  }
+
+  /**
+   * Log info to both console and FHG dashboard
+   */
+  private async logInfo(message: string, data?: Record<string, unknown>): Promise<void> {
+    this.logger.log(message);
+    if (this.fhgLogService) {
+      try {
+        await this.fhgLogService.info(FhgLogCategory.ODDS, message, data);
+      } catch {
+        // Ignore
+      }
+    }
   }
 }

@@ -36,6 +36,7 @@
     "@nestjs/mongoose": "^10.0.10",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.3.10",
+    "@nestjs/schedule": "^6.1.1",
     "@nestjs/websockets": "^11.1.12",
     "@types/graphql-upload": "^17.0.0",
     "@types/passport-local": "^1.0.38",

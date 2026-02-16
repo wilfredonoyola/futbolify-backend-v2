@@ -907,6 +907,8 @@ type GoalGuruLeagueDto {
   name: String!
   flag: String!
   search: String!
+  g1hRating: String
+  avgG1H: Float
 }
 
 type GoalGuruMatchDto {
@@ -917,60 +919,12 @@ type GoalGuruMatchDto {
   comp: String!
 }
 
-type OddsDto {
-  o25: Float!
-  u25: Float!
-  btts_y: Float!
-  btts_n: Float!
-  o15: Float!
-  o35: Float!
-  g1h: Float!
-}
-
-type MatchContextDto {
-  homePos: String!
-  awayPos: String!
-  homeForm: String!
-  awayForm: String!
-  homeGoals: String!
-  awayGoals: String!
-  h2h: String!
-  injuries: String!
-  context: String!
-  odds: OddsDto!
-  keyStats: String!
-}
-
-type GoalGuruPickDto {
-  id: ID!
-  userId: ID!
-  sessionId: ID
-  match: String!
-  mercado: String!
-  odds: Float!
-  confianza: Int!
-  stake: Int!
-  riesgo: RiskLevel!
-  result: PickResult!
-  profit: Float!
-  league: String!
-  resolvedAt: DateTime
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-"""Risk level for Goal Guru betting picks"""
-enum RiskLevel {
-  BAJO
-  MEDIO
-  ALTO
-}
-
-"""Result status of a Goal Guru pick"""
-enum PickResult {
-  PENDING
-  WON
-  LOST
+type G1HStatsDto {
+  homeG1HPercent: Int
+  awayConcedeG1HPercent: Int
+  avgMinuteFirstGoal: Int
+  homeAvg1HGoals: Float
+  fhpiScore: Float
 }
 
 type PickDetailDto {
@@ -980,13 +934,23 @@ type PickDetailDto {
   confianza: Int!
   stake: Int!
   riesgo: RiskLevel!
-  capas: String!
-  c1: String!
-  c2: String!
-  maestro: String!
-  score: String!
+  razon: String!
+  patron: String
+  g1hStats: G1HStatsDto
+  capas: String
+  c1: String
+  c2: String
+  maestro: String
+  score: String
   alt: String
   alerta: String
+}
+
+"""Risk level for Goal Guru betting picks"""
+enum RiskLevel {
+  BAJO
+  MEDIO
+  ALTO
 }
 
 type SkipDetailDto {
@@ -997,18 +961,332 @@ type SkipDetailDto {
 type AnalysisResultDto {
   picks: [PickDetailDto!]!
   skip: [SkipDetailDto!]!
-  top: String!
+  mejorPick: String
+  alertas: String
+  top: String
   parlay: String
-  bank: String!
+  bank: String
 }
 
-type GoalGuruStatsDto {
-  totalBets: Int!
-  wins: Int!
-  losses: Int!
-  winRate: Float!
-  totalProfit: Float!
+type FhgSelectionDto {
+  id: ID!
+  matchId: ID!
+  predictionId: ID!
+  homeTeam: String!
+  awayTeam: String!
+  leagueCode: String!
+  date: DateTime!
+  kickoffTime: String!
+  signal: FhgSignal!
+  marginValor: Float!
+  pReal: Float!
+  edgeScore: Int!
+  stakePercentage: Float!
+  oddsAtSelection: Float!
+  bookmakerUsed: String
+  outcome: FhgOutcome!
+  closingOdds: Float
+  clv: Float
+  profitLoss: Float
+  settledAt: DateTime
+  actualGoals1H: Int
+  minuteFirstGoal: Int
+  createdAt: DateTime!
+}
+
+"""Signal strength for FHG selections (A=best, NONE=skip)"""
+enum FhgSignal {
+  A
+  B
+  C
+  NONE
+}
+
+"""Outcome of an FHG selection"""
+enum FhgOutcome {
+  PENDING
+  WON
+  LOST
+  VOID
+}
+
+type FhgSelectionHistoryDto {
+  selections: [FhgSelectionDto!]!
+  total: Int!
+  offset: Int!
+  limit: Int!
+}
+
+type FhgFactorDto {
+  name: String!
+  value: Float!
+  reason: String!
+}
+
+type FhgEdgeBreakdownDto {
+  dataQualityScore: Int
+  patternScore: Int
+  contextScore: Int
+  valueScore: Int
+}
+
+type FhgPredictionDetailDto {
+  id: ID!
+  matchId: ID!
+  homeTeam: String!
+  awayTeam: String!
+  leagueCode: String!
+  date: DateTime!
+  pBase: Float!
+  leagueAvgG1H: Float!
+  homeG1HRate: Float!
+  awayConcedeG1HRate: Float!
+  pReal: Float!
+  factors: [FhgFactorDto!]!
+  leagueFactor: Float
+  momentumFactor: Float
+  aggressionFactor: Float
+  vulnerabilityFactor: Float
+  contextFactor: Float
+  formFactor: Float
+  totalFactorMultiplier: Float
+  edgeScore: Int!
+  edgeBreakdown: FhgEdgeBreakdownDto
+  confidenceLevel: String
+  warnings: [String!]!
+  createdAt: DateTime!
+}
+
+type FhgLeagueMetricsDto {
+  leagueCode: String!
+  leagueName: String!
+  totalSelections: Int!
+  won: Int!
+  lost: Int!
+  hitRate: Float!
+  avgClv: Float!
   roi: Float!
+}
+
+type FhgSignalMetricsDto {
+  signal: String!
+  totalSelections: Int!
+  won: Int!
+  lost: Int!
+  hitRate: Float!
+  avgClv: Float!
+  roi: Float!
+}
+
+type FhgAlertDto {
+  severity: String!
+  message: String!
+  recommendation: String!
+}
+
+type FhgHealthDto {
+  id: ID!
+  status: FhgStatus!
+  reportDate: DateTime!
+  periodStart: DateTime!
+  periodEnd: DateTime!
+  totalSelections: Int!
+  settledSelections: Int!
+  pendingSelections: Int!
+  won: Int!
+  lost: Int!
+  voided: Int!
+  hitRate: Float!
+  avgClv: Float!
+  roi: Float!
+  totalProfitLoss: Float!
+  totalStaked: Float!
+  clv7d: Float
+  clv30d: Float
+  clvAllTime: Float
+  byLeague: [FhgLeagueMetricsDto!]!
+  bySignal: [FhgSignalMetricsDto!]!
+  alerts: [FhgAlertDto!]!
+}
+
+"""Health status of FHG system based on CLV"""
+enum FhgStatus {
+  GREEN
+  YELLOW
+  RED
+}
+
+type DailyPipelineResultDto {
+  pipelineId: String!
+  date: DateTime!
+  matchesAnalyzed: Int!
+  candidatesFound: Int!
+  selectionsCreated: Int!
+  selections: [FhgSelectionDto!]!
+  skippedReasons: [String!]!
+  executionTimeMs: Int!
+  success: Boolean!
+  error: String
+}
+
+type SettlementResultDto {
+  settled: Int!
+  won: Int!
+  lost: Int!
+  voided: Int!
+  settledSelections: [FhgSelectionDto!]!
+  success: Boolean!
+  error: String
+}
+
+type RefreshResultDto {
+  updated: Int!
+  created: Int!
+  failed: Int!
+  success: Boolean!
+  error: String
+}
+
+type FhgMatchCandidateDto {
+  matchId: String!
+  homeTeam: String!
+  awayTeam: String!
+  leagueCode: String!
+  date: DateTime!
+  kickoffTime: String!
+  pReal: Float
+  edgeScore: Float
+  bestOdds: Float
+  marginValor: Float
+  signal: String
+  hasOdds: Boolean!
+  hasPrediction: Boolean!
+}
+
+type FhgLogEntryDto {
+  id: ID!
+  level: FhgLogLevel!
+  category: FhgLogCategory!
+  message: String!
+  data: JSON
+  matchId: String
+  pipelineId: String
+  selectionId: String
+  timestamp: DateTime!
+}
+
+"""Log level for FHG system logs"""
+enum FhgLogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+"""Category for FHG system logs"""
+enum FhgLogCategory {
+  PREDICTION
+  VALUE
+  PIPELINE
+  SELECTION
+  SETTLEMENT
+  HEALTH
+  ODDS
+  STATS
+  CRON
+}
+
+type FhgLeagueDto {
+  id: ID!
+  code: String!
+  name: String!
+  tier: FhgTier!
+  avgG1H: Float!
+  apiFootballId: Float
+  footballDataCode: String
+  active: Boolean!
+  flag: String
+  g1hRateHome: Float
+  g1hRateAway: Float
+  avgMinuteFirstGoal: Float
+  lastStatsUpdate: DateTime
+}
+
+"""League tier classification for G1H betting potential"""
+enum FhgTier {
+  MAX
+  HIGH
+  MEDIUM
+  LOW
+}
+
+type FhgMatchContext {
+  motivation: String
+  isDerby: Boolean!
+  homeRestDays: Int
+  awayRestDays: Int
+  homeLastResult: String
+  awayLastResult: String
+  homeLeaguePosition: Int
+  awayLeaguePosition: Int
+  weather: String
+}
+
+type FhgBookmakerOdds {
+  bookmaker: String!
+  g1hYes: Float
+  g1hNo: Float
+  lastUpdate: DateTime
+}
+
+type FhgFactor {
+  name: String!
+  value: Float!
+  reason: String!
+}
+
+type FhgEdgeBreakdown {
+  dataQualityScore: Int
+  patternScore: Int
+  contextScore: Int
+  valueScore: Int
+}
+
+type FhgRecentForm {
+  date: DateTime!
+  opponent: String!
+  isHome: Boolean!
+  hadG1H: Boolean!
+  minuteFirstGoal: Int
+  goalsScored1H: Int!
+  goalsConceded1H: Int!
+}
+
+type FhgLeagueHealthMetrics {
+  leagueCode: String!
+  leagueName: String!
+  totalSelections: Int!
+  won: Int!
+  lost: Int!
+  hitRate: Float!
+  avgClv: Float!
+  roi: Float!
+}
+
+type FhgSignalHealthMetrics {
+  signal: String!
+  totalSelections: Int!
+  won: Int!
+  lost: Int!
+  hitRate: Float!
+  avgClv: Float!
+  roi: Float!
+}
+
+type FhgHealthAlert {
+  severity: String!
+  message: String!
+  recommendation: String!
 }
 
 type Query {
@@ -1093,9 +1371,33 @@ type Query {
   trendingFrases(limit: Int! = 10): [Frase!]!
   goalGuruLeagues: [GoalGuruLeagueDto!]!
   findGoalGuruMatches(leagueId: String!): [GoalGuruMatchDto!]!
-  getGoalGuruMatchContext(input: MatchContextInput!): MatchContextDto
-  goalGuruHistory(limit: Int, offset: Int): [GoalGuruPickDto!]!
-  goalGuruStats: GoalGuruStatsDto!
+
+  """Get FHG selections for today"""
+  fhgTodaySelections: [FhgSelectionDto!]!
+
+  """Get FHG selections for a specific date (YYYY-MM-DD)"""
+  fhgSelectionsByDate(date: String!): [FhgSelectionDto!]!
+
+  """Get paginated FHG selection history"""
+  fhgSelectionHistory(limit: Int, offset: Int): FhgSelectionHistoryDto!
+
+  """Get the latest FHG health report with CLV metrics"""
+  fhgHealthReport: FhgHealthDto!
+
+  """Get active leagues for FHG analysis"""
+  fhgActiveLeagues: [FhgLeagueDto!]!
+
+  """Get match candidates for analysis (with predictions and odds status)"""
+  fhgMatchCandidates(date: String): [FhgMatchCandidateDto!]!
+
+  """Get detailed prediction for a specific match"""
+  fhgMatchPrediction(matchId: ID!): FhgPredictionDetailDto
+
+  """Get recent FHG logs for transparency"""
+  fhgRecentLogs(limit: Int, category: String): [FhgLogEntryDto!]!
+
+  """Get FHG logs with filters"""
+  fhgLogs(filter: FhgLogFilterInput): [FhgLogEntryDto!]!
 }
 
 input LateMatchOptionsDto {
@@ -1141,13 +1443,15 @@ input FilterFrasesInput {
   offset: Int! = 0
 }
 
-input MatchContextInput {
-  home: String!
-  away: String!
-  date: String!
-  time: String!
-  comp: String!
-  leagueName: String!
+input FhgLogFilterInput {
+  level: FhgLogLevel
+  category: FhgLogCategory
+  matchId: String
+  pipelineId: String
+  startDate: DateTime
+  endDate: DateTime
+  limit: Int
+  offset: Int
 }
 
 type Mutation {
@@ -1259,9 +1563,32 @@ type Mutation {
 
   """Actualizar URL de imagen exportada"""
   updateExportedImage(id: ID!, imageUrl: String!): Frase!
-  analyzeGoalGuruMatches(input: AnalyzeMatchesInput!): AnalysisResultDto
-  markGoalGuruPickResult(input: MarkResultInput!): GoalGuruPickDto!
-  clearGoalGuruHistory: Boolean!
+
+  """Analyze ONE match for G1H"""
+  analyzeSingleG1H(input: AnalyzeG1HInput!): AnalysisResultDto
+
+  """Analyze ALL matches for G1H - batch analysis"""
+  analyzeG1H(input: AnalyzeG1HInput!): AnalysisResultDto
+
+  """
+  Run the FHG daily pipeline: fetch matches, generate predictions, evaluate value, create selections
+  """
+  fhgRunDailyPipeline(options: FhgPipelineOptionsInput): DailyPipelineResultDto!
+
+  """Settle pending FHG selections (calculate outcomes and CLV)"""
+  fhgSettleSelections: SettlementResultDto!
+
+  """Import/refresh matches from API-Football for all active leagues"""
+  fhgRefreshMatches(date: String, daysAhead: Int = 7): RefreshResultDto!
+
+  """Refresh team statistics for FHG analysis"""
+  fhgRefreshTeamStats(leagueCode: String): RefreshResultDto!
+
+  """Refresh odds for FHG matches"""
+  fhgRefreshOdds(matchId: ID): RefreshResultDto!
+
+  """Full data refresh: matches + odds for all active leagues"""
+  fhgFullRefresh(date: String, daysAhead: Int = 7): RefreshResultDto!
 }
 
 input SigninInputDto {
@@ -1575,13 +1902,12 @@ input SaveFraseInput {
   exportedImageUrl: String
 }
 
-input AnalyzeMatchesInput {
-  matches: [MatchInput!]!
-  contexts: [ContextInput!]!
+input AnalyzeG1HInput {
+  matches: [G1HMatchInput!]!
   leagueName: String!
 }
 
-input MatchInput {
+input G1HMatchInput {
   home: String!
   away: String!
   date: String!
@@ -1589,40 +1915,10 @@ input MatchInput {
   comp: String!
 }
 
-input ContextInput {
-  homePos: String!
-  awayPos: String!
-  homeForm: String!
-  awayForm: String!
-  homeGoals: String!
-  awayGoals: String!
-  h2h: String!
-  injuries: String!
-  context: String!
-  odds: OddsInput!
-  keyStats: String!
-}
-
-input OddsInput {
-  o25: Float!
-  u25: Float!
-  btts_y: Float!
-  btts_n: Float!
-  o15: Float!
-  o35: Float!
-  g1h: Float!
-}
-
-input MarkResultInput {
-  match: String!
-  mercado: String!
-  odds: Float!
-  confianza: Int!
-  stake: Int!
-  riesgo: RiskLevel!
-  won: Boolean!
-  league: String!
-  unitValue: Int!
+input FhgPipelineOptionsInput {
+  date: String
+  leagueCode: String
+  dryRun: Boolean
 }
 
 type Subscription {
