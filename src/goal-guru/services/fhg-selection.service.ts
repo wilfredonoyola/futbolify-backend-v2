@@ -146,9 +146,12 @@ export class FhgSelectionService {
         { prediction: FhgPrediction; match: FhgMatch }
       > = new Map()
 
+      const forceRegenerate = options?.forceRegenerate || false
+
       for (const match of matches) {
         const result = await this.predictionService.calculateProbability(
-          match._id.toString()
+          match._id.toString(),
+          forceRegenerate
         )
         if (result) {
           predictions.set(match._id.toString(), {
@@ -538,6 +541,34 @@ export class FhgSelectionService {
         date: { $gte: targetDate, $lt: nextDay },
       })
       .sort({ createdAt: -1 })
+      .exec()
+
+    return selections.map((s) => this.toDto(s))
+  }
+
+  /**
+   * Get selections for current week (Monday to Sunday)
+   */
+  async getSelectionsThisWeek(): Promise<FhgSelectionDto[]> {
+    const now = new Date()
+
+    // Get Monday of current week
+    const dayOfWeek = now.getDay()
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + diffToMonday)
+    monday.setHours(0, 0, 0, 0)
+
+    // Get Sunday (end of week)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+
+    const selections = await this.selectionModel
+      .find({
+        date: { $gte: monday, $lte: sunday },
+      })
+      .sort({ date: 1, createdAt: -1 })
       .exec()
 
     return selections.map((s) => this.toDto(s))

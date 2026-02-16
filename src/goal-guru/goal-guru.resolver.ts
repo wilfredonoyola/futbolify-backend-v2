@@ -109,6 +109,14 @@ export class GoalGuruResolver {
     return this.fhgSelectionService.getSelectionsByDate(date)
   }
 
+  @Query(() => [FhgSelectionDto], {
+    name: 'fhgSelectionsThisWeek',
+    description: 'Get FHG selections for current week (Monday to Sunday)',
+  })
+  async fhgSelectionsThisWeek(): Promise<FhgSelectionDto[]> {
+    return this.fhgSelectionService.getSelectionsThisWeek()
+  }
+
   @Query(() => FhgSelectionHistoryDto, {
     name: 'fhgSelectionHistory',
     description: 'Get paginated FHG selection history',

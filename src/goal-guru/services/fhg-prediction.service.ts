@@ -62,8 +62,13 @@ export class FhgPredictionService {
 
   /**
    * Calculate prediction for a match
+   * @param matchId The match ID to calculate prediction for
+   * @param forceRegenerate If true, delete existing prediction and regenerate
    */
-  async calculateProbability(matchId: string): Promise<PredictionResult | null> {
+  async calculateProbability(
+    matchId: string,
+    forceRegenerate = false
+  ): Promise<PredictionResult | null> {
     const match = await this.matchModel.findById(matchId)
     if (!match) {
       await this.logService.warn(
@@ -78,7 +83,18 @@ export class FhgPredictionService {
     // Check if prediction already exists
     const existing = await this.predictionModel.findOne({ matchId: match._id })
     if (existing) {
-      return { prediction: existing, created: false }
+      if (forceRegenerate) {
+        // Delete existing prediction to regenerate
+        await this.predictionModel.deleteOne({ _id: existing._id })
+        await this.logService.debug(
+          FhgLogCategory.PREDICTION,
+          `Deleted existing prediction for ${match.homeTeam} vs ${match.awayTeam} (force regenerate)`,
+          undefined,
+          { matchId }
+        )
+      } else {
+        return { prediction: existing, created: false }
+      }
     }
 
     const factors: FhgFactor[] = []
@@ -109,9 +125,14 @@ export class FhgPredictionService {
     ])
 
     // Calculate base rates (with fallbacks)
-    const leagueAvgG1H = leagueConfig.avgG1H / 2 // Convert avg goals to probability
-    let homeG1HRate = 0.5
-    let awayConcedeG1HRate = 0.5
+    // Convert avg goals to probability using Poisson: P(G1H) = 1 - e^(-λ)
+    // where λ = avgG1H (average goals in first half)
+    // This gives the probability of at least 1 goal in first half
+    const leagueAvgG1H = 1 - Math.exp(-leagueConfig.avgG1H)
+
+    // Default rates use league average (not arbitrary 0.5)
+    let homeG1HRate = leagueAvgG1H
+    let awayConcedeG1HRate = leagueAvgG1H
 
     if (homeTeam) {
       if (homeTeam.homeMatchesPlayed >= MIN_MATCHES_PLAYED) {

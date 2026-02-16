@@ -128,4 +128,7 @@ export class FhgPipelineOptionsInput {
 
   @Field({ nullable: true })
   dryRun?: boolean // If true, don't persist selections
+
+  @Field({ nullable: true })
+  forceRegenerate?: boolean // If true, delete existing predictions and regenerate
 }
