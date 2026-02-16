@@ -1378,6 +1378,9 @@ type Query {
   """Get FHG selections for a specific date (YYYY-MM-DD)"""
   fhgSelectionsByDate(date: String!): [FhgSelectionDto!]!
 
+  """Get FHG selections for current week (Monday to Sunday)"""
+  fhgSelectionsThisWeek: [FhgSelectionDto!]!
+
   """Get paginated FHG selection history"""
   fhgSelectionHistory(limit: Int, offset: Int): FhgSelectionHistoryDto!
 
@@ -1919,6 +1922,7 @@ input FhgPipelineOptionsInput {
   date: String
   leagueCode: String
   dryRun: Boolean
+  forceRegenerate: Boolean
 }
 
 type Subscription {

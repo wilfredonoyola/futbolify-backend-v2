@@ -5,15 +5,50 @@ import { GoalGuruMatchDto } from './dto'
 /**
  * League IDs mapping for API-Football
  */
+/**
+ * Get current season based on month
+ * European leagues: Aug-May = year they started (e.g., Aug 2025 - May 2026 = 2025)
+ * Latin leagues: Jan-Dec or varies
+ */
+function getCurrentSeason(): number {
+  const now = new Date()
+  const month = now.getMonth() + 1 // 1-12
+  const year = now.getFullYear()
+
+  // If before August, we're in the season that started last year
+  // If August or later, we're in the season that started this year
+  return month < 8 ? year - 1 : year
+}
+
+const CURRENT_SEASON = getCurrentSeason()
+
+/**
+ * League IDs for API-Football
+ * Sorted by G1H potential (HIGH first)
+ *
+ * Research shows these leagues have best G1H rates:
+ * - Eredivisie: 1.40 avg G1H
+ * - Danish Superliga: 1.55 avg G1H
+ * - Bundesliga: 1.35 avg G1H (open transitions)
+ * - Norwegian Eliteserien: 1.38 avg G1H
+ */
 const LEAGUE_IDS: Record<string, { id: number; name: string; season: number }> = {
-  'premier-league': { id: 39, name: 'Premier League', season: 2024 },
-  'la-liga': { id: 140, name: 'La Liga', season: 2024 },
-  'serie-a': { id: 135, name: 'Serie A', season: 2024 },
-  'bundesliga': { id: 78, name: 'Bundesliga', season: 2024 },
-  'ligue-1': { id: 61, name: 'Ligue 1', season: 2024 },
-  'liga-mx': { id: 262, name: 'Liga MX', season: 2024 },
-  'champions': { id: 2, name: 'UEFA Champions League', season: 2024 },
-  'libertadores': { id: 13, name: 'Copa Libertadores', season: 2025 },
+  // HIGH G1H POTENTIAL
+  'eredivisie': { id: 88, name: 'Eredivisie', season: CURRENT_SEASON },
+  'bundesliga': { id: 78, name: 'Bundesliga', season: CURRENT_SEASON },
+  'danish-superliga': { id: 119, name: 'Danish Superliga', season: CURRENT_SEASON },
+  'norwegian-eliteserien': { id: 103, name: 'Eliteserien', season: CURRENT_SEASON },
+
+  // MEDIUM G1H POTENTIAL
+  'premier-league': { id: 39, name: 'Premier League', season: CURRENT_SEASON },
+  'serie-a': { id: 135, name: 'Serie A', season: CURRENT_SEASON },
+  'liga-mx': { id: 262, name: 'Liga MX', season: CURRENT_SEASON },
+  'champions': { id: 2, name: 'UEFA Champions League', season: CURRENT_SEASON },
+
+  // LOWER G1H POTENTIAL (tactical leagues)
+  'la-liga': { id: 140, name: 'La Liga', season: CURRENT_SEASON },
+  'ligue-1': { id: 61, name: 'Ligue 1', season: CURRENT_SEASON },
+  'libertadores': { id: 13, name: 'Copa Libertadores', season: CURRENT_SEASON },
 }
 
 @Injectable()
@@ -88,26 +123,31 @@ export class ApiFootballService {
   ): Promise<GoalGuruMatchDto[]> {
     try {
       const today = new Date()
-      const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+      // Changed: Today + next 2 days (more useful for betting)
+      const twoDaysLater = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000)
 
       // Format dates as YYYY-MM-DD
       const from = today.toISOString().split('T')[0]
-      const to = nextWeek.toISOString().split('T')[0]
+      const to = twoDaysLater.toISOString().split('T')[0]
 
-      const response = await fetch(
-        `${this.baseUrl}/fixtures?league=${leagueId}&season=${season}&from=${from}&to=${to}`,
-        {
-          headers: {
-            'x-apisports-key': this.apiKey,
-          },
-        }
-      )
+      const url = `${this.baseUrl}/fixtures?league=${leagueId}&season=${season}&from=${from}&to=${to}`
+      this.logger.log(`🔍 API-Football URL: ${url}`)
+
+      const response = await fetch(url, {
+        headers: {
+          'x-apisports-key': this.apiKey,
+        },
+      })
 
       if (!response.ok) {
+        const errorText = await response.text()
+        this.logger.error(`API error ${response.status}: ${errorText}`)
         throw new Error(`API error: ${response.status}`)
       }
 
       const data = await response.json()
+      this.logger.log(`📊 API Response: ${data.results} results, errors: ${JSON.stringify(data.errors)}`)
+
       const fixtures = data.response || []
 
       // Parse fixtures into GoalGuruMatchDto format

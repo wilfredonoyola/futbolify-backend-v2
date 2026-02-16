@@ -1,0 +1,357 @@
+# FHG-ENGINE v1.0 — DOCUMENTO 1: BLUEPRINT
+## Lógica de Negocio y Contexto del Sistema
+## First Half Goals Detection & Value Betting System
+## Fecha: Febrero 2026
+
+---
+
+## ABSTRACT
+
+Este sistema detecta partidos de fútbol con alta probabilidad de gol en primera mitad (Over 0.5 FHG) Y cuotas que ofrecen valor positivo contra el mercado. Combina un modelo de predicción propio (que estima la probabilidad real de gol en 1H) con un módulo de detección de valor (que compara esa probabilidad contra las cuotas disponibles). Solo cuando ambos módulos coinciden — alta probabilidad + valor en cuota — el sistema genera una señal de apuesta.
+
+Premisa fundamental: predecir goles es necesario pero no suficiente. El dinero se hace explotando la diferencia entre tu estimación y la estimación de la casa de apuestas, en ligas y mercados donde esa diferencia es mayor.
+
+---
+
+## SECCIÓN 0: CÓMO PIENSA UNA CASA DE APUESTAS
+
+### Verdades del mercado:
+
+1. Las casas NO intentan predecir resultados. Intentan predecir CUÁNTO VA A APOSTAR LA GENTE en cada lado. Su negocio es cobrar margen (overround) sobre todo lo que entra.
+
+2. No todas las casas son iguales. Pinnacle, Bet365 y SBOBET son "sharp books" (eficientes). FanDuel, William Hill y casas locales son "soft books" (ajustan más lento, modelos menos sofisticados).
+
+3. Las casas invierten recursos proporcionales al volumen de dinero. Premier League tiene equipos enteros de analistas. Superligaen danesa o Ykkönen finlandesa tienen un modelo Poisson genérico con datos históricos básicos.
+
+4. El margen (overround) en mercados de 1H es típicamente 6-8%. Para ser rentable, el sistema necesita predecir lo suficientemente mejor como para superar ese 6-8%.
+
+5. Los modelos de las casas usan distribución Poisson con decaimiento temporal. Debilidad: Poisson asume independencia entre goles y no captura identidad táctica ni contextos de partido.
+
+6. La mayoría de casas modernas TERCERIZAN el pricing. Varias usan las mismas líneas del mismo proveedor. Cuando esa fuente se equivoca, TODAS se equivocan al mismo tiempo.
+
+---
+
+## SECCIÓN 1: GRIETAS REALES DEL MERCADO
+
+### GRIETA 1: Mercados secundarios = pricing perezoso
+Las casas aplican su mejor talento al resultado 1X2. El Over 0.5 1H es un mercado DERIVADO — se calcula a partir del modelo principal, no se analiza por separado. No incorpora variables específicas de 1H. Las cuotas de 1H se actualizan más lento.
+
+EXPLOTACIÓN: Un modelo ESPECIALIZADO en 1H es más preciso que un subproducto genérico de Poisson.
+
+### GRIETA 2: Ligas menores = modelos genéricos
+Cadena causal de la ineficiencia:
+Baja visibilidad → Baja inversión de la casa → Baja liquidez → Poco feedback correctivo de sharps → Alta ineficiencia → OPORTUNIDAD
+
+### GRIETA 3: Velocidad de ajuste desigual entre casas
+Cuando sale alineación o lesión de último minuto:
+- Pinnacle/Bet365 ajustan en segundos-minutos
+- Casas medianas ajustan en 5-15 minutos
+- Casas locales/pequeñas pueden tardar 30-60 minutos
+
+### GRIETA 4: Favourite-Longshot Bias en 1H
+Las casas tienden a sobrestimar eventos "muy probables" y subestimar "poco probables". Over 0.5 1H (~75%) tiende a estar ligeramente sobrevalorado por las casas = cuotas más bajas de lo que deberían. El valor aparece cuando juntás ligas menores + equipos con perfiles extremos + timing correcto.
+
+### GRIETA 5: In-play es donde el modelo de la casa es más débil
+El Poisson con decaimiento temporal NO lee el partido. No sabe si hay lluvia, si un equipo está dominando sin rematar, o si el árbitro corta todo. Los primeros 15 min son los más secos (~22% de goles de 1H). Si llega min 15 sin gol, la cuota sube mecánicamente. Si el contexto real dice que los goles están por venir → la cuota in-play tiene más valor que pre-match.
+
+### GRIETA 6: Asian Handicap 1H lines
+Márgenes más bajos (4-5% vs 6-8% europeo), límites más altos en casas asiáticas, PERO menos atención analítica de casas europeas.
+
+---
+
+## SECCIÓN 2: CLASIFICACIÓN DE LIGAS POR VALOR EXPLOTABLE
+
+Las mejores ligas NO son las más goleadoras. Son las que combinan alto Over 0.5 1H + bajo escrutinio de las casas.
+
+### PRIORIDAD MÁXIMA: Alto Over 0.5 1H + Bajo escrutinio
+
+| Liga | País | Over 0.5 1H | Avg Goles 1H | Escrutinio | Potencial |
+|------|------|-------------|-------------|------------|-----------|
+| Superligaen | Dinamarca | 80-86% | 1.55 | MEDIO-BAJO | ALTO |
+| NB I | Hungría | 78-81% | 1.20 | BAJO | MUY ALTO |
+| Czech Liga | Chequia | 76-78% | 1.20 | BAJO | MUY ALTO |
+| Ykkönen | Finlandia | 81-83% | 1.45 | MUY BAJO | MÁXIMO |
+| 1. Division | Noruega | 80-83% | 1.30 | BAJO | MUY ALTO |
+
+### PRIORIDAD MEDIA: Alto Over 0.5 1H pero más atención de casas
+
+| Liga | País | Over 0.5 1H | Avg Goles 1H | Potencial |
+|------|------|-------------|-------------|-----------|
+| Superettan | Suecia | 76-78% | 1.30 | ALTO |
+| Super League | Suiza | 77-79% | 1.25 | ALTO |
+| 1. Lig | Turquía 2da | 76-78% | 1.22 | ALTO |
+| Bundesliga | Alemania | 85-89% | 1.35 | BAJO-MEDIO |
+| Süper Lig | Turquía | 83-86% | 1.28 | MEDIO |
+| Série A | Brasil | 82-84% | 1.25 | MEDIO |
+| Champions League | Europa | 83-86% | 1.30 | BAJO |
+| Eredivisie | Holanda | 93-97% | 1.40 | BAJO (cuotas eficientes) |
+
+### PRIORIDAD BAJA (mercados eficientes — NO invertir recursos)
+- Premier League: Mercado más eficiente del mundo. Cero valor.
+- La Liga: Cuotas ultra-ajustadas.
+- Serie A Italia: Bien modelada + cultura defensiva.
+- Ligue 1 Francia: Sin PSG no hay goles, con PSG las cuotas lo reflejan.
+
+### LIGAS PROHIBIDAS
+- Liga MX: Ritmo lento primeros 30 min
+- K-League (Corea): Conservador en 1H
+- J-League (Japón): Disciplinada, pocos goles tempranos
+- Ligue 2 (Francia): Cerrada, física
+- Serie B (Italia): Cultura defensiva
+- Championship (Inglaterra): Inconsistente
+
+### CALENDARIO OPERATIVO
+
+```
+AGOSTO → MAYO: Superligaen, NB I, Czech Liga, Super League SUI,
+                1. Lig TUR, Süper Lig, Bundesliga, Eredivisie, UCL
+
+ABRIL → NOVIEMBRE: Eliteserien, 1. Division NOR, Allsvenskan,
+                    Superettan SWE, Veikkausliiga, Ykkönen FIN,
+                    Úrvalsdeild ISL
+
+ABRIL → DICIEMBRE: Série A Brasil
+
+JUNIO-JULIO: Solo nórdicas + Brasil. Reducir volumen, NO forzar.
+```
+
+---
+
+## SECCIÓN 3: VARIABLES PREDICTORAS
+
+### Principio: No busques lo que la casa ya sabe. Busca lo que NO incorpora o incorpora mal.
+
+### LO QUE LA CASA YA SABE (está dentro de las cuotas):
+- Promedio de goles por equipo (lo usan para Poisson)
+- Over/Under historial general
+- Head-to-head básico
+- Posición en tabla
+
+### LO QUE LA CASA NO CAPTURA BIEN (tu edge real):
+
+#### VARIABLE 1: Identidad táctica de inicio de partido
+La casa usa promedio genérico. No distingue entre equipo que presiona alto desde min 1 vs equipo que espera 20 min antes de atacar.
+- Para el bot: crear perfiles de "agresividad de inicio" por equipo
+- % partidos con gol antes del min 25
+- Avg primer gol < 28 min = equipo agresor natural
+- Diferencia de ritmo local vs visitante
+
+#### VARIABLE 2: Forma reciente de 1H vs promedio temporada
+La casa usa promedios de temporada. No pesa la forma reciente en 1H.
+- Equipo con 85% temporada pero 2/5 últimos sin gol en 1H → casa sigue usando 85%
+- Equipo con 70% temporada pero 5/5 últimos con gol → casa sigue usando 70%
+- Para el bot: "índice de momentum de 1H" que compare forma reciente vs promedio
+
+#### VARIABLE 3: Interacción de estilos tácticos (el más valioso)
+Poisson trata a los dos equipos como generadores independientes de goles. PERO:
+- Pressing alto vs equipo que juega largo = MÁS transiciones = MÁS goles que Poisson predice
+- Posesión vs posesión = MENOS chances que Poisson predice
+- Pressing vs defensa débil = EXPLOSIÓN que Poisson subestima
+
+#### VARIABLE 4: Cambios de alineación relevantes para 1H
+Las casas ajustan por lesiones pero NO el impacto específico en 1H:
+- Si delantero que promedia gol antes del min 30 es baja → impacto en 1H MAYOR que en resultado final
+- Si mediocampista creativo vuelve → impacto en 1H mayor de lo que cuota refleja
+
+#### VARIABLE 5: Contexto motivacional que Poisson ignora
+- Equipo que NECESITA ganar (descenso, clasificación) → sale agresivo → más goles 1H
+- Equipo sin nada en juego → ritmo bajo → menos goles 1H
+- Derby local → impredecible
+
+#### VARIABLE 6: Señales de mercado
+- Dropping odds confirma → dinero sharp de acuerdo contigo
+- Odds subiendo → sharps van al Under → reconsiderar
+- Diferencia entre casas > 15% → una casa se equivoca → oportunidad
+
+---
+
+## SECCIÓN 4: DISTRIBUCIÓN TEMPORAL DE GOLES EN 1H
+
+```
+Min 01-15: ~22% de goles del 1H (período más seco)
+Min 16-30: ~32% de goles del 1H (abriendo)
+Min 31-45+: ~46% de goles del 1H (explosión)
+```
+
+IMPLICACIÓN PARA IN-PLAY:
+Si llega 0-0 al min 15 → 78% de los goles de 1H AÚN NO han caído.
+La cuota sube mecánicamente (Poisson + time decay).
+Pero la realidad dice que AHORA es cuando más goles caen.
+= Ventana de valor entre min 15-25.
+
+---
+
+## SECCIÓN 5: LÓGICA DE DECISIÓN
+
+### Sistema de puntuación (Edge Score)
+
+```
+EDGE SCORE = 0
+
+Liga prioridad máxima                               → +1.5
+Momentum divergente de promedio temporada (+/-10pp)  → +2.0
+Al menos 1 equipo avg 1er gol < 28min               → +1.5
+Forma reciente 4/5 o 5/5 con gol en 1H              → +1.5
+Vulnerabilidad defensiva combinada > 1.2 goles/1H   → +1.0
+Contexto motivacional alto (pelea real)              → +1.0
+Spread entre casas > 0.10                            → +1.0
+Dropping odds confirma (>8% caída)                   → +1.5
+
+EDGE SCORE >= 6  → SELECCIÓN FUERTE
+EDGE SCORE 4-5.9 → SELECCIÓN MEDIA
+EDGE SCORE < 4   → NO SELECCIONAR
+```
+
+### Validación de valor (OBLIGATORIO)
+
+```
+probabilidad_estimada = P_real del modelo
+cuota_justa = 1 / P_real
+cuota_mercado = mejor cuota entre 3-5 casas
+margen_valor = (cuota_mercado × P_real) - 1
+
+SI margen_valor > +8%  → SEÑAL A (valor excepcional)
+SI margen_valor +3-8%  → SEÑAL B (valor suficiente)
+SI margen_valor 0-3%   → SEÑAL C (solo si Edge Score alto)
+SI margen_valor <= 0%  → NO APOSTAR bajo ninguna circunstancia
+```
+
+### Selección de mercado óptimo
+
+```
+SI cuota Over 0.5 1H > 1.28 Y margen > 3% → Pre-match Over 0.5 1H
+SI cuota Over 0.5 1H < 1.25 → Esperar IN-PLAY min 15-20 (cuota sube a 1.70-2.00+)
+SI Over 1.5 1H disponible Y ambos equipos >45% over15_1h → Evaluar Over 1.5 1H
+SI Asian Handicap 1H disponible → Evaluar AH 0.75/1.25 (menor overround)
+```
+
+---
+
+## SECCIÓN 6: GESTIÓN DE BANKROLL
+
+```
+Staking:
+  SEÑAL A (margen > 8%, Edge >= 6): 1.5-2% bankroll
+  SEÑAL B (margen 3-8%): 0.75-1% bankroll
+  SEÑAL C (margen 0-3%, Edge alto): 0.5% bankroll
+  NUNCA más del 3% en una selección
+  NUNCA más del 8% expuesto en un día
+  Máximo 5 selecciones por día
+
+ROI objetivo: +3-6% mensual sobre volumen apostado
+Hit rate objetivo Over 0.5 1H: 78-85%
+```
+
+---
+
+## SECCIÓN 7: HEALTH MONITOR — MÉTRICAS DE SALUD
+
+```
+MÉTRICA              | VERDE      | AMARILLO   | ROJO
+CLV promedio (200)   | > +2%      | 0 a +2%    | < 0%
+Hit Rate Over 0.5    | 78-88%     | 73-78%     | < 73%
+Hit Rate Over 1.5    | 38-50%     | 32-38%     | < 32%
+ROI mensual          | > +3%      | 0 a +3%    | < 0%
+```
+
+CLV (Closing Line Value) es LA MÉTRICA SUPREMA:
+- CLV > +2% sobre 200+ selecciones = edge real confirmado
+- CLV entre 0 y +2% = zona gris
+- CLV < 0% = NO hay edge. PAUSAR y reformular.
+
+### Protocolos de alerta:
+- CLV AMARILLO por 50+ selecciones → Revisar multiplicadores
+- CLV ROJO por 100+ selecciones → PAUSAR sistema, revisar modelo completo
+- ROI negativo 3+ meses → El edge se cerró, reformular
+- Hit rate > 90% en 50+ → Probable varianza positiva, NO aumentar stakes
+
+---
+
+## SECCIÓN 8: ERRORES FATALES
+
+1. Apostar en Premier League pensando que la conocés mejor. Es el mercado más eficiente. Tu edge está en ligas que las casas modelan con un Excel genérico.
+
+2. Perseguir cuotas bajas "seguras". Over 0.5 1H a @1.15 necesita 87% de acierto solo para no perder.
+
+3. Hacer parlays de cuotas bajas. 4 selecciones a @1.25 = parlay @2.44 con probabilidad combinada ~50%. El overround ACUMULADO es devastador.
+
+4. No comparar cuotas entre casas. La diferencia puede ser hasta 9% en el MISMO mercado.
+
+5. Ignorar el overround. Si Over @1.25 y Under @3.40 → overround 9.4%. Debés superarlo antes de ganar.
+
+6. No medir CLV. Sin CLV NUNCA sabrás si el sistema tiene edge real o ha tenido suerte.
+
+7. Apostar todos los días. 0 selecciones hoy es válido y saludable.
+
+8. Over 0.5 1H pre-match como apuesta principal en cuotas @1.10-1.20. No hay margen. Mejor in-play o Over 1.5 o combos.
+
+---
+
+## SECCIÓN 9: ESTRATEGIAS AVANZADAS
+
+### Estrategia 1: In-Play al minuto 15-25 (la más valiosa)
+Partido bien analizado (Edge >= 5), llega 0-0 al min 15-20.
+La cuota sube mecánicamente a @1.70-2.00+.
+78% de goles de 1H caen DESPUÉS del min 15.
+Si hay señales positivas (tiros, córners, presión) → ENTRAR.
+Margen de valor puede ser +15-25% vs +3-5% pre-match.
+
+### Estrategia 2: Over 1.5 1H selectivo en ligas TIER 1
+Paga @2.50-4.00. Matchups donde AMBOS equipos >45% Over 1.5 1H individual.
+Mayor cuota = mayor margen para errores = más rentable a largo plazo.
+
+### Estrategia 3: Ligas nórdicas en verano (junio-agosto)
+Las casas asignan MENOS recursos. Mayor ineficiencia = más valor.
+Foco: Eliteserien, 1. Division NOR, Allsvenskan, Superettan, Veikkausliiga, Ykkönen, Úrvalsdeild.
+
+### Estrategia 4: Line shopping agresivo
+Si Over 0.5 1H en Casa A = @1.22 y Casa B = @1.33 → 9% de diferencia.
+SIEMPRE apostar en la que paga más. Si spread > 8% → una casa se equivoca.
+
+---
+
+## SECCIÓN 10: FUENTES DE DATOS
+
+### Datos de equipos y ligas (consultar diario):
+- FootyStats.org — Over/Under 1H por liga y equipo, H2H, 1500+ ligas
+- TheStatsDontLie.com — Avg 1st goal time, rachas, early goals, 130+ ligas
+- TheStatBible.com — Over 0.5 1H actualizado cada 2 horas
+- GoalStatistics.com — 800+ datapoints por partido
+- FBref.com — xG por mitad (ligas principales, gratis)
+
+### Datos de cuotas:
+- OddsPortal.com — Comparación multi-casa, historial
+- Pinnacle — Benchmark sharp (referencia de precio eficiente)
+- Bet365 — Referencia mercados europeos
+- SBOBET/Dafabet — Asian handicap lines
+
+### Alineaciones:
+- Sofascore / FlashScore — Alineaciones ~60 min pre-match
+
+---
+
+## SECCIÓN 11: RESUMEN EJECUTIVO
+
+```
+MENTALIDAD: No jugás contra el fútbol. Jugás contra los modelos de las
+            casas. Tu edge viene de saber cosas que Poisson no captura:
+            identidad táctica, momentum de 1H, interacción de estilos,
+            contexto motivacional.
+
+DÓNDE: Ligas de cobertura baja/media con Over 0.5 1H alto.
+       Superligaen, NB I, Czech Liga, Ykkönen, 1. Division NOR,
+       Superettan, Super League SUI, 1. Lig TUR.
+       EVITAR Premier League, La Liga, Serie A.
+
+CUÁNDO:
+  Pre-match: Solo cuando margen_valor > +3%
+  In-play min 15-25: Análisis dice gol pero marcador dice 0-0
+  Verano: Foco en ligas nórdicas
+
+MÉTRICA: CLV promedio positivo sobre 200+ selecciones.
+         Si CLV positivo → el dinero viene con volumen.
+         Si CLV negativo → estás perdiendo en cámara lenta.
+
+DISCIPLINA: 0 selecciones hoy es mejor que 3 sin valor.
+            1% por apuesta. Registro obsesivo. Revisión cada 50 bets.
+```
