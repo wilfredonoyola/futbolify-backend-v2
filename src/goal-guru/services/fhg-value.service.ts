@@ -15,6 +15,8 @@ import {
   STAKE_SIGNAL_C,
   MIN_P_REAL,
   MIN_EDGE_SCORE,
+  REQUIRE_REAL_ODDS,
+  ESTIMATED_ODDS_PENALTY,
 } from '../constants/fhg-config'
 
 export interface ValueResult {
@@ -119,8 +121,9 @@ export class FhgValueService {
     // Determine signal
     const signal = this.calculateSignal(marginValor)
 
-    // Calculate stake
-    const stakePercentage = this.calculateStake(signal, prediction.edgeScore)
+    // Calculate stake (apply penalty for estimated odds)
+    const isRealOdds = odds.isRealOdds ?? false
+    const stakePercentage = this.calculateStake(signal, prediction.edgeScore, isRealOdds)
 
     // Log the evaluation
     await this.logService.logValue(
@@ -135,9 +138,17 @@ export class FhgValueService {
     let isCandidate = true
     let skipReason: string | undefined
 
-    if (signal === FhgSignal.NONE) {
+    // Check if using estimated odds when real odds required
+    const isEstimatedOdds = !odds.isRealOdds
+    if (REQUIRE_REAL_ODDS && isEstimatedOdds) {
       isCandidate = false
-      skipReason = `No value: marginValor ${(marginValor * 100).toFixed(2)}% < 0%`
+      skipReason = `Real odds required but only estimated available (bookmaker: ${bookmaker})`
+    } else if (signal === FhgSignal.NONE) {
+      isCandidate = false
+      skipReason = `No value: marginValor ${(marginValor * 100).toFixed(2)}% < ${MIN_MARGIN_VALOR * 100}%`
+    } else if (marginValor < MIN_MARGIN_VALOR) {
+      isCandidate = false
+      skipReason = `Margin too low: ${(marginValor * 100).toFixed(2)}% < ${MIN_MARGIN_VALOR * 100}% minimum`
     } else if (prediction.pReal < MIN_P_REAL) {
       isCandidate = false
       skipReason = `P_real too low: ${(prediction.pReal * 100).toFixed(2)}% < ${MIN_P_REAL * 100}%`
@@ -195,9 +206,9 @@ export class FhgValueService {
   }
 
   /**
-   * Calculate stake percentage based on signal and edge score
+   * Calculate stake percentage based on signal, edge score, and odds quality
    */
-  calculateStake(signal: FhgSignal, edgeScore: number): number {
+  calculateStake(signal: FhgSignal, edgeScore: number, isRealOdds = true): number {
     let baseStake: number
 
     switch (signal) {
@@ -217,7 +228,12 @@ export class FhgValueService {
 
     // Adjust stake based on edge score (±20% max)
     const edgeMultiplier = 1 + (edgeScore - 50) / 250 // Range: 0.8 to 1.2
-    const adjustedStake = baseStake * Math.max(0.8, Math.min(1.2, edgeMultiplier))
+    let adjustedStake = baseStake * Math.max(0.8, Math.min(1.2, edgeMultiplier))
+
+    // Apply penalty for estimated odds (reduces stake by 30%)
+    if (!isRealOdds) {
+      adjustedStake *= ESTIMATED_ODDS_PENALTY
+    }
 
     return adjustedStake
   }

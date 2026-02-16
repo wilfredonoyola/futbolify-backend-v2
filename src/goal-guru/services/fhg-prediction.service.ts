@@ -14,6 +14,7 @@ import { FhgLogCategory } from '../enums/fhg-log-category.enum'
 import { FhgTier } from '../enums/fhg-tier.enum'
 import {
   LEAGUE_TIER_FACTORS,
+  LEAGUE_CALIBRATION,
   WEIGHT_LEAGUE_AVG,
   WEIGHT_HOME_RATE,
   WEIGHT_AWAY_RATE,
@@ -238,6 +239,16 @@ export class FhgPredictionService {
       value: formFactor.value,
       reason: formFactor.reason,
     })
+
+    // Calibration Factor (league-specific adjustment based on backtesting)
+    const calibrationValue = LEAGUE_CALIBRATION[match.leagueCode] || 1.0
+    if (calibrationValue !== 1.0) {
+      factors.push({
+        name: 'calibrationFactor',
+        value: calibrationValue,
+        reason: `League calibration adjustment (${((calibrationValue - 1) * 100).toFixed(0)}%)`,
+      })
+    }
 
     // Step 3: Apply all factors
     const totalFactorMultiplier = factors.reduce((acc, f) => acc * f.value, 1)
