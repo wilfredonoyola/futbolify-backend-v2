@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { Field, ObjectType, ID, Float } from '@nestjs/graphql'
 import { Document, Types } from 'mongoose'
+import GraphQLJSON from 'graphql-type-json'
 
 /**
  * Bookmaker odds entry
@@ -113,6 +114,26 @@ export class FhgOdds extends Document {
   @Prop({ default: false })
   @Field({ defaultValue: false })
   isRealOdds: boolean
+
+  // H2H (1X2) data used for improved estimation
+  @Prop({ type: Object })
+  @Field(() => GraphQLJSON, { nullable: true, description: 'H2H odds used for estimation (JSON)' })
+  h2hData?: Record<string, unknown>
+
+  // H2H-based adjustment applied to base probability
+  @Prop()
+  @Field(() => Float, { nullable: true, description: 'Adjustment from H2H correlation (-0.10 to +0.12)' })
+  h2hAdjustment?: number
+
+  // Reason for estimation adjustment
+  @Prop()
+  @Field({ nullable: true, description: 'Why this odds value was estimated' })
+  estimationReason?: string
+
+  // Confidence in estimation
+  @Prop()
+  @Field({ nullable: true, description: 'Confidence level: HIGH, MEDIUM, LOW' })
+  estimationConfidence?: string
 
   @Field()
   createdAt: Date

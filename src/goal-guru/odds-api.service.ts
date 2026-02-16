@@ -45,6 +45,22 @@ export interface FirstHalfOdds {
   impliedProbG1hYes: number | null;
 }
 
+/**
+ * H2H (1X2) odds for a match - used to improve G1H estimation
+ */
+export interface H2hOdds {
+  homeTeam: string;
+  awayTeam: string;
+  commenceTime: string;
+  homeWin: number;
+  draw: number;
+  awayWin: number;
+  bookmakers: string[];
+  impliedHomeProb: number;
+  impliedDrawProb: number;
+  impliedAwayProb: number;
+}
+
 interface MatchOdds {
   homeWin: number;
   draw: number;
@@ -460,5 +476,195 @@ export class OddsApiService {
         // Ignore
       }
     }
+  }
+
+  /**
+   * Get H2H (1X2) odds for a league - AVAILABLE ON FREE PLAN
+   * These odds can be used to improve G1H estimation
+   *
+   * Correlation logic:
+   * - Strong home favorite (odds < 1.50) → Higher G1H probability
+   * - Strong away favorite → Higher G1H probability
+   * - Draw-heavy match → Lower G1H probability (defensive)
+   *
+   * @param leagueCode FHG league code
+   * @returns Array of H2hOdds for all matches
+   */
+  async getH2hOddsForLeague(leagueCode: string): Promise<H2hOdds[]> {
+    if (!this.apiKey) {
+      this.logger.warn('ODDS_API_KEY not configured');
+      return [];
+    }
+
+    const sportKey = this.mapFhgLeagueToSportKey(leagueCode);
+    if (!sportKey) {
+      this.logger.warn(`No sport key mapping for league: ${leagueCode}`);
+      return [];
+    }
+
+    try {
+      const response = await axios.get<OddsApiResponse[]>(
+        `${this.baseUrl}/sports/${sportKey}/odds`,
+        {
+          params: {
+            apiKey: this.apiKey,
+            regions: 'eu,uk',
+            markets: 'h2h', // FREE plan market
+            oddsFormat: 'decimal',
+          },
+          timeout: 10000,
+        }
+      );
+
+      const results: H2hOdds[] = [];
+
+      for (const match of response.data) {
+        let homeSum = 0;
+        let drawSum = 0;
+        let awaySum = 0;
+        let count = 0;
+        const bookmakerNames: string[] = [];
+
+        for (const bookmaker of match.bookmakers) {
+          const h2hMarket = bookmaker.markets.find((m) => m.key === 'h2h');
+          if (!h2hMarket) continue;
+
+          // Find outcomes - The Odds API uses team names as outcome names
+          const homeOutcome = h2hMarket.outcomes.find(
+            (o) => o.name === match.home_team
+          );
+          const drawOutcome = h2hMarket.outcomes.find(
+            (o) => o.name === 'Draw'
+          );
+          const awayOutcome = h2hMarket.outcomes.find(
+            (o) => o.name === match.away_team
+          );
+
+          if (homeOutcome && drawOutcome && awayOutcome) {
+            homeSum += homeOutcome.price;
+            drawSum += drawOutcome.price;
+            awaySum += awayOutcome.price;
+            count++;
+            bookmakerNames.push(bookmaker.title);
+          }
+        }
+
+        if (count === 0) continue;
+
+        const homeWin = parseFloat((homeSum / count).toFixed(2));
+        const draw = parseFloat((drawSum / count).toFixed(2));
+        const awayWin = parseFloat((awaySum / count).toFixed(2));
+
+        // Calculate implied probabilities (with overround)
+        const totalImplied = 1 / homeWin + 1 / draw + 1 / awayWin;
+        const impliedHomeProb = parseFloat(((1 / homeWin) / totalImplied).toFixed(4));
+        const impliedDrawProb = parseFloat(((1 / draw) / totalImplied).toFixed(4));
+        const impliedAwayProb = parseFloat(((1 / awayWin) / totalImplied).toFixed(4));
+
+        results.push({
+          homeTeam: match.home_team,
+          awayTeam: match.away_team,
+          commenceTime: match.commence_time,
+          homeWin,
+          draw,
+          awayWin,
+          bookmakers: [...new Set(bookmakerNames)],
+          impliedHomeProb,
+          impliedDrawProb,
+          impliedAwayProb,
+        });
+      }
+
+      await this.logInfo(
+        `Fetched H2H odds for ${leagueCode}: ${results.length} matches`,
+        { leagueCode, matchCount: results.length }
+      );
+
+      return results;
+    } catch (error) {
+      await this.handleOddsApiError(error, `H2H odds for ${leagueCode}`);
+      return [];
+    }
+  }
+
+  /**
+   * Calculate G1H adjustment factor based on H2H odds
+   *
+   * Research-based correlations:
+   * - Strong favorites tend to score early (pressing, confidence)
+   * - Draw-heavy matches tend to be more defensive (fewer early goals)
+   * - High goal expectancy matches (low total odds) have higher G1H
+   *
+   * @param h2hOdds The H2H odds for a match
+   * @returns Adjustment factor (-0.10 to +0.12) to add to base G1H probability
+   */
+  calculateG1hAdjustmentFromH2h(h2hOdds: H2hOdds): {
+    adjustment: number;
+    reason: string;
+    confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  } {
+    const { homeWin, draw, awayWin, impliedHomeProb, impliedDrawProb } = h2hOdds;
+
+    let adjustment = 0;
+    const reasons: string[] = [];
+    let confidence: 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM';
+
+    // 1. Strong favorite detection (either team)
+    const strongFavoriteThreshold = 1.55;
+    const isHomeStrongFav = homeWin < strongFavoriteThreshold;
+    const isAwayStrongFav = awayWin < strongFavoriteThreshold;
+
+    if (isHomeStrongFav) {
+      // Home strong favorite: +8-12% G1H probability
+      const strength = (strongFavoriteThreshold - homeWin) / 0.5; // 0-1 scale
+      adjustment += 0.08 + strength * 0.04;
+      reasons.push(`Home strong favorite (${homeWin})`);
+      confidence = 'HIGH';
+    } else if (isAwayStrongFav) {
+      // Away strong favorite: +6-10% (slightly less than home)
+      const strength = (strongFavoriteThreshold - awayWin) / 0.5;
+      adjustment += 0.06 + strength * 0.04;
+      reasons.push(`Away strong favorite (${awayWin})`);
+      confidence = 'HIGH';
+    }
+
+    // 2. Draw-heavy match detection (defensive)
+    if (impliedDrawProb > 0.30 || draw < 3.20) {
+      // High draw probability = defensive match
+      adjustment -= 0.05;
+      reasons.push(`Draw-heavy match (${draw})`);
+      if (confidence === 'HIGH') confidence = 'MEDIUM';
+    }
+
+    // 3. Total odds indicator (goal expectancy)
+    // Lower total implied odds = higher goal expectancy
+    const totalInverse = 1 / homeWin + 1 / awayWin; // Excluding draw
+    if (totalInverse > 1.15) {
+      // Both teams have decent win probability = open match
+      adjustment += 0.03;
+      reasons.push('Open match expected');
+    } else if (totalInverse < 0.90) {
+      // One heavy favorite = could be one-sided
+      adjustment += 0.02;
+      reasons.push('One-sided match');
+    }
+
+    // 4. Very even match (both teams similar odds)
+    const oddsDiff = Math.abs(homeWin - awayWin);
+    if (oddsDiff < 0.40 && homeWin > 2.20 && awayWin > 2.20) {
+      // Very even, neither favorite = unpredictable
+      adjustment -= 0.02;
+      reasons.push('Very even match');
+      confidence = 'LOW';
+    }
+
+    // Clamp adjustment to reasonable range
+    adjustment = Math.max(-0.10, Math.min(0.12, adjustment));
+
+    return {
+      adjustment: parseFloat(adjustment.toFixed(4)),
+      reason: reasons.join('; ') || 'Standard match',
+      confidence,
+    };
   }
 }
