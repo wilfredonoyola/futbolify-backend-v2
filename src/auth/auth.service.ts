@@ -2,7 +2,6 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import {
   CognitoIdentityProviderClient,
   SignUpCommand,
-  AdminAddUserToGroupCommand,
   InitiateAuthCommand,
   AuthFlowType,
   ConfirmSignUpCommand,
@@ -17,7 +16,6 @@ import {
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { User, UserDocument, UserRole } from 'src/users/schemas/user.schema'
-import * as jwt from 'jsonwebtoken'
 import { ConfirmSignupInputDto } from './dto'
 import { CurrentUserPayload } from './current-user-payload.interface'
 import axios from 'axios'
@@ -60,7 +58,6 @@ export class AuthService {
     const response = await this.client.send(command)
 
     const idToken = response.AuthenticationResult?.IdToken
-    const decodedToken = jwt.decode(idToken) as any
 
     const user = await this.userModel.findOne({ email })
 
@@ -68,50 +65,21 @@ export class AuthService {
       throw new Error('User not found')
     }
 
-    const cognitoRoles = decodedToken['cognito:groups'] || []
-    const mappedCognitoRoles: UserRole[] =
-      this.mapCognitoGroupsToUserRoles(cognitoRoles)
-
-    const hasValidRole = mappedCognitoRoles.some((role) =>
-      user.roles.includes(role)
-    )
-
-    if (!hasValidRole) {
-      throw new Error(
-        'User roles from Cognito do not match with the database roles'
-      )
-    }
-
     return {
       id: user._id.toString(),
       avatarUrl: user.avatarUrl,
       access_token: idToken,
       isOnboardingCompleted: user.isOnboardingCompleted,
-      roles: mappedCognitoRoles,
-      name: user.name || user.userName, // Return name or fallback to userName
+      roles: user.roles,
+      name: user.name || user.userName,
       userName: user.userName,
     }
-  }
-
-  private mapCognitoGroupsToUserRoles(groups: string[]): UserRole[] {
-    return groups.map((group) => {
-      switch (group) {
-        case 'admins':
-          return UserRole.ADMIN
-        case 'super_admins':
-          return UserRole.SUPER_ADMIN
-        case 'users':
-          return UserRole.USER
-        default:
-          throw new Error(`Unrecognized group: ${group}`)
-      }
-    })
   }
 
   async register(email: string, password: string): Promise<any> {
     // Usamos el email como placeholder para el atributo 'name' requerido por Cognito
     const namePlaceholder = email.split('@')[0]
-    
+
     const command = new SignUpCommand({
       ClientId: this.clientId,
       Username: email,
@@ -122,13 +90,6 @@ export class AuthService {
       ],
     })
     const response = await this.client.send(command)
-
-    const groupCommand = new AdminAddUserToGroupCommand({
-      UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-      GroupName: 'users',
-      Username: email,
-    })
-    await this.client.send(groupCommand)
 
     return {
       message:
@@ -200,17 +161,12 @@ export class AuthService {
     const response = await this.client.send(loginCommand)
 
     const idToken = response.AuthenticationResult?.IdToken
-    const decodedToken = jwt.decode(idToken) as any
-
-    const cognitoRoles = decodedToken['cognito:groups'] || []
-    const mappedCognitoRoles: UserRole[] =
-      this.mapCognitoGroupsToUserRoles(cognitoRoles)
 
     return {
       id: createdUser._id.toString(),
       isOnboardingCompleted: false,
       access_token: idToken,
-      roles: mappedCognitoRoles,
+      roles: createdUser.roles,
       name: createdUser.name || createdUser.userName,
       userName: createdUser.userName,
       avatarUrl: createdUser.avatarUrl || '',
@@ -244,21 +200,7 @@ export class AuthService {
     })
     await this.client.send(setPasswordCommand)
 
-    let groupName = 'users'
-
-    if (role === UserRole.SUPER_ADMIN) {
-      groupName = 'super_admins'
-    } else if (role === UserRole.ADMIN) {
-      groupName = 'admins'
-    }
-
-    const groupCommand = new AdminAddUserToGroupCommand({
-      UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-      GroupName: groupName,
-      Username: email,
-    })
-    await this.client.send(groupCommand)
-
+    // Los roles se manejan únicamente en la base de datos local
     const createdUser = new this.userModel({
       email,
       phone,

@@ -43,9 +43,6 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
         );
       }
 
-      // Obtener los roles del token
-      const roles = decodedToken['cognito:groups'] || [];
-
       // Buscar al usuario en la base de datos
       const user = await this.userModel
         .findOne({ email: decodedToken.email })
@@ -58,11 +55,11 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
         );
       }
 
-      // Preparar la información del usuario
+      // Preparar la información del usuario con roles de la base de datos
       const userInfo = {
         userId: user._id.toString(),
         username: user.email,
-        roles: roles,
+        roles: user.roles || [],
         phone: user.phone,
       };
 
