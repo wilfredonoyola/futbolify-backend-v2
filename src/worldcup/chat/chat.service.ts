@@ -111,8 +111,8 @@ export class ChatService {
           code: 'MESSAGE_LIMIT_REACHED',
           message:
             validLocale === 'es'
-              ? 'Has alcanzado el límite de 20 mensajes. Crea una cuenta para continuar.'
-              : 'You have reached the 20 message limit. Create an account to continue.',
+              ? `Has alcanzado el límite de ${ANONYMOUS_MESSAGE_LIMIT} mensajes. Crea una cuenta para continuar.`
+              : `You have reached the ${ANONYMOUS_MESSAGE_LIMIT} message limit. Create an account to continue.`,
           messageCount: session.messageCount,
           limit: ANONYMOUS_MESSAGE_LIMIT,
         });
