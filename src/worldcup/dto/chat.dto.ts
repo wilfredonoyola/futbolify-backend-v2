@@ -30,6 +30,9 @@ export class WorldcupChatInput {
 
   @Field({ nullable: true })
   sessionId?: string;
+
+  @Field({ nullable: true, description: 'Anonymous creator ID for quiniela creation (passed from frontend localStorage)' })
+  anonymousCreatorId?: string;
 }
 
 // Data item in response

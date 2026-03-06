@@ -179,6 +179,7 @@ export interface CreateQuinielaParams {
   name: string;
   ownerName?: string;
   isPrivate?: boolean;
+  anonymousCreatorId?: string; // Passed from frontend localStorage
 }
 
 export interface GenerateBracketShareParams {

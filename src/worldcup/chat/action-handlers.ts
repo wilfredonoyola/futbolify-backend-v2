@@ -299,11 +299,11 @@ export async function handleCreateQuiniela(
   quinielaService: QuinielaService,
   locale: Locale,
 ): Promise<ActionResult> {
-  const { name, ownerName = 'Organizador', isPrivate = true } = params;
+  const { name, ownerName = 'Organizador', isPrivate = true, anonymousCreatorId: providedId } = params;
 
   try {
-    // Create quiniela anonymously (will be claimed when user logs in)
-    const anonymousCreatorId = `chat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    // Use provided anonymousCreatorId from frontend, or generate fallback if not provided
+    const anonymousCreatorId = providedId || `chat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
     const result = await quinielaService.createQuiniela(
       {
@@ -484,6 +484,7 @@ export async function executeAction(
   queriesService: QueriesService,
   quinielaService: QuinielaService,
   locale: Locale,
+  anonymousCreatorId?: string, // Passed from frontend localStorage
 ): Promise<ActionResult | null> {
   switch (toolName) {
     case 'generate_calendar_file':
@@ -501,8 +502,9 @@ export async function executeAction(
       );
 
     case 'create_quiniela':
+      // Inject anonymousCreatorId from frontend if provided
       return handleCreateQuiniela(
-        toolInput as unknown as CreateQuinielaParams,
+        { ...toolInput, anonymousCreatorId } as unknown as CreateQuinielaParams,
         quinielaService,
         locale,
       );

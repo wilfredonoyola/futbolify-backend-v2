@@ -1289,6 +1289,59 @@ type FhgHealthAlert {
   recommendation: String!
 }
 
+type QuinielaRules {
+  exactScore: Float!
+  correctResult: Float!
+  bonusChampion: Float!
+}
+
+type MatchPrediction {
+  matchId: String!
+  homeScore: Float!
+  awayScore: Float!
+  submittedAt: DateTime!
+}
+
+type QuinielaMember {
+  _id: ID!
+  userId: ID!
+  userName: String!
+  avatarUrl: String
+  predictions: [MatchPrediction!]!
+  championPick: String
+  totalPoints: Float!
+  correctPredictions: Float!
+  exactScores: Float!
+  rank: Float
+  joinedAt: DateTime!
+}
+
+type Quiniela {
+  _id: ID!
+  name: String!
+  code: String!
+  ownerId: ID
+  ownerName: String!
+  anonymousCreatorId: String
+  claimedAt: DateTime
+  isPrivate: Boolean!
+  status: QuinielaStatus!
+  rules: QuinielaRules!
+  members: [QuinielaMember!]!
+  memberCount: Float!
+  description: String
+  imageUrl: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Status of the quiniela"""
+enum QuinielaStatus {
+  OPEN
+  ACTIVE
+  CLOSED
+}
+
 type StoredMessage {
   role: String!
   content: String!
@@ -1461,6 +1514,11 @@ type ActionResult {
   error: String
 }
 
+type ChatWarning {
+  level: Float!
+  message: String!
+}
+
 type WorldcupChatResponse {
   success: Boolean!
   message: String!
@@ -1470,58 +1528,9 @@ type WorldcupChatResponse {
   sessionId: String
   messageCount: Float
   messageLimit: Float
+  messagesRemaining: Float
   isAtLimit: Boolean
-}
-
-type QuinielaRules {
-  exactScore: Float!
-  correctResult: Float!
-  bonusChampion: Float!
-}
-
-type MatchPrediction {
-  matchId: String!
-  homeScore: Float!
-  awayScore: Float!
-  submittedAt: DateTime!
-}
-
-type QuinielaMember {
-  _id: ID!
-  userId: ID!
-  userName: String!
-  avatarUrl: String
-  predictions: [MatchPrediction!]!
-  championPick: String
-  totalPoints: Float!
-  correctPredictions: Float!
-  exactScores: Float!
-  rank: Float
-  joinedAt: DateTime!
-}
-
-type Quiniela {
-  _id: ID!
-  name: String!
-  code: String!
-  ownerId: ID!
-  ownerName: String!
-  isPrivate: Boolean!
-  status: QuinielaStatus!
-  rules: QuinielaRules!
-  members: [QuinielaMember!]!
-  memberCount: Float!
-  description: String
-  imageUrl: String
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-"""Status of the quiniela"""
-enum QuinielaStatus {
-  OPEN
-  ACTIVE
-  CLOSED
+  warning: ChatWarning
 }
 
 type QuinielaInvite {
@@ -1532,6 +1541,8 @@ type QuinielaInvite {
   inviteUrl: String!
   memberCount: Float!
   isPrivate: Boolean!
+  isAnonymous: Boolean!
+  anonymousCreatorId: String
 }
 
 type QuinielaPublicInfo {
@@ -1688,6 +1699,7 @@ type Query {
   quiniela(id: String!): Quiniela
   quinielaLeaderboard(quinielaId: String!): [LeaderboardEntry!]!
   myQuinielaPredictions(quinielaId: String!): QuinielaMember
+  anonymousQuinielas(anonymousCreatorId: String!): [Quiniela!]!
 }
 
 input LateMatchOptionsDto {
@@ -1883,6 +1895,7 @@ type Mutation {
   worldcupClearChatSession(sessionId: String!): Boolean!
   worldcupUpdateFavoriteTeams(sessionId: String!, favoriteTeams: [String!]!): ChatSession
   createQuiniela(input: CreateQuinielaInput!): QuinielaInvite!
+  claimQuiniela(input: ClaimQuinielaInput!): QuinielaInvite!
   joinQuiniela(code: String!): QuinielaMember!
   leaveQuiniela(quinielaId: String!): Boolean!
   savePrediction(quinielaId: String!, input: SavePredictionInput!): QuinielaMember!
@@ -2228,6 +2241,11 @@ input WorldcupChatInput {
   timezone: String! = "America/New_York"
   favoriteTeams: [String!]
   sessionId: String
+
+  """
+  Anonymous creator ID for quiniela creation (passed from frontend localStorage)
+  """
+  anonymousCreatorId: String
 }
 
 input ChatMessageInput {
@@ -2240,6 +2258,13 @@ input CreateQuinielaInput {
   description: String
   isPrivate: Boolean! = true
   imageUrl: String
+  anonymousCreatorId: String
+  ownerName: String
+}
+
+input ClaimQuinielaInput {
+  code: String!
+  anonymousCreatorId: String!
 }
 
 input SavePredictionInput {

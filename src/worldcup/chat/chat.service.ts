@@ -148,7 +148,7 @@ export class ChatService {
   ): Promise<WorldcupChatResponse> {
     try {
       const client = this.getAnthropicClient();
-      const { messages, locale, timezone, favoriteTeams, sessionId } = input;
+      const { messages, locale, timezone, favoriteTeams, sessionId, anonymousCreatorId } = input;
 
       if (!messages || messages.length === 0) {
         return {
@@ -252,6 +252,7 @@ export class ChatService {
             this.queriesService,
             this.quinielaService,
             validLocale,
+            anonymousCreatorId, // Pass from frontend for quiniela creation
           );
 
           if (actionResult) {
