@@ -1,0 +1,30 @@
+[
+  {
+    "id": "where-to-watch",
+    "icon": "Tv",
+    "name": { "es": "Donde Ver", "en": "Where to Watch" },
+    "description": { "es": "Canales y streaming para ver todos los partidos", "en": "Channels and streaming for all matches" },
+    "href": { "es": "/donde-ver/mundial-2026/plataformas", "en": "/where-to-watch/world-cup-2026/platforms" }
+  },
+  {
+    "id": "calendar",
+    "icon": "Calendar",
+    "name": { "es": "Calendario", "en": "Calendar" },
+    "description": { "es": "Los 104 partidos con horarios en tu zona", "en": "All 104 matches with times in your timezone" },
+    "href": { "es": "/donde-ver/mundial-2026/calendario", "en": "/where-to-watch/world-cup-2026/calendar" }
+  },
+  {
+    "id": "groups",
+    "icon": "Users",
+    "name": { "es": "Grupos", "en": "Groups" },
+    "description": { "es": "12 grupos con equipos y clasificacion", "en": "12 groups with teams and standings" },
+    "href": { "es": "/donde-ver/mundial-2026/grupos", "en": "/where-to-watch/world-cup-2026/groups" }
+  },
+  {
+    "id": "teams",
+    "icon": "Flag",
+    "name": { "es": "Equipos", "en": "Teams" },
+    "description": { "es": "Las 48 selecciones del Mundial", "en": "All 48 national teams" },
+    "href": { "es": "/donde-ver/mundial-2026/equipos", "en": "/where-to-watch/world-cup-2026/teams" }
+  }
+]

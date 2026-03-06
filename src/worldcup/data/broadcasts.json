@@ -1,0 +1,125 @@
+[
+  {
+    "id": "peacock",
+    "name": "Peacock",
+    "type": "streaming",
+    "languages": ["es", "en"],
+    "affiliateUrl": "https://www.peacocktv.com/",
+    "monthlyPrice": 7.99,
+    "annualPrice": 79.99,
+    "features": [
+      { "es": "104 partidos en vivo", "en": "104 live matches" },
+      { "es": "Cobertura en espanol e ingles", "en": "Spanish and English coverage" },
+      { "es": "Repeticiones y highlights", "en": "Replays and highlights" },
+      { "es": "Analisis pre y post partido", "en": "Pre and post-match analysis" },
+      { "es": "Compatible con Smart TV, movil y web", "en": "Compatible with Smart TV, mobile and web" }
+    ],
+    "logo": "/images/platforms/peacock.svg",
+    "matchCount": 104
+  },
+  {
+    "id": "telemundo",
+    "name": "Telemundo",
+    "type": "broadcast",
+    "languages": ["es"],
+    "affiliateUrl": "https://www.telemundo.com/",
+    "monthlyPrice": 0,
+    "features": [
+      { "es": "92 partidos gratis por antena", "en": "92 matches free over-the-air" },
+      { "es": "Cobertura completa en espanol", "en": "Full Spanish coverage" },
+      { "es": "Canal OTA gratuito", "en": "Free OTA channel" },
+      { "es": "Disponible con antena digital", "en": "Available with digital antenna" }
+    ],
+    "logo": "/images/platforms/telemundo.svg",
+    "matchCount": 92
+  },
+  {
+    "id": "universo",
+    "name": "Universo",
+    "type": "cable",
+    "languages": ["es"],
+    "affiliateUrl": "https://www.nbc.com/universo",
+    "features": [
+      { "es": "12 partidos adicionales en espanol", "en": "12 additional matches in Spanish" },
+      { "es": "Requiere suscripcion de cable", "en": "Requires cable subscription" },
+      { "es": "Parte del paquete NBCUniversal", "en": "Part of NBCUniversal package" }
+    ],
+    "logo": "/images/platforms/universo.svg",
+    "matchCount": 12
+  },
+  {
+    "id": "fox",
+    "name": "FOX",
+    "type": "broadcast",
+    "languages": ["en"],
+    "affiliateUrl": "https://www.fox.com/",
+    "monthlyPrice": 0,
+    "features": [
+      { "es": "Partidos selectos gratis por antena", "en": "Select matches free over-the-air" },
+      { "es": "Cobertura en ingles", "en": "English coverage" },
+      { "es": "Incluye final y semifinales", "en": "Includes final and semifinals" }
+    ],
+    "logo": "/images/platforms/fox.svg",
+    "matchCount": 34
+  },
+  {
+    "id": "fs1",
+    "name": "FS1",
+    "type": "cable",
+    "languages": ["en"],
+    "affiliateUrl": "https://www.foxsports.com/",
+    "features": [
+      { "es": "Partidos adicionales en ingles", "en": "Additional matches in English" },
+      { "es": "Requiere suscripcion de cable", "en": "Requires cable subscription" },
+      { "es": "Cobertura completa de fase de grupos", "en": "Full group stage coverage" }
+    ],
+    "logo": "/images/platforms/fs1.svg",
+    "matchCount": 70
+  },
+  {
+    "id": "fubotv",
+    "name": "fuboTV",
+    "type": "streaming",
+    "languages": ["es", "en"],
+    "affiliateUrl": "https://www.fubo.tv/",
+    "monthlyPrice": 79.99,
+    "features": [
+      { "es": "Incluye FOX, FS1, Telemundo y Universo", "en": "Includes FOX, FS1, Telemundo and Universo" },
+      { "es": "104 partidos disponibles", "en": "104 matches available" },
+      { "es": "DVR en la nube", "en": "Cloud DVR" },
+      { "es": "Multiples dispositivos", "en": "Multiple devices" }
+    ],
+    "logo": "/images/platforms/fubotv.svg",
+    "matchCount": 104
+  },
+  {
+    "id": "vidgo",
+    "name": "Vidgo",
+    "type": "streaming",
+    "languages": ["es", "en"],
+    "affiliateUrl": "https://www.vidgo.com/",
+    "monthlyPrice": 59.95,
+    "features": [
+      { "es": "Incluye FOX, FS1 y Universo", "en": "Includes FOX, FS1 and Universo" },
+      { "es": "Opcion mas economica", "en": "More affordable option" },
+      { "es": "Sin DVR", "en": "No DVR" }
+    ],
+    "logo": "/images/platforms/vidgo.svg",
+    "matchCount": 104
+  },
+  {
+    "id": "sling",
+    "name": "Sling TV",
+    "type": "streaming",
+    "languages": ["en"],
+    "affiliateUrl": "https://www.sling.com/",
+    "monthlyPrice": 40.00,
+    "features": [
+      { "es": "Sling Blue incluye FS1", "en": "Sling Blue includes FS1" },
+      { "es": "FOX en mercados selectos", "en": "FOX in select markets" },
+      { "es": "DVR con 50 horas", "en": "50 hours DVR" }
+    ],
+    "logo": "/images/platforms/sling.svg",
+    "matchCount": 70
+  }
+]

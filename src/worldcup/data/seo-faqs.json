@@ -1,0 +1,39 @@
+{
+  "hub": [
+    {
+      "question": { "es": "Donde ver el Mundial 2026 en USA?", "en": "Where to watch World Cup 2026 in the USA?" },
+      "answer": {
+        "es": "En USA puedes ver el Mundial 2026 en Peacock (streaming con los 104 partidos), Telemundo y Universo (en espanol, gratis con antena), y FOX/FS1 (en ingles). Peacock es la mejor opcion para ver todos los partidos.",
+        "en": "In the USA you can watch World Cup 2026 on Peacock (streaming with all 104 matches), Telemundo and Universo (Spanish, free with antenna), and FOX/FS1 (English). Peacock is the best option to watch all matches."
+      }
+    },
+    {
+      "question": { "es": "Cuando empieza el Mundial 2026?", "en": "When does World Cup 2026 start?" },
+      "answer": {
+        "es": "El Mundial 2026 comienza el 11 de junio de 2026 con el partido inaugural Mexico vs TBD en el Estadio Azteca. La final sera el 19 de julio de 2026 en el MetLife Stadium de Nueva York.",
+        "en": "World Cup 2026 starts on June 11, 2026 with the opening match Mexico vs TBD at Azteca Stadium. The final will be on July 19, 2026 at MetLife Stadium in New York."
+      }
+    },
+    {
+      "question": { "es": "Cuantos equipos participan en el Mundial 2026?", "en": "How many teams are in World Cup 2026?" },
+      "answer": {
+        "es": "El Mundial 2026 contara con 48 equipos, el mas grande de la historia. Estan organizados en 12 grupos de 4 equipos cada uno. Los 2 mejores de cada grupo avanzan a la ronda de 32.",
+        "en": "World Cup 2026 will feature 48 teams, the largest ever. They are organized into 12 groups of 4 teams each. The top 2 from each group advance to the Round of 32."
+      }
+    },
+    {
+      "question": { "es": "Donde se juega el Mundial 2026?", "en": "Where is World Cup 2026 being played?" },
+      "answer": {
+        "es": "El Mundial 2026 se jugara en 16 sedes de 3 paises: Estados Unidos (11 ciudades), Mexico (3 ciudades), y Canada (2 ciudades). La mayoria de los partidos seran en USA, incluyendo la final en Nueva York.",
+        "en": "World Cup 2026 will be played in 16 venues across 3 countries: United States (11 cities), Mexico (3 cities), and Canada (2 cities). Most matches will be in the USA, including the final in New York."
+      }
+    },
+    {
+      "question": { "es": "Cuales son los grupos del Mundial 2026?", "en": "What are the World Cup 2026 groups?" },
+      "answer": {
+        "es": "El Mundial 2026 tiene 12 grupos (A-L). Algunos destacados: Grupo A con Mexico, Grupo C con Brasil, Grupo D con USA, Grupo J con Argentina, y Grupo L con Inglaterra. Cada grupo tiene 4 equipos.",
+        "en": "World Cup 2026 has 12 groups (A-L). Some highlights: Group A with Mexico, Group C with Brazil, Group D with USA, Group J with Argentina, and Group L with England. Each group has 4 teams."
+      }
+    }
+  ]
+}

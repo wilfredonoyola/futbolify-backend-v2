@@ -1,0 +1,1530 @@
+[
+  {
+    "id": "match-001",
+    "matchNumber": 1,
+    "stage": "group",
+    "groupId": "A",
+    "homeTeamId": "mexico",
+    "awayTeamId": "tbd-uefa-d",
+    "dateTimeUTC": "2026-06-11T20:00:00Z",
+    "venueId": "azteca",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "mexico-vs-playoff-uefa-d-inauguracion", "en": "mexico-vs-uefa-playoff-d-opening" }
+  },
+  {
+    "id": "match-002",
+    "matchNumber": 2,
+    "stage": "group",
+    "groupId": "A",
+    "homeTeamId": "south-africa",
+    "awayTeamId": "korea-republic",
+    "dateTimeUTC": "2026-06-11T23:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "sudafrica-vs-corea-del-sur", "en": "south-africa-vs-south-korea" }
+  },
+  {
+    "id": "match-003",
+    "matchNumber": 3,
+    "stage": "group",
+    "groupId": "B",
+    "homeTeamId": "canada",
+    "awayTeamId": "switzerland",
+    "dateTimeUTC": "2026-06-12T17:00:00Z",
+    "venueId": "bmo",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "canada-vs-suiza", "en": "canada-vs-switzerland" }
+  },
+  {
+    "id": "match-004",
+    "matchNumber": 4,
+    "stage": "group",
+    "groupId": "B",
+    "homeTeamId": "tbd-uefa-a",
+    "awayTeamId": "qatar",
+    "dateTimeUTC": "2026-06-12T20:00:00Z",
+    "venueId": "gillette",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "playoff-uefa-a-vs-qatar", "en": "uefa-playoff-a-vs-qatar" }
+  },
+  {
+    "id": "match-005",
+    "matchNumber": 5,
+    "stage": "group",
+    "groupId": "C",
+    "homeTeamId": "brazil",
+    "awayTeamId": "scotland",
+    "dateTimeUTC": "2026-06-12T23:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "brasil-vs-escocia", "en": "brazil-vs-scotland" }
+  },
+  {
+    "id": "match-006",
+    "matchNumber": 6,
+    "stage": "group",
+    "groupId": "C",
+    "homeTeamId": "morocco",
+    "awayTeamId": "haiti",
+    "dateTimeUTC": "2026-06-13T17:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "marruecos-vs-haiti", "en": "morocco-vs-haiti" }
+  },
+  {
+    "id": "match-007",
+    "matchNumber": 7,
+    "stage": "group",
+    "groupId": "D",
+    "homeTeamId": "usa",
+    "awayTeamId": "tbd-uefa-c",
+    "dateTimeUTC": "2026-06-13T20:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "estados-unidos-vs-playoff-uefa-c", "en": "usa-vs-uefa-playoff-c" }
+  },
+  {
+    "id": "match-008",
+    "matchNumber": 8,
+    "stage": "group",
+    "groupId": "D",
+    "homeTeamId": "paraguay",
+    "awayTeamId": "australia",
+    "dateTimeUTC": "2026-06-13T23:00:00Z",
+    "venueId": "nrg",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "paraguay-vs-australia", "en": "paraguay-vs-australia" }
+  },
+  {
+    "id": "match-009",
+    "matchNumber": 9,
+    "stage": "group",
+    "groupId": "E",
+    "homeTeamId": "germany",
+    "awayTeamId": "ecuador",
+    "dateTimeUTC": "2026-06-14T17:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "alemania-vs-ecuador", "en": "germany-vs-ecuador" }
+  },
+  {
+    "id": "match-010",
+    "matchNumber": 10,
+    "stage": "group",
+    "groupId": "E",
+    "homeTeamId": "curacao",
+    "awayTeamId": "ivory-coast",
+    "dateTimeUTC": "2026-06-14T20:00:00Z",
+    "venueId": "mercedesbenz",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "curazao-vs-costa-de-marfil", "en": "curacao-vs-ivory-coast" }
+  },
+  {
+    "id": "match-011",
+    "matchNumber": 11,
+    "stage": "group",
+    "groupId": "F",
+    "homeTeamId": "netherlands",
+    "awayTeamId": "tunisia",
+    "dateTimeUTC": "2026-06-14T23:00:00Z",
+    "venueId": "levis",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "paises-bajos-vs-tunez", "en": "netherlands-vs-tunisia" }
+  },
+  {
+    "id": "match-012",
+    "matchNumber": 12,
+    "stage": "group",
+    "groupId": "F",
+    "homeTeamId": "japan",
+    "awayTeamId": "tbd-uefa-b",
+    "dateTimeUTC": "2026-06-15T00:00:00Z",
+    "venueId": "lumen",
+    "broadcasts": {
+      "spanish": [{ "name": "Universo", "type": "cable" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "japon-vs-playoff-uefa-b", "en": "japan-vs-uefa-playoff-b" }
+  },
+  {
+    "id": "match-013",
+    "matchNumber": 13,
+    "stage": "group",
+    "groupId": "G",
+    "homeTeamId": "belgium",
+    "awayTeamId": "new-zealand",
+    "dateTimeUTC": "2026-06-15T17:00:00Z",
+    "venueId": "gillette",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "belgica-vs-nueva-zelanda", "en": "belgium-vs-new-zealand" }
+  },
+  {
+    "id": "match-014",
+    "matchNumber": 14,
+    "stage": "group",
+    "groupId": "G",
+    "homeTeamId": "egypt",
+    "awayTeamId": "iran",
+    "dateTimeUTC": "2026-06-15T20:00:00Z",
+    "venueId": "lincoln",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "egipto-vs-iran", "en": "egypt-vs-iran" }
+  },
+  {
+    "id": "match-015",
+    "matchNumber": 15,
+    "stage": "group",
+    "groupId": "H",
+    "homeTeamId": "spain",
+    "awayTeamId": "uruguay",
+    "dateTimeUTC": "2026-06-15T23:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "espana-vs-uruguay", "en": "spain-vs-uruguay" }
+  },
+  {
+    "id": "match-016",
+    "matchNumber": 16,
+    "stage": "group",
+    "groupId": "H",
+    "homeTeamId": "cape-verde",
+    "awayTeamId": "saudi-arabia",
+    "dateTimeUTC": "2026-06-16T00:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "cabo-verde-vs-arabia-saudita", "en": "cape-verde-vs-saudi-arabia" }
+  },
+  {
+    "id": "match-017",
+    "matchNumber": 17,
+    "stage": "group",
+    "groupId": "I",
+    "homeTeamId": "france",
+    "awayTeamId": "norway",
+    "dateTimeUTC": "2026-06-16T17:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "francia-vs-noruega", "en": "france-vs-norway" }
+  },
+  {
+    "id": "match-018",
+    "matchNumber": 18,
+    "stage": "group",
+    "groupId": "I",
+    "homeTeamId": "senegal",
+    "awayTeamId": "tbd-intercontinental-2",
+    "dateTimeUTC": "2026-06-16T20:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "senegal-vs-playoff-intercontinental-2", "en": "senegal-vs-intercontinental-playoff-2" }
+  },
+  {
+    "id": "match-019",
+    "matchNumber": 19,
+    "stage": "group",
+    "groupId": "J",
+    "homeTeamId": "argentina",
+    "awayTeamId": "jordan",
+    "dateTimeUTC": "2026-06-16T23:00:00Z",
+    "venueId": "nrg",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "argentina-vs-jordania", "en": "argentina-vs-jordan" }
+  },
+  {
+    "id": "match-020",
+    "matchNumber": 20,
+    "stage": "group",
+    "groupId": "J",
+    "homeTeamId": "algeria",
+    "awayTeamId": "austria",
+    "dateTimeUTC": "2026-06-17T00:00:00Z",
+    "venueId": "mercedesbenz",
+    "broadcasts": {
+      "spanish": [{ "name": "Universo", "type": "cable" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "argelia-vs-austria", "en": "algeria-vs-austria" }
+  },
+  {
+    "id": "match-021",
+    "matchNumber": 21,
+    "stage": "group",
+    "groupId": "K",
+    "homeTeamId": "portugal",
+    "awayTeamId": "colombia",
+    "dateTimeUTC": "2026-06-17T17:00:00Z",
+    "venueId": "arrowhead",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "portugal-vs-colombia", "en": "portugal-vs-colombia" }
+  },
+  {
+    "id": "match-022",
+    "matchNumber": 22,
+    "stage": "group",
+    "groupId": "K",
+    "homeTeamId": "tbd-intercontinental-1",
+    "awayTeamId": "uzbekistan",
+    "dateTimeUTC": "2026-06-17T20:00:00Z",
+    "venueId": "gillette",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "playoff-intercontinental-1-vs-uzbekistan", "en": "intercontinental-playoff-1-vs-uzbekistan" }
+  },
+  {
+    "id": "match-023",
+    "matchNumber": 23,
+    "stage": "group",
+    "groupId": "L",
+    "homeTeamId": "england",
+    "awayTeamId": "panama",
+    "dateTimeUTC": "2026-06-17T23:00:00Z",
+    "venueId": "bcplace",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "inglaterra-vs-panama", "en": "england-vs-panama" }
+  },
+  {
+    "id": "match-024",
+    "matchNumber": 24,
+    "stage": "group",
+    "groupId": "L",
+    "homeTeamId": "croatia",
+    "awayTeamId": "ghana",
+    "dateTimeUTC": "2026-06-18T00:00:00Z",
+    "venueId": "bbva",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "croacia-vs-ghana", "en": "croatia-vs-ghana" }
+  },
+  {
+    "id": "match-025",
+    "matchNumber": 25,
+    "stage": "group",
+    "groupId": "A",
+    "homeTeamId": "mexico",
+    "awayTeamId": "south-africa",
+    "dateTimeUTC": "2026-06-18T20:00:00Z",
+    "venueId": "akron",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "mexico-vs-sudafrica", "en": "mexico-vs-south-africa" }
+  },
+  {
+    "id": "match-026",
+    "matchNumber": 26,
+    "stage": "group",
+    "groupId": "A",
+    "homeTeamId": "tbd-uefa-d",
+    "awayTeamId": "korea-republic",
+    "dateTimeUTC": "2026-06-18T23:00:00Z",
+    "venueId": "nrg",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "playoff-uefa-d-vs-corea-del-sur", "en": "uefa-playoff-d-vs-south-korea" }
+  },
+  {
+    "id": "match-027",
+    "matchNumber": 27,
+    "stage": "group",
+    "groupId": "B",
+    "homeTeamId": "canada",
+    "awayTeamId": "tbd-uefa-a",
+    "dateTimeUTC": "2026-06-19T17:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "canada-vs-playoff-uefa-a", "en": "canada-vs-uefa-playoff-a" }
+  },
+  {
+    "id": "match-028",
+    "matchNumber": 28,
+    "stage": "group",
+    "groupId": "B",
+    "homeTeamId": "switzerland",
+    "awayTeamId": "qatar",
+    "dateTimeUTC": "2026-06-19T20:00:00Z",
+    "venueId": "lincoln",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "suiza-vs-qatar", "en": "switzerland-vs-qatar" }
+  },
+  {
+    "id": "match-029",
+    "matchNumber": 29,
+    "stage": "group",
+    "groupId": "C",
+    "homeTeamId": "brazil",
+    "awayTeamId": "morocco",
+    "dateTimeUTC": "2026-06-19T23:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "brasil-vs-marruecos", "en": "brazil-vs-morocco" }
+  },
+  {
+    "id": "match-030",
+    "matchNumber": 30,
+    "stage": "group",
+    "groupId": "C",
+    "homeTeamId": "scotland",
+    "awayTeamId": "haiti",
+    "dateTimeUTC": "2026-06-20T00:00:00Z",
+    "venueId": "gillette",
+    "broadcasts": {
+      "spanish": [{ "name": "Universo", "type": "cable" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "escocia-vs-haiti", "en": "scotland-vs-haiti" }
+  },
+  {
+    "id": "match-031",
+    "matchNumber": 31,
+    "stage": "group",
+    "groupId": "D",
+    "homeTeamId": "usa",
+    "awayTeamId": "paraguay",
+    "dateTimeUTC": "2026-06-20T17:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "estados-unidos-vs-paraguay", "en": "usa-vs-paraguay" }
+  },
+  {
+    "id": "match-032",
+    "matchNumber": 32,
+    "stage": "group",
+    "groupId": "D",
+    "homeTeamId": "tbd-uefa-c",
+    "awayTeamId": "australia",
+    "dateTimeUTC": "2026-06-20T20:00:00Z",
+    "venueId": "lumen",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "playoff-uefa-c-vs-australia", "en": "uefa-playoff-c-vs-australia" }
+  },
+  {
+    "id": "match-033",
+    "matchNumber": 33,
+    "stage": "group",
+    "groupId": "E",
+    "homeTeamId": "germany",
+    "awayTeamId": "curacao",
+    "dateTimeUTC": "2026-06-20T23:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "alemania-vs-curazao", "en": "germany-vs-curacao" }
+  },
+  {
+    "id": "match-034",
+    "matchNumber": 34,
+    "stage": "group",
+    "groupId": "E",
+    "homeTeamId": "ecuador",
+    "awayTeamId": "ivory-coast",
+    "dateTimeUTC": "2026-06-21T00:00:00Z",
+    "venueId": "mercedesbenz",
+    "broadcasts": {
+      "spanish": [{ "name": "Universo", "type": "cable" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ecuador-vs-costa-de-marfil", "en": "ecuador-vs-ivory-coast" }
+  },
+  {
+    "id": "match-035",
+    "matchNumber": 35,
+    "stage": "group",
+    "groupId": "F",
+    "homeTeamId": "netherlands",
+    "awayTeamId": "japan",
+    "dateTimeUTC": "2026-06-21T17:00:00Z",
+    "venueId": "levis",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "paises-bajos-vs-japon", "en": "netherlands-vs-japan" }
+  },
+  {
+    "id": "match-036",
+    "matchNumber": 36,
+    "stage": "group",
+    "groupId": "F",
+    "homeTeamId": "tunisia",
+    "awayTeamId": "tbd-uefa-b",
+    "dateTimeUTC": "2026-06-21T20:00:00Z",
+    "venueId": "arrowhead",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "tunez-vs-playoff-uefa-b", "en": "tunisia-vs-uefa-playoff-b" }
+  },
+  {
+    "id": "match-037",
+    "matchNumber": 37,
+    "stage": "group",
+    "groupId": "G",
+    "homeTeamId": "belgium",
+    "awayTeamId": "egypt",
+    "dateTimeUTC": "2026-06-21T23:00:00Z",
+    "venueId": "bcplace",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "belgica-vs-egipto", "en": "belgium-vs-egypt" }
+  },
+  {
+    "id": "match-038",
+    "matchNumber": 38,
+    "stage": "group",
+    "groupId": "G",
+    "homeTeamId": "new-zealand",
+    "awayTeamId": "iran",
+    "dateTimeUTC": "2026-06-22T00:00:00Z",
+    "venueId": "bmo",
+    "broadcasts": {
+      "spanish": [{ "name": "Universo", "type": "cable" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "nueva-zelanda-vs-iran", "en": "new-zealand-vs-iran" }
+  },
+  {
+    "id": "match-039",
+    "matchNumber": 39,
+    "stage": "group",
+    "groupId": "H",
+    "homeTeamId": "spain",
+    "awayTeamId": "cape-verde",
+    "dateTimeUTC": "2026-06-22T17:00:00Z",
+    "venueId": "nrg",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "espana-vs-cabo-verde", "en": "spain-vs-cape-verde" }
+  },
+  {
+    "id": "match-040",
+    "matchNumber": 40,
+    "stage": "group",
+    "groupId": "H",
+    "homeTeamId": "uruguay",
+    "awayTeamId": "saudi-arabia",
+    "dateTimeUTC": "2026-06-22T20:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "uruguay-vs-arabia-saudita", "en": "uruguay-vs-saudi-arabia" }
+  },
+  {
+    "id": "match-041",
+    "matchNumber": 41,
+    "stage": "group",
+    "groupId": "I",
+    "homeTeamId": "france",
+    "awayTeamId": "senegal",
+    "dateTimeUTC": "2026-06-22T23:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "francia-vs-senegal", "en": "france-vs-senegal" }
+  },
+  {
+    "id": "match-042",
+    "matchNumber": 42,
+    "stage": "group",
+    "groupId": "I",
+    "homeTeamId": "norway",
+    "awayTeamId": "tbd-intercontinental-2",
+    "dateTimeUTC": "2026-06-23T00:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Universo", "type": "cable" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "noruega-vs-playoff-intercontinental-2", "en": "norway-vs-intercontinental-playoff-2" }
+  },
+  {
+    "id": "match-043",
+    "matchNumber": 43,
+    "stage": "group",
+    "groupId": "J",
+    "homeTeamId": "argentina",
+    "awayTeamId": "algeria",
+    "dateTimeUTC": "2026-06-23T17:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "argentina-vs-argelia", "en": "argentina-vs-algeria" }
+  },
+  {
+    "id": "match-044",
+    "matchNumber": 44,
+    "stage": "group",
+    "groupId": "J",
+    "homeTeamId": "jordan",
+    "awayTeamId": "austria",
+    "dateTimeUTC": "2026-06-23T20:00:00Z",
+    "venueId": "mercedesbenz",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "jordania-vs-austria", "en": "jordan-vs-austria" }
+  },
+  {
+    "id": "match-045",
+    "matchNumber": 45,
+    "stage": "group",
+    "groupId": "K",
+    "homeTeamId": "portugal",
+    "awayTeamId": "tbd-intercontinental-1",
+    "dateTimeUTC": "2026-06-23T23:00:00Z",
+    "venueId": "gillette",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "portugal-vs-playoff-intercontinental-1", "en": "portugal-vs-intercontinental-playoff-1" }
+  },
+  {
+    "id": "match-046",
+    "matchNumber": 46,
+    "stage": "group",
+    "groupId": "K",
+    "homeTeamId": "colombia",
+    "awayTeamId": "uzbekistan",
+    "dateTimeUTC": "2026-06-24T00:00:00Z",
+    "venueId": "lincoln",
+    "broadcasts": {
+      "spanish": [{ "name": "Universo", "type": "cable" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "colombia-vs-uzbekistan", "en": "colombia-vs-uzbekistan" }
+  },
+  {
+    "id": "match-047",
+    "matchNumber": 47,
+    "stage": "group",
+    "groupId": "L",
+    "homeTeamId": "england",
+    "awayTeamId": "croatia",
+    "dateTimeUTC": "2026-06-24T17:00:00Z",
+    "venueId": "arrowhead",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "inglaterra-vs-croacia", "en": "england-vs-croatia" }
+  },
+  {
+    "id": "match-048",
+    "matchNumber": 48,
+    "stage": "group",
+    "groupId": "L",
+    "homeTeamId": "panama",
+    "awayTeamId": "ghana",
+    "dateTimeUTC": "2026-06-24T20:00:00Z",
+    "venueId": "bbva",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "panama-vs-ghana", "en": "panama-vs-ghana" }
+  },
+  {
+    "id": "match-049",
+    "matchNumber": 49,
+    "stage": "group",
+    "groupId": "A",
+    "homeTeamId": "korea-republic",
+    "awayTeamId": "mexico",
+    "dateTimeUTC": "2026-06-25T20:00:00Z",
+    "venueId": "azteca",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "corea-del-sur-vs-mexico", "en": "south-korea-vs-mexico" }
+  },
+  {
+    "id": "match-050",
+    "matchNumber": 50,
+    "stage": "group",
+    "groupId": "A",
+    "homeTeamId": "south-africa",
+    "awayTeamId": "tbd-uefa-d",
+    "dateTimeUTC": "2026-06-25T20:00:00Z",
+    "venueId": "nrg",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "sudafrica-vs-playoff-uefa-d", "en": "south-africa-vs-uefa-playoff-d" }
+  },
+  {
+    "id": "match-051",
+    "matchNumber": 51,
+    "stage": "group",
+    "groupId": "B",
+    "homeTeamId": "qatar",
+    "awayTeamId": "canada",
+    "dateTimeUTC": "2026-06-26T17:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "qatar-vs-canada", "en": "qatar-vs-canada" }
+  },
+  {
+    "id": "match-052",
+    "matchNumber": 52,
+    "stage": "group",
+    "groupId": "B",
+    "homeTeamId": "switzerland",
+    "awayTeamId": "tbd-uefa-a",
+    "dateTimeUTC": "2026-06-26T17:00:00Z",
+    "venueId": "gillette",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "suiza-vs-playoff-uefa-a", "en": "switzerland-vs-uefa-playoff-a" }
+  },
+  {
+    "id": "match-053",
+    "matchNumber": 53,
+    "stage": "group",
+    "groupId": "C",
+    "homeTeamId": "haiti",
+    "awayTeamId": "brazil",
+    "dateTimeUTC": "2026-06-26T20:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "haiti-vs-brasil", "en": "haiti-vs-brazil" }
+  },
+  {
+    "id": "match-054",
+    "matchNumber": 54,
+    "stage": "group",
+    "groupId": "C",
+    "homeTeamId": "morocco",
+    "awayTeamId": "scotland",
+    "dateTimeUTC": "2026-06-26T20:00:00Z",
+    "venueId": "lincoln",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "marruecos-vs-escocia", "en": "morocco-vs-scotland" }
+  },
+  {
+    "id": "match-055",
+    "matchNumber": 55,
+    "stage": "group",
+    "groupId": "D",
+    "homeTeamId": "australia",
+    "awayTeamId": "usa",
+    "dateTimeUTC": "2026-06-27T17:00:00Z",
+    "venueId": "levis",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "australia-vs-estados-unidos", "en": "australia-vs-usa" }
+  },
+  {
+    "id": "match-056",
+    "matchNumber": 56,
+    "stage": "group",
+    "groupId": "D",
+    "homeTeamId": "paraguay",
+    "awayTeamId": "tbd-uefa-c",
+    "dateTimeUTC": "2026-06-27T17:00:00Z",
+    "venueId": "lumen",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "paraguay-vs-playoff-uefa-c", "en": "paraguay-vs-uefa-playoff-c" }
+  },
+  {
+    "id": "match-057",
+    "matchNumber": 57,
+    "stage": "group",
+    "groupId": "E",
+    "homeTeamId": "ivory-coast",
+    "awayTeamId": "germany",
+    "dateTimeUTC": "2026-06-27T20:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "costa-de-marfil-vs-alemania", "en": "ivory-coast-vs-germany" }
+  },
+  {
+    "id": "match-058",
+    "matchNumber": 58,
+    "stage": "group",
+    "groupId": "E",
+    "homeTeamId": "ecuador",
+    "awayTeamId": "curacao",
+    "dateTimeUTC": "2026-06-27T20:00:00Z",
+    "venueId": "mercedesbenz",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ecuador-vs-curazao", "en": "ecuador-vs-curacao" }
+  },
+  {
+    "id": "match-059",
+    "matchNumber": 59,
+    "stage": "group",
+    "groupId": "F",
+    "homeTeamId": "tbd-uefa-b",
+    "awayTeamId": "netherlands",
+    "dateTimeUTC": "2026-06-28T17:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "playoff-uefa-b-vs-paises-bajos", "en": "uefa-playoff-b-vs-netherlands" }
+  },
+  {
+    "id": "match-060",
+    "matchNumber": 60,
+    "stage": "group",
+    "groupId": "F",
+    "homeTeamId": "tunisia",
+    "awayTeamId": "japan",
+    "dateTimeUTC": "2026-06-28T17:00:00Z",
+    "venueId": "arrowhead",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "tunez-vs-japon", "en": "tunisia-vs-japan" }
+  },
+  {
+    "id": "match-061",
+    "matchNumber": 61,
+    "stage": "group",
+    "groupId": "G",
+    "homeTeamId": "iran",
+    "awayTeamId": "belgium",
+    "dateTimeUTC": "2026-06-28T20:00:00Z",
+    "venueId": "bmo",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "iran-vs-belgica", "en": "iran-vs-belgium" }
+  },
+  {
+    "id": "match-062",
+    "matchNumber": 62,
+    "stage": "group",
+    "groupId": "G",
+    "homeTeamId": "new-zealand",
+    "awayTeamId": "egypt",
+    "dateTimeUTC": "2026-06-28T20:00:00Z",
+    "venueId": "bcplace",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "nueva-zelanda-vs-egipto", "en": "new-zealand-vs-egypt" }
+  },
+  {
+    "id": "match-063",
+    "matchNumber": 63,
+    "stage": "group",
+    "groupId": "H",
+    "homeTeamId": "saudi-arabia",
+    "awayTeamId": "spain",
+    "dateTimeUTC": "2026-06-29T17:00:00Z",
+    "venueId": "nrg",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "arabia-saudita-vs-espana", "en": "saudi-arabia-vs-spain" }
+  },
+  {
+    "id": "match-064",
+    "matchNumber": 64,
+    "stage": "group",
+    "groupId": "H",
+    "homeTeamId": "uruguay",
+    "awayTeamId": "cape-verde",
+    "dateTimeUTC": "2026-06-29T17:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "uruguay-vs-cabo-verde", "en": "uruguay-vs-cape-verde" }
+  },
+  {
+    "id": "match-065",
+    "matchNumber": 65,
+    "stage": "group",
+    "groupId": "I",
+    "homeTeamId": "tbd-intercontinental-2",
+    "awayTeamId": "france",
+    "dateTimeUTC": "2026-06-29T20:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "playoff-intercontinental-2-vs-francia", "en": "intercontinental-playoff-2-vs-france" }
+  },
+  {
+    "id": "match-066",
+    "matchNumber": 66,
+    "stage": "group",
+    "groupId": "I",
+    "homeTeamId": "norway",
+    "awayTeamId": "senegal",
+    "dateTimeUTC": "2026-06-29T20:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "noruega-vs-senegal", "en": "norway-vs-senegal" }
+  },
+  {
+    "id": "match-067",
+    "matchNumber": 67,
+    "stage": "group",
+    "groupId": "J",
+    "homeTeamId": "austria",
+    "awayTeamId": "argentina",
+    "dateTimeUTC": "2026-06-30T17:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "austria-vs-argentina", "en": "austria-vs-argentina" }
+  },
+  {
+    "id": "match-068",
+    "matchNumber": 68,
+    "stage": "group",
+    "groupId": "J",
+    "homeTeamId": "jordan",
+    "awayTeamId": "algeria",
+    "dateTimeUTC": "2026-06-30T17:00:00Z",
+    "venueId": "mercedesbenz",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "jordania-vs-argelia", "en": "jordan-vs-algeria" }
+  },
+  {
+    "id": "match-069",
+    "matchNumber": 69,
+    "stage": "group",
+    "groupId": "K",
+    "homeTeamId": "uzbekistan",
+    "awayTeamId": "portugal",
+    "dateTimeUTC": "2026-06-30T20:00:00Z",
+    "venueId": "gillette",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "uzbekistan-vs-portugal", "en": "uzbekistan-vs-portugal" }
+  },
+  {
+    "id": "match-070",
+    "matchNumber": 70,
+    "stage": "group",
+    "groupId": "K",
+    "homeTeamId": "colombia",
+    "awayTeamId": "tbd-intercontinental-1",
+    "dateTimeUTC": "2026-06-30T20:00:00Z",
+    "venueId": "lincoln",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "colombia-vs-playoff-intercontinental-1", "en": "colombia-vs-intercontinental-playoff-1" }
+  },
+  {
+    "id": "match-071",
+    "matchNumber": 71,
+    "stage": "group",
+    "groupId": "L",
+    "homeTeamId": "ghana",
+    "awayTeamId": "england",
+    "dateTimeUTC": "2026-07-01T17:00:00Z",
+    "venueId": "arrowhead",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ghana-vs-inglaterra", "en": "ghana-vs-england" }
+  },
+  {
+    "id": "match-072",
+    "matchNumber": 72,
+    "stage": "group",
+    "groupId": "L",
+    "homeTeamId": "panama",
+    "awayTeamId": "croatia",
+    "dateTimeUTC": "2026-07-01T17:00:00Z",
+    "venueId": "bbva",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FS1", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "panama-vs-croacia", "en": "panama-vs-croatia" }
+  },
+  {
+    "id": "match-073",
+    "matchNumber": 73,
+    "stage": "round32",
+    "homeTeamId": "winner-a",
+    "awayTeamId": "third-cd",
+    "dateTimeUTC": "2026-07-03T20:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-1", "en": "round-32-match-1" }
+  },
+  {
+    "id": "match-074",
+    "matchNumber": 74,
+    "stage": "round32",
+    "homeTeamId": "winner-b",
+    "awayTeamId": "third-ef",
+    "dateTimeUTC": "2026-07-03T23:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-2", "en": "round-32-match-2" }
+  },
+  {
+    "id": "match-075",
+    "matchNumber": 75,
+    "stage": "round32",
+    "homeTeamId": "winner-c",
+    "awayTeamId": "third-ab",
+    "dateTimeUTC": "2026-07-04T17:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-3", "en": "round-32-match-3" }
+  },
+  {
+    "id": "match-076",
+    "matchNumber": 76,
+    "stage": "round32",
+    "homeTeamId": "winner-d",
+    "awayTeamId": "third-gh",
+    "dateTimeUTC": "2026-07-04T20:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-4", "en": "round-32-match-4" }
+  },
+  {
+    "id": "match-077",
+    "matchNumber": 77,
+    "stage": "round32",
+    "homeTeamId": "winner-e",
+    "awayTeamId": "third-ij",
+    "dateTimeUTC": "2026-07-04T23:00:00Z",
+    "venueId": "nrg",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-5", "en": "round-32-match-5" }
+  },
+  {
+    "id": "match-078",
+    "matchNumber": 78,
+    "stage": "round32",
+    "homeTeamId": "winner-f",
+    "awayTeamId": "third-kl",
+    "dateTimeUTC": "2026-07-05T17:00:00Z",
+    "venueId": "mercedesbenz",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-6", "en": "round-32-match-6" }
+  },
+  {
+    "id": "match-079",
+    "matchNumber": 79,
+    "stage": "round32",
+    "homeTeamId": "winner-g",
+    "awayTeamId": "runner-up-h",
+    "dateTimeUTC": "2026-07-05T20:00:00Z",
+    "venueId": "lincoln",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-7", "en": "round-32-match-7" }
+  },
+  {
+    "id": "match-080",
+    "matchNumber": 80,
+    "stage": "round32",
+    "homeTeamId": "winner-h",
+    "awayTeamId": "runner-up-g",
+    "dateTimeUTC": "2026-07-05T23:00:00Z",
+    "venueId": "gillette",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-8", "en": "round-32-match-8" }
+  },
+  {
+    "id": "match-081",
+    "matchNumber": 81,
+    "stage": "round32",
+    "homeTeamId": "winner-i",
+    "awayTeamId": "runner-up-j",
+    "dateTimeUTC": "2026-07-06T17:00:00Z",
+    "venueId": "levis",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-9", "en": "round-32-match-9" }
+  },
+  {
+    "id": "match-082",
+    "matchNumber": 82,
+    "stage": "round32",
+    "homeTeamId": "winner-j",
+    "awayTeamId": "runner-up-i",
+    "dateTimeUTC": "2026-07-06T20:00:00Z",
+    "venueId": "lumen",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-10", "en": "round-32-match-10" }
+  },
+  {
+    "id": "match-083",
+    "matchNumber": 83,
+    "stage": "round32",
+    "homeTeamId": "winner-k",
+    "awayTeamId": "runner-up-l",
+    "dateTimeUTC": "2026-07-06T23:00:00Z",
+    "venueId": "arrowhead",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-11", "en": "round-32-match-11" }
+  },
+  {
+    "id": "match-084",
+    "matchNumber": 84,
+    "stage": "round32",
+    "homeTeamId": "winner-l",
+    "awayTeamId": "runner-up-k",
+    "dateTimeUTC": "2026-07-07T17:00:00Z",
+    "venueId": "azteca",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-12", "en": "round-32-match-12" }
+  },
+  {
+    "id": "match-085",
+    "matchNumber": 85,
+    "stage": "round32",
+    "homeTeamId": "runner-up-a",
+    "awayTeamId": "runner-up-b",
+    "dateTimeUTC": "2026-07-07T20:00:00Z",
+    "venueId": "akron",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-13", "en": "round-32-match-13" }
+  },
+  {
+    "id": "match-086",
+    "matchNumber": 86,
+    "stage": "round32",
+    "homeTeamId": "runner-up-c",
+    "awayTeamId": "runner-up-d",
+    "dateTimeUTC": "2026-07-07T23:00:00Z",
+    "venueId": "bbva",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-14", "en": "round-32-match-14" }
+  },
+  {
+    "id": "match-087",
+    "matchNumber": 87,
+    "stage": "round32",
+    "homeTeamId": "runner-up-e",
+    "awayTeamId": "runner-up-f",
+    "dateTimeUTC": "2026-07-08T17:00:00Z",
+    "venueId": "bmo",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-15", "en": "round-32-match-15" }
+  },
+  {
+    "id": "match-088",
+    "matchNumber": 88,
+    "stage": "round32",
+    "homeTeamId": "third-special-1",
+    "awayTeamId": "third-special-2",
+    "dateTimeUTC": "2026-07-08T20:00:00Z",
+    "venueId": "bcplace",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "ronda-32-partido-16", "en": "round-32-match-16" }
+  },
+  {
+    "id": "match-089",
+    "matchNumber": 89,
+    "stage": "round16",
+    "homeTeamId": "winner-r32-1",
+    "awayTeamId": "winner-r32-2",
+    "dateTimeUTC": "2026-07-09T20:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "octavos-partido-1", "en": "round-16-match-1" }
+  },
+  {
+    "id": "match-090",
+    "matchNumber": 90,
+    "stage": "round16",
+    "homeTeamId": "winner-r32-3",
+    "awayTeamId": "winner-r32-4",
+    "dateTimeUTC": "2026-07-09T23:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "octavos-partido-2", "en": "round-16-match-2" }
+  },
+  {
+    "id": "match-091",
+    "matchNumber": 91,
+    "stage": "round16",
+    "homeTeamId": "winner-r32-5",
+    "awayTeamId": "winner-r32-6",
+    "dateTimeUTC": "2026-07-10T20:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "octavos-partido-3", "en": "round-16-match-3" }
+  },
+  {
+    "id": "match-092",
+    "matchNumber": 92,
+    "stage": "round16",
+    "homeTeamId": "winner-r32-7",
+    "awayTeamId": "winner-r32-8",
+    "dateTimeUTC": "2026-07-10T23:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "octavos-partido-4", "en": "round-16-match-4" }
+  },
+  {
+    "id": "match-093",
+    "matchNumber": 93,
+    "stage": "round16",
+    "homeTeamId": "winner-r32-9",
+    "awayTeamId": "winner-r32-10",
+    "dateTimeUTC": "2026-07-11T20:00:00Z",
+    "venueId": "nrg",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "octavos-partido-5", "en": "round-16-match-5" }
+  },
+  {
+    "id": "match-094",
+    "matchNumber": 94,
+    "stage": "round16",
+    "homeTeamId": "winner-r32-11",
+    "awayTeamId": "winner-r32-12",
+    "dateTimeUTC": "2026-07-11T23:00:00Z",
+    "venueId": "mercedesbenz",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "octavos-partido-6", "en": "round-16-match-6" }
+  },
+  {
+    "id": "match-095",
+    "matchNumber": 95,
+    "stage": "round16",
+    "homeTeamId": "winner-r32-13",
+    "awayTeamId": "winner-r32-14",
+    "dateTimeUTC": "2026-07-12T20:00:00Z",
+    "venueId": "azteca",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "octavos-partido-7", "en": "round-16-match-7" }
+  },
+  {
+    "id": "match-096",
+    "matchNumber": 96,
+    "stage": "round16",
+    "homeTeamId": "winner-r32-15",
+    "awayTeamId": "winner-r32-16",
+    "dateTimeUTC": "2026-07-12T23:00:00Z",
+    "venueId": "lincoln",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "octavos-partido-8", "en": "round-16-match-8" }
+  },
+  {
+    "id": "match-097",
+    "matchNumber": 97,
+    "stage": "quarterfinal",
+    "homeTeamId": "winner-r16-1",
+    "awayTeamId": "winner-r16-2",
+    "dateTimeUTC": "2026-07-13T20:00:00Z",
+    "venueId": "sofi",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "cuartos-partido-1", "en": "quarterfinal-match-1" }
+  },
+  {
+    "id": "match-098",
+    "matchNumber": 98,
+    "stage": "quarterfinal",
+    "homeTeamId": "winner-r16-3",
+    "awayTeamId": "winner-r16-4",
+    "dateTimeUTC": "2026-07-13T23:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "cuartos-partido-2", "en": "quarterfinal-match-2" }
+  },
+  {
+    "id": "match-099",
+    "matchNumber": 99,
+    "stage": "quarterfinal",
+    "homeTeamId": "winner-r16-5",
+    "awayTeamId": "winner-r16-6",
+    "dateTimeUTC": "2026-07-14T20:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "cuartos-partido-3", "en": "quarterfinal-match-3" }
+  },
+  {
+    "id": "match-100",
+    "matchNumber": 100,
+    "stage": "quarterfinal",
+    "homeTeamId": "winner-r16-7",
+    "awayTeamId": "winner-r16-8",
+    "dateTimeUTC": "2026-07-14T23:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "cuartos-partido-4", "en": "quarterfinal-match-4" }
+  },
+  {
+    "id": "match-101",
+    "matchNumber": 101,
+    "stage": "semifinal",
+    "homeTeamId": "winner-qf-1",
+    "awayTeamId": "winner-qf-2",
+    "dateTimeUTC": "2026-07-16T21:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "semifinal-1", "en": "semifinal-1" }
+  },
+  {
+    "id": "match-102",
+    "matchNumber": 102,
+    "stage": "semifinal",
+    "homeTeamId": "winner-qf-3",
+    "awayTeamId": "winner-qf-4",
+    "dateTimeUTC": "2026-07-17T21:00:00Z",
+    "venueId": "att",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "semifinal-2", "en": "semifinal-2" }
+  },
+  {
+    "id": "match-103",
+    "matchNumber": 103,
+    "stage": "third",
+    "homeTeamId": "loser-sf-1",
+    "awayTeamId": "loser-sf-2",
+    "dateTimeUTC": "2026-07-18T20:00:00Z",
+    "venueId": "hardrock",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "tercer-puesto", "en": "third-place" }
+  },
+  {
+    "id": "match-104",
+    "matchNumber": 104,
+    "stage": "final",
+    "homeTeamId": "winner-sf-1",
+    "awayTeamId": "winner-sf-2",
+    "dateTimeUTC": "2026-07-19T21:00:00Z",
+    "venueId": "metlife",
+    "broadcasts": {
+      "spanish": [{ "name": "Telemundo", "type": "tv" }, { "name": "Peacock", "type": "streaming" }],
+      "english": [{ "name": "FOX", "type": "tv" }, { "name": "Peacock", "type": "streaming" }]
+    },
+    "slug": { "es": "final-mundial-2026", "en": "world-cup-2026-final" }
+  }
+]

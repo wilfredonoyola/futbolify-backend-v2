@@ -1,0 +1,177 @@
+// DTOs for Quiniela GraphQL API
+
+import { Field, InputType, ObjectType, ID } from '@nestjs/graphql';
+import { QuinielaRules, MatchPrediction, QuinielaMember, QuinielaStatus } from '../schemas/quiniela.schema';
+
+// Input: Create quiniela
+@InputType()
+export class CreateQuinielaInput {
+  @Field()
+  name: string;
+
+  @Field({ nullable: true })
+  description?: string;
+
+  @Field({ defaultValue: true })
+  isPrivate: boolean;
+
+  @Field({ nullable: true })
+  imageUrl?: string;
+}
+
+// Input: Save prediction
+@InputType()
+export class SavePredictionInput {
+  @Field()
+  matchId: string;
+
+  @Field()
+  homeScore: number;
+
+  @Field()
+  awayScore: number;
+}
+
+// Input: Save multiple predictions
+@InputType()
+export class SavePredictionsInput {
+  @Field(() => [SavePredictionInput])
+  predictions: SavePredictionInput[];
+}
+
+// Output: Quiniela invite
+@ObjectType()
+export class QuinielaInvite {
+  @Field(() => ID)
+  quinielaId: string;
+
+  @Field()
+  quinielaName: string;
+
+  @Field()
+  ownerName: string;
+
+  @Field()
+  code: string;
+
+  @Field()
+  inviteUrl: string;
+
+  @Field()
+  memberCount: number;
+
+  @Field()
+  isPrivate: boolean;
+}
+
+// Output: Public quiniela info (for join page)
+@ObjectType()
+export class QuinielaPublicInfo {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  name: string;
+
+  @Field()
+  ownerName: string;
+
+  @Field()
+  memberCount: number;
+
+  @Field()
+  isPrivate: boolean;
+
+  @Field(() => QuinielaStatus)
+  status: QuinielaStatus;
+
+  @Field({ nullable: true })
+  description?: string;
+
+  @Field({ nullable: true })
+  imageUrl?: string;
+
+  @Field(() => Date)
+  createdAt: Date;
+}
+
+// Output: Leaderboard entry
+@ObjectType()
+export class LeaderboardEntry {
+  @Field()
+  rank: number;
+
+  @Field(() => ID)
+  memberId: string;
+
+  @Field(() => ID)
+  userId: string;
+
+  @Field()
+  userName: string;
+
+  @Field({ nullable: true })
+  avatarUrl?: string;
+
+  @Field()
+  totalPoints: number;
+
+  @Field()
+  correctPredictions: number;
+
+  @Field()
+  exactScores: number;
+
+  @Field({ nullable: true })
+  championPick?: string;
+}
+
+// Output: Member prediction detail
+@ObjectType()
+export class MemberPredictionDetail {
+  @Field()
+  matchId: string;
+
+  @Field()
+  homeScore: number;
+
+  @Field()
+  awayScore: number;
+
+  @Field(() => Date)
+  submittedAt: Date;
+
+  @Field({ nullable: true })
+  pointsEarned?: number;
+
+  @Field({ nullable: true })
+  isExact?: boolean;
+
+  @Field({ nullable: true })
+  isCorrectResult?: boolean;
+}
+
+// Output: My quiniela status
+@ObjectType()
+export class MyQuinielaStatus {
+  @Field(() => ID)
+  quinielaId: string;
+
+  @Field()
+  quinielaName: string;
+
+  @Field()
+  myRank: number;
+
+  @Field()
+  myPoints: number;
+
+  @Field()
+  totalMembers: number;
+
+  @Field()
+  predictionsSubmitted: number;
+
+  @Field({ nullable: true })
+  championPick?: string;
+}

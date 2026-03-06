@@ -18,6 +18,8 @@ import { CreatorModule } from './creator/creator.module'
 import { StreamingModule } from './streaming/streaming.module'
 import { FrasesModule } from './frases/frases.module'
 import { GoalGuruModule } from './goal-guru/goal-guru.module'
+import { WorldcupModule } from './worldcup/worldcup.module'
+import { QuinielaModule } from './quiniela/quiniela.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -74,6 +76,8 @@ import { AppService } from './app.service'
     StreamingModule,
     FrasesModule,
     GoalGuruModule,
+    WorldcupModule,
+    QuinielaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

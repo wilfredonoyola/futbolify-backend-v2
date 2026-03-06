@@ -1289,6 +1289,275 @@ type FhgHealthAlert {
   recommendation: String!
 }
 
+type StoredMessage {
+  role: String!
+  content: String!
+  timestamp: DateTime!
+  data: JSON
+  action: JSON
+}
+
+type ChatSession {
+  _id: ID!
+  userId: ID
+  sessionId: String!
+  messages: [StoredMessage!]!
+  messageCount: Float!
+  locale: String
+  timezone: String
+  favoriteTeams: [String!]!
+  lastMessageAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type LocalizedString {
+  es: String!
+  en: String!
+}
+
+type TeamDto {
+  id: String!
+  code: String!
+  name: LocalizedString!
+  flag: String!
+  groupId: String!
+  confederation: Confederation!
+  qualified: Boolean!
+  isHost: Boolean!
+  worldCupAppearances: Float
+  bestResult: LocalizedString
+  slug: LocalizedString!
+}
+
+"""Football confederation"""
+enum Confederation {
+  UEFA
+  CONMEBOL
+  CONCACAF
+  CAF
+  AFC
+  OFC
+}
+
+type TeamInfo {
+  id: String!
+  name: String!
+  code: String!
+  flag: String!
+}
+
+type VenueCoordinates {
+  lat: Float!
+  lng: Float!
+}
+
+type VenueDto {
+  id: String!
+  name: String!
+  city: LocalizedString!
+  state: String!
+  country: String!
+  capacity: Float!
+  timezone: String!
+  coordinates: VenueCoordinates!
+  image: String
+}
+
+type VenueInfo {
+  id: String!
+  name: String!
+  city: String!
+  country: String!
+}
+
+type BroadcastChannel {
+  name: String!
+  type: String!
+  affiliateUrl: String
+  logo: String
+}
+
+type MatchBroadcasts {
+  spanish: [BroadcastChannel!]!
+  english: [BroadcastChannel!]!
+}
+
+type MatchDto {
+  id: String!
+  matchNumber: Float!
+  stage: MatchStage!
+  groupId: String
+  homeTeamId: String!
+  awayTeamId: String!
+  dateTimeUTC: String!
+  venueId: String!
+  broadcasts: MatchBroadcasts!
+  slug: LocalizedString!
+}
+
+"""Stage of the match in the tournament"""
+enum MatchStage {
+  GROUP
+  ROUND32
+  ROUND16
+  QUARTERFINAL
+  SEMIFINAL
+  THIRD
+  FINAL
+}
+
+type MatchWithTeams {
+  id: String!
+  matchNumber: Float!
+  stage: String!
+  stageName: String!
+  groupId: String
+  homeTeam: TeamInfo!
+  awayTeam: TeamInfo!
+  dateTimeUTC: String!
+  venue: VenueInfo!
+  broadcasts: MatchBroadcasts!
+}
+
+type GroupDto {
+  id: String!
+  name: LocalizedString!
+  teamIds: [String!]!
+  slug: LocalizedString!
+}
+
+type GroupWithTeams {
+  id: String!
+  name: LocalizedString!
+  teams: [TeamDto!]!
+  matches: [MatchDto!]!
+  slug: LocalizedString!
+}
+
+type ChatDataItem {
+  type: String!
+  data: JSON!
+}
+
+type ChatDataPayload {
+  type: String!
+  items: [ChatDataItem!]!
+}
+
+type ActionArtifact {
+  type: String!
+  filename: String
+  mimeType: String
+  data: String
+  embedType: String
+  embedData: JSON
+}
+
+type ActionResult {
+  success: Boolean!
+  actionType: String!
+  artifact: ActionArtifact
+  error: String
+}
+
+type WorldcupChatResponse {
+  success: Boolean!
+  message: String!
+  data: ChatDataPayload
+  action: ActionResult
+  error: String
+  sessionId: String
+  messageCount: Float
+  messageLimit: Float
+  isAtLimit: Boolean
+}
+
+type QuinielaRules {
+  exactScore: Float!
+  correctResult: Float!
+  bonusChampion: Float!
+}
+
+type MatchPrediction {
+  matchId: String!
+  homeScore: Float!
+  awayScore: Float!
+  submittedAt: DateTime!
+}
+
+type QuinielaMember {
+  _id: ID!
+  userId: ID!
+  userName: String!
+  avatarUrl: String
+  predictions: [MatchPrediction!]!
+  championPick: String
+  totalPoints: Float!
+  correctPredictions: Float!
+  exactScores: Float!
+  rank: Float
+  joinedAt: DateTime!
+}
+
+type Quiniela {
+  _id: ID!
+  name: String!
+  code: String!
+  ownerId: ID!
+  ownerName: String!
+  isPrivate: Boolean!
+  status: QuinielaStatus!
+  rules: QuinielaRules!
+  members: [QuinielaMember!]!
+  memberCount: Float!
+  description: String
+  imageUrl: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Status of the quiniela"""
+enum QuinielaStatus {
+  OPEN
+  ACTIVE
+  CLOSED
+}
+
+type QuinielaInvite {
+  quinielaId: ID!
+  quinielaName: String!
+  ownerName: String!
+  code: String!
+  inviteUrl: String!
+  memberCount: Float!
+  isPrivate: Boolean!
+}
+
+type QuinielaPublicInfo {
+  id: ID!
+  name: String!
+  ownerName: String!
+  memberCount: Float!
+  isPrivate: Boolean!
+  status: QuinielaStatus!
+  description: String
+  imageUrl: String
+  createdAt: DateTime!
+}
+
+type LeaderboardEntry {
+  rank: Float!
+  memberId: ID!
+  userId: ID!
+  userName: String!
+  avatarUrl: String
+  totalPoints: Float!
+  correctPredictions: Float!
+  exactScores: Float!
+  championPick: String
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
@@ -1401,6 +1670,24 @@ type Query {
 
   """Get FHG logs with filters"""
   fhgLogs(filter: FhgLogFilterInput): [FhgLogEntryDto!]!
+  worldcupMatches(teamId: String, stage: String, date: String, groupId: String, venueId: String): [MatchDto!]!
+  worldcupMatch(id: String!): MatchDto
+  worldcupUpcomingMatches(limit: Float! = 5, locale: String! = "es"): [MatchWithTeams!]!
+  worldcupMatchWithTeams(id: String!, locale: String! = "es"): MatchWithTeams
+  worldcupTeams(groupId: String, confederation: String): [TeamDto!]!
+  worldcupTeam(id: String!): TeamDto
+  worldcupTeamByCode(code: String!): TeamDto
+  worldcupGroups: [GroupDto!]!
+  worldcupGroup(id: String!): GroupDto
+  worldcupGroupWithTeams(id: String!, locale: String! = "es"): GroupWithTeams
+  worldcupVenues(country: String): [VenueDto!]!
+  worldcupVenue(id: String!): VenueDto
+  worldcupChatSession(sessionId: String!): ChatSession
+  quinielaByCode(code: String!): QuinielaPublicInfo
+  myQuinielas: [Quiniela!]!
+  quiniela(id: String!): Quiniela
+  quinielaLeaderboard(quinielaId: String!): [LeaderboardEntry!]!
+  myQuinielaPredictions(quinielaId: String!): QuinielaMember
 }
 
 input LateMatchOptionsDto {
@@ -1592,6 +1879,16 @@ type Mutation {
 
   """Full data refresh: matches + odds for all active leagues"""
   fhgFullRefresh(date: String, daysAhead: Int = 7): RefreshResultDto!
+  worldcupChat(input: WorldcupChatInput!): WorldcupChatResponse!
+  worldcupClearChatSession(sessionId: String!): Boolean!
+  worldcupUpdateFavoriteTeams(sessionId: String!, favoriteTeams: [String!]!): ChatSession
+  createQuiniela(input: CreateQuinielaInput!): QuinielaInvite!
+  joinQuiniela(code: String!): QuinielaMember!
+  leaveQuiniela(quinielaId: String!): Boolean!
+  savePrediction(quinielaId: String!, input: SavePredictionInput!): QuinielaMember!
+  savePredictions(quinielaId: String!, input: SavePredictionsInput!): QuinielaMember!
+  saveChampionPick(quinielaId: String!, teamId: String!): QuinielaMember!
+  deleteQuiniela(quinielaId: String!): Boolean!
 }
 
 input SigninInputDto {
@@ -1923,6 +2220,36 @@ input FhgPipelineOptionsInput {
   leagueCode: String
   dryRun: Boolean
   forceRegenerate: Boolean
+}
+
+input WorldcupChatInput {
+  messages: [ChatMessageInput!]!
+  locale: String! = "es"
+  timezone: String! = "America/New_York"
+  favoriteTeams: [String!]
+  sessionId: String
+}
+
+input ChatMessageInput {
+  role: String!
+  content: String!
+}
+
+input CreateQuinielaInput {
+  name: String!
+  description: String
+  isPrivate: Boolean! = true
+  imageUrl: String
+}
+
+input SavePredictionInput {
+  matchId: String!
+  homeScore: Float!
+  awayScore: Float!
+}
+
+input SavePredictionsInput {
+  predictions: [SavePredictionInput!]!
 }
 
 type Subscription {

@@ -24,6 +24,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@apollo/gateway": "^2.8.4",
     "@apollo/server": "^4.9.3",
     "@aws-sdk/client-cognito-identity-provider": "^3.632.0",

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "A",
+    "name": { "es": "Grupo A", "en": "Group A" },
+    "teamIds": ["mexico", "south-africa", "korea-republic", "tbd-uefa-d"],
+    "slug": { "es": "grupo-a", "en": "group-a" }
+  },
+  {
+    "id": "B",
+    "name": { "es": "Grupo B", "en": "Group B" },
+    "teamIds": ["canada", "tbd-uefa-a", "qatar", "switzerland"],
+    "slug": { "es": "grupo-b", "en": "group-b" }
+  },
+  {
+    "id": "C",
+    "name": { "es": "Grupo C", "en": "Group C" },
+    "teamIds": ["brazil", "morocco", "haiti", "scotland"],
+    "slug": { "es": "grupo-c", "en": "group-c" }
+  },
+  {
+    "id": "D",
+    "name": { "es": "Grupo D", "en": "Group D" },
+    "teamIds": ["usa", "paraguay", "australia", "tbd-uefa-c"],
+    "slug": { "es": "grupo-d", "en": "group-d" }
+  },
+  {
+    "id": "E",
+    "name": { "es": "Grupo E", "en": "Group E" },
+    "teamIds": ["germany", "curacao", "ivory-coast", "ecuador"],
+    "slug": { "es": "grupo-e", "en": "group-e" }
+  },
+  {
+    "id": "F",
+    "name": { "es": "Grupo F", "en": "Group F" },
+    "teamIds": ["netherlands", "japan", "tbd-uefa-b", "tunisia"],
+    "slug": { "es": "grupo-f", "en": "group-f" }
+  },
+  {
+    "id": "G",
+    "name": { "es": "Grupo G", "en": "Group G" },
+    "teamIds": ["belgium", "egypt", "iran", "new-zealand"],
+    "slug": { "es": "grupo-g", "en": "group-g" }
+  },
+  {
+    "id": "H",
+    "name": { "es": "Grupo H", "en": "Group H" },
+    "teamIds": ["spain", "cape-verde", "saudi-arabia", "uruguay"],
+    "slug": { "es": "grupo-h", "en": "group-h" }
+  },
+  {
+    "id": "I",
+    "name": { "es": "Grupo I", "en": "Group I" },
+    "teamIds": ["france", "senegal", "tbd-intercontinental-2", "norway"],
+    "slug": { "es": "grupo-i", "en": "group-i" }
+  },
+  {
+    "id": "J",
+    "name": { "es": "Grupo J", "en": "Group J" },
+    "teamIds": ["argentina", "algeria", "austria", "jordan"],
+    "slug": { "es": "grupo-j", "en": "group-j" }
+  },
+  {
+    "id": "K",
+    "name": { "es": "Grupo K", "en": "Group K" },
+    "teamIds": ["portugal", "tbd-intercontinental-1", "uzbekistan", "colombia"],
+    "slug": { "es": "grupo-k", "en": "group-k" }
+  },
+  {
+    "id": "L",
+    "name": { "es": "Grupo L", "en": "Group L" },
+    "teamIds": ["england", "croatia", "ghana", "panama"],
+    "slug": { "es": "grupo-l", "en": "group-l" }
+  }
+]

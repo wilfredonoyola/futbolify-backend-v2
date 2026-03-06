@@ -1,0 +1,178 @@
+[
+  {
+    "id": "metlife",
+    "name": "MetLife Stadium",
+    "city": { "es": "East Rutherford", "en": "East Rutherford" },
+    "state": "NJ",
+    "country": "USA",
+    "capacity": 82500,
+    "timezone": "America/New_York",
+    "coordinates": { "lat": 40.8135, "lng": -74.0745 },
+    "image": "https://images.unsplash.com/photo-1577223625816-7546f13df25d?w=1280&q=80"
+  },
+  {
+    "id": "sofi",
+    "name": "SoFi Stadium",
+    "city": { "es": "Los Angeles", "en": "Los Angeles" },
+    "state": "CA",
+    "country": "USA",
+    "capacity": 70240,
+    "timezone": "America/Los_Angeles",
+    "coordinates": { "lat": 33.9535, "lng": -118.3390 },
+    "image": "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=1280&q=80"
+  },
+  {
+    "id": "att",
+    "name": "AT&T Stadium",
+    "city": { "es": "Arlington", "en": "Arlington" },
+    "state": "TX",
+    "country": "USA",
+    "capacity": 80000,
+    "timezone": "America/Chicago",
+    "coordinates": { "lat": 32.7473, "lng": -97.0945 },
+    "image": "https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=1280&q=80"
+  },
+  {
+    "id": "hardrock",
+    "name": "Hard Rock Stadium",
+    "city": { "es": "Miami Gardens", "en": "Miami Gardens" },
+    "state": "FL",
+    "country": "USA",
+    "capacity": 65326,
+    "timezone": "America/New_York",
+    "coordinates": { "lat": 25.9580, "lng": -80.2389 },
+    "image": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1280&q=80"
+  },
+  {
+    "id": "nrg",
+    "name": "NRG Stadium",
+    "city": { "es": "Houston", "en": "Houston" },
+    "state": "TX",
+    "country": "USA",
+    "capacity": 72220,
+    "timezone": "America/Chicago",
+    "coordinates": { "lat": 29.6847, "lng": -95.4107 },
+    "image": "https://images.unsplash.com/photo-1459865264687-595d652de67e?w=1280&q=80"
+  },
+  {
+    "id": "mercedesbenz",
+    "name": "Mercedes-Benz Stadium",
+    "city": { "es": "Atlanta", "en": "Atlanta" },
+    "state": "GA",
+    "country": "USA",
+    "capacity": 71000,
+    "timezone": "America/New_York",
+    "coordinates": { "lat": 33.7553, "lng": -84.4006 },
+    "image": "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=1280&q=80"
+  },
+  {
+    "id": "lincoln",
+    "name": "Lincoln Financial Field",
+    "city": { "es": "Filadelfia", "en": "Philadelphia" },
+    "state": "PA",
+    "country": "USA",
+    "capacity": 69176,
+    "timezone": "America/New_York",
+    "coordinates": { "lat": 39.9008, "lng": -75.1675 },
+    "image": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1280&q=80"
+  },
+  {
+    "id": "lumen",
+    "name": "Lumen Field",
+    "city": { "es": "Seattle", "en": "Seattle" },
+    "state": "WA",
+    "country": "USA",
+    "capacity": 69000,
+    "timezone": "America/Los_Angeles",
+    "coordinates": { "lat": 47.5952, "lng": -122.3316 },
+    "image": "https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1280&q=80"
+  },
+  {
+    "id": "gillette",
+    "name": "Gillette Stadium",
+    "city": { "es": "Foxborough", "en": "Foxborough" },
+    "state": "MA",
+    "country": "USA",
+    "capacity": 65878,
+    "timezone": "America/New_York",
+    "coordinates": { "lat": 42.0909, "lng": -71.2643 },
+    "image": "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=1280&q=80"
+  },
+  {
+    "id": "levis",
+    "name": "Levi's Stadium",
+    "city": { "es": "Santa Clara", "en": "Santa Clara" },
+    "state": "CA",
+    "country": "USA",
+    "capacity": 68500,
+    "timezone": "America/Los_Angeles",
+    "coordinates": { "lat": 37.4033, "lng": -121.9695 },
+    "image": "https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=1280&q=80"
+  },
+  {
+    "id": "arrowhead",
+    "name": "GEHA Field at Arrowhead Stadium",
+    "city": { "es": "Kansas City", "en": "Kansas City" },
+    "state": "MO",
+    "country": "USA",
+    "capacity": 76416,
+    "timezone": "America/Chicago",
+    "coordinates": { "lat": 39.0489, "lng": -94.4839 },
+    "image": "https://images.unsplash.com/photo-1486286701208-1d58e9338013?w=1280&q=80"
+  },
+  {
+    "id": "azteca",
+    "name": "Estadio Azteca",
+    "city": { "es": "Ciudad de Mexico", "en": "Mexico City" },
+    "state": "CDMX",
+    "country": "Mexico",
+    "capacity": 87523,
+    "timezone": "America/Mexico_City",
+    "coordinates": { "lat": 19.3029, "lng": -99.1505 },
+    "image": "https://images.unsplash.com/photo-1518604666860-9ed391f76460?w=1280&q=80"
+  },
+  {
+    "id": "akron",
+    "name": "Estadio Akron",
+    "city": { "es": "Guadalajara", "en": "Guadalajara" },
+    "state": "JAL",
+    "country": "Mexico",
+    "capacity": 49850,
+    "timezone": "America/Mexico_City",
+    "coordinates": { "lat": 20.6821, "lng": -103.4624 },
+    "image": "https://images.unsplash.com/photo-1551958219-acbc608c6377?w=1280&q=80"
+  },
+  {
+    "id": "bbva",
+    "name": "Estadio BBVA",
+    "city": { "es": "Monterrey", "en": "Monterrey" },
+    "state": "NL",
+    "country": "Mexico",
+    "capacity": 53500,
+    "timezone": "America/Monterrey",
+    "coordinates": { "lat": 25.6699, "lng": -100.2446 },
+    "image": "https://images.unsplash.com/photo-1556056504-5c7696c4c28d?w=1280&q=80"
+  },
+  {
+    "id": "bmo",
+    "name": "BMO Field",
+    "city": { "es": "Toronto", "en": "Toronto" },
+    "state": "ON",
+    "country": "Canada",
+    "capacity": 45736,
+    "timezone": "America/Toronto",
+    "coordinates": { "lat": 43.6332, "lng": -79.4186 },
+    "image": "https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=1280&q=80"
+  },
+  {
+    "id": "bcplace",
+    "name": "BC Place",
+    "city": { "es": "Vancouver", "en": "Vancouver" },
+    "state": "BC",
+    "country": "Canada",
+    "capacity": 54500,
+    "timezone": "America/Vancouver",
+    "coordinates": { "lat": 49.2768, "lng": -123.1118 },
+    "image": "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1280&q=80"
+  }
+]
