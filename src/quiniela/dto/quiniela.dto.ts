@@ -41,6 +41,22 @@ export class ClaimQuinielaInput {
   anonymousCreatorId: string;
 }
 
+// Input: Update quiniela (owner only)
+@InputType()
+export class UpdateQuinielaInput {
+  @Field({ nullable: true })
+  name?: string;
+
+  @Field({ nullable: true })
+  description?: string;
+
+  @Field({ nullable: true })
+  isPrivate?: boolean;
+
+  @Field({ nullable: true })
+  imageUrl?: string;
+}
+
 // Input: Save prediction
 @InputType()
 export class SavePredictionInput {
@@ -107,6 +123,9 @@ export class QuinielaPublicInfo {
 
   @Field()
   name: string;
+
+  @Field(() => ID, { nullable: true })
+  ownerId?: string;
 
   @Field()
   ownerName: string;

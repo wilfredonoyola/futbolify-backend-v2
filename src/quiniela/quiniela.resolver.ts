@@ -6,6 +6,7 @@ import { QuinielaService } from './quiniela.service';
 import { Quiniela, QuinielaMember } from './schemas/quiniela.schema';
 import {
   CreateQuinielaInput,
+  UpdateQuinielaInput,
   SavePredictionInput,
   SavePredictionsInput,
   QuinielaInvite,
@@ -185,6 +186,19 @@ export class QuinielaResolver {
       throw new Error('Authentication required');
     }
     return this.quinielaService.saveChampionPick(quinielaId, userId, teamId);
+  }
+
+  @Mutation(() => Quiniela, { name: 'updateQuiniela' })
+  async updateQuiniela(
+    @Args('quinielaId') quinielaId: string,
+    @Args('input') input: UpdateQuinielaInput,
+    @Context() context: { req?: { user?: { userId?: string } } },
+  ): Promise<Quiniela> {
+    const userId = context.req?.user?.userId;
+    if (!userId) {
+      throw new Error('Authentication required');
+    }
+    return this.quinielaService.updateQuiniela(quinielaId, userId, input);
   }
 
   @Mutation(() => Boolean, { name: 'deleteQuiniela' })

@@ -177,6 +177,7 @@ export class QuinielaService {
     return {
       id: quiniela._id.toString(),
       name: quiniela.name,
+      ownerId: quiniela.ownerId?.toString(),
       ownerName: quiniela.ownerName,
       memberCount: quiniela.memberCount,
       isPrivate: quiniela.isPrivate,
@@ -428,6 +429,31 @@ export class QuinielaService {
     }));
   }
 
+  // Update quiniela (owner only)
+  async updateQuiniela(
+    quinielaId: string,
+    userId: string,
+    updates: { name?: string; description?: string; isPrivate?: boolean; imageUrl?: string },
+  ): Promise<Quiniela> {
+    const quiniela = await this.quinielaModel.findById(quinielaId);
+    if (!quiniela) {
+      throw new NotFoundException('Quiniela not found');
+    }
+
+    if (quiniela.ownerId?.toString() !== userId) {
+      throw new ForbiddenException('Only the owner can update this quiniela');
+    }
+
+    // Apply updates
+    if (updates.name !== undefined) quiniela.name = updates.name;
+    if (updates.description !== undefined) quiniela.description = updates.description;
+    if (updates.isPrivate !== undefined) quiniela.isPrivate = updates.isPrivate;
+    if (updates.imageUrl !== undefined) quiniela.imageUrl = updates.imageUrl;
+
+    await quiniela.save();
+    return quiniela;
+  }
+
   // Delete quiniela (owner only)
   async deleteQuiniela(quinielaId: string, userId: string): Promise<boolean> {
     const quiniela = await this.quinielaModel.findById(quinielaId);
@@ -435,7 +461,7 @@ export class QuinielaService {
       throw new NotFoundException('Quiniela not found');
     }
 
-    if (quiniela.ownerId.toString() !== userId) {
+    if (quiniela.ownerId?.toString() !== userId) {
       throw new ForbiddenException('Only the owner can delete this quiniela');
     }
 

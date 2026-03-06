@@ -1556,6 +1556,7 @@ type QuinielaInvite {
 type QuinielaPublicInfo {
   id: ID!
   name: String!
+  ownerId: ID
   ownerName: String!
   memberCount: Float!
   isPrivate: Boolean!
@@ -1910,6 +1911,7 @@ type Mutation {
   savePrediction(quinielaId: String!, input: SavePredictionInput!): QuinielaMember!
   savePredictions(quinielaId: String!, input: SavePredictionsInput!): QuinielaMember!
   saveChampionPick(quinielaId: String!, teamId: String!): QuinielaMember!
+  updateQuiniela(quinielaId: String!, input: UpdateQuinielaInput!): Quiniela!
   deleteQuiniela(quinielaId: String!): Boolean!
 }
 
@@ -2286,6 +2288,13 @@ input SavePredictionInput {
 
 input SavePredictionsInput {
   predictions: [SavePredictionInput!]!
+}
+
+input UpdateQuinielaInput {
+  name: String
+  description: String
+  isPrivate: Boolean
+  imageUrl: String
 }
 
 type Subscription {
