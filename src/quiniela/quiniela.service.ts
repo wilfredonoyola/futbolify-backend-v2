@@ -484,4 +484,63 @@ export class QuinielaService {
 
     return member || null;
   }
+
+  // Get member predictions by memberId (for admin viewing)
+  async getMemberPredictionsById(
+    quinielaId: string,
+    userId: string,
+    memberId: string,
+  ): Promise<QuinielaMember | null> {
+    const quiniela = await this.getById(quinielaId, userId);
+
+    const member = quiniela.members.find(
+      (m) => m._id.toString() === memberId,
+    );
+
+    return member || null;
+  }
+
+  // Remove a member from quiniela (owner only)
+  async removeMember(
+    quinielaId: string,
+    userId: string,
+    memberId: string,
+  ): Promise<boolean> {
+    const quiniela = await this.quinielaModel.findById(quinielaId);
+    if (!quiniela) {
+      throw new NotFoundException('Quiniela not found');
+    }
+
+    // Only owner can remove members
+    if (quiniela.ownerId?.toString() !== userId) {
+      throw new ForbiddenException('Only the owner can remove members');
+    }
+
+    // Find the member
+    const memberIndex = quiniela.members.findIndex(
+      (m) => m._id.toString() === memberId,
+    );
+    if (memberIndex === -1) {
+      throw new NotFoundException('Member not found');
+    }
+
+    // Cannot remove yourself (use delete quiniela instead)
+    if (quiniela.members[memberIndex].userId.toString() === userId) {
+      throw new ForbiddenException('Cannot remove yourself. Delete the quiniela instead.');
+    }
+
+    // Remove member
+    quiniela.members.splice(memberIndex, 1);
+    quiniela.memberCount = quiniela.members.length;
+    await quiniela.save();
+
+    return true;
+  }
+
+  // Check if user is owner
+  async isOwner(quinielaId: string, userId: string): Promise<boolean> {
+    const quiniela = await this.quinielaModel.findById(quinielaId);
+    if (!quiniela) return false;
+    return quiniela.ownerId?.toString() === userId;
+  }
 }

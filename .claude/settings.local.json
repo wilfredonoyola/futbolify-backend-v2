@@ -36,7 +36,21 @@
       "Bash(API_KEY=\"e4d595a2f938020b9c1cfd348b05efd7\")",
       "Bash(jq:*)",
       "Bash(npm run build:*)",
-      "Bash(yarn graphql:codegen:*)"
+      "Bash(yarn graphql:codegen:*)",
+      "mcp__ide__getDiagnostics",
+      "WebSearch",
+      "WebFetch(domain:www.over25tips.com)",
+      "WebFetch(domain:footystats.org)",
+      "Bash(NEXT_PUBLIC_GRAPHQL_URL=http://localhost:3001/graphql yarn codegen:*)",
+      "Bash(NEXT_PUBLIC_GRAPHQL_URL=http://localhost:3001/graphql yarn:*)",
+      "WebFetch(domain:www.api-football.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "WebFetch(domain:the-odds-api.com)",
+      "WebFetch(domain:claude.com)",
+      "WebFetch(domain:www.football-data.org)",
+      "Bash(cat:*)",
+      "Bash(yarn:*)",
+      "Bash(node -e:*)"
     ]
   }
 }

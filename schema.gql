@@ -1399,6 +1399,7 @@ enum Confederation {
   CAF
   AFC
   OFC
+  PLAYOFF
 }
 
 type TeamInfo {
@@ -1710,6 +1711,8 @@ type Query {
   quinielaLeaderboard(quinielaId: String!): [LeaderboardEntry!]!
   myQuinielaPredictions(quinielaId: String!): QuinielaMember
   anonymousQuinielas(anonymousCreatorId: String!): [Quiniela!]!
+  memberPredictions(quinielaId: String!, memberId: String!): QuinielaMember
+  isQuinielaOwner(quinielaId: String!): Boolean!
 }
 
 input LateMatchOptionsDto {
@@ -1913,6 +1916,7 @@ type Mutation {
   saveChampionPick(quinielaId: String!, teamId: String!): QuinielaMember!
   updateQuiniela(quinielaId: String!, input: UpdateQuinielaInput!): Quiniela!
   deleteQuiniela(quinielaId: String!): Boolean!
+  removeMember(quinielaId: String!, memberId: String!): Boolean!
 }
 
 input SigninInputDto {

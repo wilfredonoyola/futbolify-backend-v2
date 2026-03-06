@@ -212,4 +212,44 @@ export class QuinielaResolver {
     }
     return this.quinielaService.deleteQuiniela(quinielaId, userId);
   }
+
+  // ============ ADMIN OPERATIONS ============
+
+  @Mutation(() => Boolean, { name: 'removeMember' })
+  async removeMember(
+    @Args('quinielaId') quinielaId: string,
+    @Args('memberId') memberId: string,
+    @Context() context: { req?: { user?: { userId?: string } } },
+  ): Promise<boolean> {
+    const userId = context.req?.user?.userId;
+    if (!userId) {
+      throw new Error('Authentication required');
+    }
+    return this.quinielaService.removeMember(quinielaId, userId, memberId);
+  }
+
+  @Query(() => QuinielaMember, { name: 'memberPredictions', nullable: true })
+  async getMemberPredictionsById(
+    @Args('quinielaId') quinielaId: string,
+    @Args('memberId') memberId: string,
+    @Context() context: { req?: { user?: { userId?: string } } },
+  ): Promise<QuinielaMember | null> {
+    const userId = context.req?.user?.userId;
+    if (!userId) {
+      return null;
+    }
+    return this.quinielaService.getMemberPredictionsById(quinielaId, userId, memberId);
+  }
+
+  @Query(() => Boolean, { name: 'isQuinielaOwner' })
+  async isQuinielaOwner(
+    @Args('quinielaId') quinielaId: string,
+    @Context() context: { req?: { user?: { userId?: string } } },
+  ): Promise<boolean> {
+    const userId = context.req?.user?.userId;
+    if (!userId) {
+      return false;
+    }
+    return this.quinielaService.isOwner(quinielaId, userId);
+  }
 }
