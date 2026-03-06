@@ -90,6 +90,16 @@ export class ActionResult {
   error?: string;
 }
 
+// Warning info
+@ObjectType()
+export class ChatWarning {
+  @Field()
+  level: number;
+
+  @Field()
+  message: string;
+}
+
 // Chat response
 @ObjectType()
 export class WorldcupChatResponse {
@@ -118,7 +128,13 @@ export class WorldcupChatResponse {
   messageLimit?: number;
 
   @Field({ nullable: true })
+  messagesRemaining?: number;
+
+  @Field({ nullable: true })
   isAtLimit?: boolean;
+
+  @Field(() => ChatWarning, { nullable: true })
+  warning?: ChatWarning;
 }
 
 // Message limit error response

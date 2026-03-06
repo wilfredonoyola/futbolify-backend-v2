@@ -15,7 +15,11 @@ import { getSystemPrompt } from './system-prompt';
 import { allWorldCupTools, ACTION_TOOL_NAMES } from './tools';
 import { executeTool } from './tool-handlers';
 import { executeAction } from './action-handlers';
-import { ANONYMOUS_MESSAGE_LIMIT } from './constants';
+import {
+  ANONYMOUS_MESSAGE_LIMIT,
+  AUTHENTICATED_MESSAGE_LIMIT,
+  MESSAGE_LIMIT_RESET_HOURS,
+} from './constants';
 import type { Locale, ChatDataPayload as TypeChatDataPayload, ActionResult as TypeActionResult, MatchData } from './types';
 
 @Injectable()
@@ -39,6 +43,67 @@ export class ChatService {
       this.anthropicClient = new Anthropic({ apiKey });
     }
     return this.anthropicClient;
+  }
+
+  /**
+   * Check if message count should be reset (24h period)
+   * Returns the current message count after potential reset
+   */
+  private checkAndResetMessageCount(session: ChatSessionDocument): number {
+    if (!session.lastMessageAt) {
+      return 0;
+    }
+
+    const hoursSinceLastMessage =
+      (Date.now() - new Date(session.lastMessageAt).getTime()) / (1000 * 60 * 60);
+
+    if (hoursSinceLastMessage >= MESSAGE_LIMIT_RESET_HOURS) {
+      // Reset the counter
+      session.messageCount = 0;
+      return 0;
+    }
+
+    return session.messageCount;
+  }
+
+  /**
+   * Get warning info based on remaining messages
+   */
+  private getWarningInfo(
+    messageCount: number,
+    limit: number,
+    locale: 'es' | 'en',
+  ): { warningLevel: number; warningMessage: string } | null {
+    const remaining = limit - messageCount;
+
+    if (remaining > 3) {
+      return null; // No warning yet
+    }
+
+    let warningLevel: number;
+    let warningMessage: string;
+
+    if (remaining === 3) {
+      warningLevel = 1;
+      warningMessage =
+        locale === 'es'
+          ? `Te quedan ${remaining} mensajes hoy. Crea una cuenta gratis para mensajes ilimitados.`
+          : `You have ${remaining} messages left today. Create a free account for unlimited messages.`;
+    } else if (remaining === 1) {
+      warningLevel = 2;
+      warningMessage =
+        locale === 'es'
+          ? `¡Último mensaje! Crea tu cuenta gratis para seguir chateando.`
+          : `Last message! Create your free account to keep chatting.`;
+    } else {
+      warningLevel = 3;
+      warningMessage =
+        locale === 'es'
+          ? `Te quedan ${remaining} mensajes hoy.`
+          : `You have ${remaining} messages left today.`;
+    }
+
+    return { warningLevel, warningMessage };
   }
 
   async getOrCreateSession(
@@ -105,18 +170,39 @@ export class ChatService {
         favoriteTeams,
       );
 
-      // Check message limit for anonymous users
-      if (!userId && session.messageCount >= ANONYMOUS_MESSAGE_LIMIT) {
+      // Check and potentially reset message count (24h period)
+      const currentMessageCount = this.checkAndResetMessageCount(session);
+
+      // Determine the appropriate limit
+      const messageLimit = userId
+        ? AUTHENTICATED_MESSAGE_LIMIT
+        : ANONYMOUS_MESSAGE_LIMIT;
+
+      // Check message limit
+      if (currentMessageCount >= messageLimit) {
+        const errorMessage = userId
+          ? validLocale === 'es'
+            ? `Has alcanzado el límite de ${messageLimit} mensajes por día. Vuelve mañana.`
+            : `You have reached the ${messageLimit} message limit per day. Come back tomorrow.`
+          : validLocale === 'es'
+            ? `Has alcanzado el límite de ${messageLimit} mensajes. Crea una cuenta gratis para continuar.`
+            : `You have reached the ${messageLimit} message limit. Create a free account to continue.`;
+
         throw new ForbiddenException({
           code: 'MESSAGE_LIMIT_REACHED',
-          message:
-            validLocale === 'es'
-              ? `Has alcanzado el límite de ${ANONYMOUS_MESSAGE_LIMIT} mensajes. Crea una cuenta para continuar.`
-              : `You have reached the ${ANONYMOUS_MESSAGE_LIMIT} message limit. Create an account to continue.`,
-          messageCount: session.messageCount,
-          limit: ANONYMOUS_MESSAGE_LIMIT,
+          message: errorMessage,
+          messageCount: currentMessageCount,
+          limit: messageLimit,
+          isAuthenticated: !!userId,
         });
       }
+
+      // Calculate warning info (before incrementing)
+      const warningInfo = this.getWarningInfo(
+        currentMessageCount + 1, // After this message
+        messageLimit,
+        validLocale,
+      );
 
       // User context for personalized responses
       const userContext = {
@@ -289,8 +375,15 @@ export class ChatService {
         action: collectedAction as unknown as ActionResult,
         sessionId: session.sessionId,
         messageCount: session.messageCount,
-        messageLimit: userId ? undefined : ANONYMOUS_MESSAGE_LIMIT,
-        isAtLimit: !userId && session.messageCount >= ANONYMOUS_MESSAGE_LIMIT,
+        messageLimit: messageLimit,
+        messagesRemaining: messageLimit - session.messageCount,
+        isAtLimit: session.messageCount >= messageLimit,
+        warning: warningInfo
+          ? {
+              level: warningInfo.warningLevel,
+              message: warningInfo.warningMessage,
+            }
+          : undefined,
       };
 
       return chatResponse;
