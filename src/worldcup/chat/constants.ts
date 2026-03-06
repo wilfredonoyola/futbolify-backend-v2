@@ -77,4 +77,4 @@ export const CONFEDERATIONS: Record<string, { es: string; en: string }> = {
 };
 
 // Message limit for anonymous users
-export const ANONYMOUS_MESSAGE_LIMIT = 20;
+export const ANONYMOUS_MESSAGE_LIMIT = 10;
