@@ -34,9 +34,9 @@ export class QuinielaResolver {
 
   @Query(() => [Quiniela], { name: 'myQuinielas' })
   async getMyQuinielas(
-    @Context() context: { req?: { user?: { _id?: string } } },
+    @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<Quiniela[]> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     if (!userId) {
       return [];
     }
@@ -46,9 +46,9 @@ export class QuinielaResolver {
   @Query(() => Quiniela, { name: 'quiniela', nullable: true })
   async getQuiniela(
     @Args('id') id: string,
-    @Context() context: { req?: { user?: { _id?: string } } },
+    @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<Quiniela | null> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     if (!userId) {
       return null;
     }
@@ -58,9 +58,9 @@ export class QuinielaResolver {
   @Query(() => [LeaderboardEntry], { name: 'quinielaLeaderboard' })
   async getLeaderboard(
     @Args('quinielaId') quinielaId: string,
-    @Context() context: { req?: { user?: { _id?: string } } },
+    @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<LeaderboardEntry[]> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     if (!userId) {
       return [];
     }
@@ -70,9 +70,9 @@ export class QuinielaResolver {
   @Query(() => QuinielaMember, { name: 'myQuinielaPredictions', nullable: true })
   async getMyPredictions(
     @Args('quinielaId') quinielaId: string,
-    @Context() context: { req?: { user?: { _id?: string } } },
+    @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<QuinielaMember | null> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     if (!userId) {
       return null;
     }
@@ -84,10 +84,10 @@ export class QuinielaResolver {
   @Mutation(() => QuinielaInvite, { name: 'createQuiniela' })
   async createQuiniela(
     @Args('input') input: CreateQuinielaInput,
-    @Context() context: { req?: { user?: { _id?: string; name?: string } } },
+    @Context() context: { req?: { user?: { userId?: string; username?: string } } },
   ): Promise<QuinielaInvite> {
-    const userId = context.req?.user?._id;
-    const userName = context.req?.user?.name;
+    const userId = context.req?.user?.userId;
+    const userName = context.req?.user?.username;
 
     // Allow anonymous creation if anonymousCreatorId is provided
     if (!userId && !input.anonymousCreatorId) {
@@ -100,9 +100,9 @@ export class QuinielaResolver {
   @Mutation(() => QuinielaInvite, { name: 'claimQuiniela' })
   async claimQuiniela(
     @Args('input') input: ClaimQuinielaInput,
-    @Context() context: { req?: { user?: { _id?: string; name?: string; avatarUrl?: string } } },
+    @Context() context: { req?: { user?: { userId?: string; name?: string; avatarUrl?: string } } },
   ): Promise<QuinielaInvite> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     const userName = context.req?.user?.name || 'Usuario';
     const avatarUrl = context.req?.user?.avatarUrl;
 
@@ -123,9 +123,9 @@ export class QuinielaResolver {
   @Mutation(() => QuinielaMember, { name: 'joinQuiniela' })
   async joinQuiniela(
     @Args('code') code: string,
-    @Context() context: { req?: { user?: { _id?: string; name?: string; avatarUrl?: string } } },
+    @Context() context: { req?: { user?: { userId?: string; name?: string; avatarUrl?: string } } },
   ): Promise<QuinielaMember> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     const userName = context.req?.user?.name || 'Usuario';
     const avatarUrl = context.req?.user?.avatarUrl;
 
@@ -139,9 +139,9 @@ export class QuinielaResolver {
   @Mutation(() => Boolean, { name: 'leaveQuiniela' })
   async leaveQuiniela(
     @Args('quinielaId') quinielaId: string,
-    @Context() context: { req?: { user?: { _id?: string } } },
+    @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<boolean> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     if (!userId) {
       throw new Error('Authentication required');
     }
@@ -152,9 +152,9 @@ export class QuinielaResolver {
   async savePrediction(
     @Args('quinielaId') quinielaId: string,
     @Args('input') input: SavePredictionInput,
-    @Context() context: { req?: { user?: { _id?: string } } },
+    @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<QuinielaMember> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     if (!userId) {
       throw new Error('Authentication required');
     }
@@ -165,9 +165,9 @@ export class QuinielaResolver {
   async savePredictions(
     @Args('quinielaId') quinielaId: string,
     @Args('input') input: SavePredictionsInput,
-    @Context() context: { req?: { user?: { _id?: string } } },
+    @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<QuinielaMember> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     if (!userId) {
       throw new Error('Authentication required');
     }
@@ -178,9 +178,9 @@ export class QuinielaResolver {
   async saveChampionPick(
     @Args('quinielaId') quinielaId: string,
     @Args('teamId') teamId: string,
-    @Context() context: { req?: { user?: { _id?: string } } },
+    @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<QuinielaMember> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     if (!userId) {
       throw new Error('Authentication required');
     }
@@ -190,9 +190,9 @@ export class QuinielaResolver {
   @Mutation(() => Boolean, { name: 'deleteQuiniela' })
   async deleteQuiniela(
     @Args('quinielaId') quinielaId: string,
-    @Context() context: { req?: { user?: { _id?: string } } },
+    @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<boolean> {
-    const userId = context.req?.user?._id;
+    const userId = context.req?.user?.userId;
     if (!userId) {
       throw new Error('Authentication required');
     }
