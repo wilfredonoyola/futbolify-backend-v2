@@ -1,6 +1,7 @@
 // Action handlers for World Cup 2026 AI Chat - Execute actions and return artifacts
 
 import { QueriesService } from '../queries/queries.service';
+import { QuinielaService } from '../../quiniela/quiniela.service';
 import { STAGES } from './constants';
 import type {
   Locale,
@@ -293,43 +294,60 @@ export function handleGenerateShareImage(
 // QUINIELA CREATION
 // ============================================
 
-export function handleCreateQuiniela(
+export async function handleCreateQuiniela(
   params: CreateQuinielaParams,
+  quinielaService: QuinielaService,
   locale: Locale,
-): ActionResult {
-  const { name, ownerName = 'Anónimo', isPrivate = true } = params;
+): Promise<ActionResult> {
+  const { name, ownerName = 'Organizador', isPrivate = true } = params;
 
-  // Generate pool ID and invite code
-  const poolId = `qn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-  const inviteCode = isPrivate
-    ? Math.random().toString(36).slice(2, 8).toUpperCase()
-    : '';
+  try {
+    // Create quiniela anonymously (will be claimed when user logs in)
+    const anonymousCreatorId = `chat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
-  const inviteLink = `https://futbolify.com/${locale}/donde-ver/mundial-2026/q/${poolId}${inviteCode ? `?code=${inviteCode}` : ''}`;
-
-  return {
-    success: true,
-    actionType: 'create_quiniela',
-    artifact: {
-      type: 'embed',
-      embedType: 'quiniela_invite',
-      embedData: {
-        poolId,
-        poolName: name,
-        ownerName,
-        inviteCode,
-        inviteLink,
-        memberCount: 1,
+    const result = await quinielaService.createQuiniela(
+      {
+        name,
         isPrivate,
-        createdAt: new Date().toISOString(),
-        rules: {
-          exactScore: 5,
-          correctResult: 2,
-          bonusChampion: 10,
+        anonymousCreatorId,
+        ownerName,
+      },
+      undefined, // No userId (anonymous)
+      ownerName,
+    );
+
+    return {
+      success: true,
+      actionType: 'create_quiniela',
+      artifact: {
+        type: 'embed',
+        embedType: 'quiniela_invite',
+        embedData: {
+          quinielaId: result.quinielaId,
+          poolName: result.quinielaName,
+          ownerName: result.ownerName,
+          code: result.code,
+          inviteLink: result.inviteUrl,
+          memberCount: result.memberCount,
+          isPrivate: result.isPrivate,
+          isAnonymous: result.isAnonymous,
+          anonymousCreatorId: result.anonymousCreatorId,
+          createdAt: new Date().toISOString(),
+          rules: {
+            exactScore: 5,
+            correctResult: 2,
+            bonusChampion: 10,
+          },
         },
       },
-    },
-  };
+    };
+  } catch (error) {
+    return {
+      success: false,
+      actionType: 'create_quiniela',
+      error: error instanceof Error ? error.message : 'Failed to create quiniela',
+    };
+  }
 }
 
 // ============================================
@@ -460,12 +478,13 @@ export function handleSetReminder(
 // MAIN DISPATCHER
 // ============================================
 
-export function executeAction(
+export async function executeAction(
   toolName: string,
   toolInput: Record<string, unknown>,
   queriesService: QueriesService,
+  quinielaService: QuinielaService,
   locale: Locale,
-): ActionResult | null {
+): Promise<ActionResult | null> {
   switch (toolName) {
     case 'generate_calendar_file':
       return handleGenerateCalendar(
@@ -482,7 +501,11 @@ export function executeAction(
       );
 
     case 'create_quiniela':
-      return handleCreateQuiniela(toolInput as unknown as CreateQuinielaParams, locale);
+      return handleCreateQuiniela(
+        toolInput as unknown as CreateQuinielaParams,
+        quinielaService,
+        locale,
+      );
 
     case 'set_match_reminder':
       return handleSetReminder(

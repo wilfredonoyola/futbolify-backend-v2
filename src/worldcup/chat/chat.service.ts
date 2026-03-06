@@ -8,6 +8,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { v4 as uuidv4 } from 'uuid';
 
 import { QueriesService } from '../queries/queries.service';
+import { QuinielaService } from '../../quiniela/quiniela.service';
 import { ChatSession, ChatSessionDocument, StoredMessage } from '../schemas/chat-session.schema';
 import { WorldcupChatInput, WorldcupChatResponse, ChatDataPayload, ActionResult } from '../dto/chat.dto';
 import { getSystemPrompt } from './system-prompt';
@@ -25,6 +26,7 @@ export class ChatService {
     @InjectModel(ChatSession.name)
     private chatSessionModel: Model<ChatSessionDocument>,
     private readonly queriesService: QueriesService,
+    private readonly quinielaService: QuinielaService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -158,10 +160,11 @@ export class ChatService {
         // Check if this is an ACTION tool or a QUERY tool
         if (ACTION_TOOL_NAMES.has(toolUseBlock.name)) {
           // Execute action tool
-          const actionResult = executeAction(
+          const actionResult = await executeAction(
             toolUseBlock.name,
             toolUseBlock.input as Record<string, unknown>,
             this.queriesService,
+            this.quinielaService,
             validLocale,
           );
 
