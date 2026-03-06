@@ -7,6 +7,7 @@ export enum Confederation {
   CAF = 'CAF',
   AFC = 'AFC',
   OFC = 'OFC',
+  PLAYOFF = 'PLAYOFF', // For TBD playoff teams
 }
 
 registerEnumType(Confederation, {
