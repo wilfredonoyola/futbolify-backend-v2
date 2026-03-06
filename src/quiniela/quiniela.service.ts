@@ -14,6 +14,7 @@ import {
   QuinielaDocument,
   QuinielaMember,
   QuinielaStatus,
+  PredictionMode,
 } from './schemas/quiniela.schema';
 import {
   CreateQuinielaInput,
@@ -73,6 +74,7 @@ export class QuinielaService {
       description: input.description,
       imageUrl: input.imageUrl,
       status: QuinielaStatus.OPEN,
+      predictionMode: input.predictionMode || PredictionMode.SIMPLE,
       rules: {
         exactScore: 5,
         correctResult: 2,
@@ -179,6 +181,7 @@ export class QuinielaService {
       memberCount: quiniela.memberCount,
       isPrivate: quiniela.isPrivate,
       status: quiniela.status,
+      predictionMode: quiniela.predictionMode || PredictionMode.SIMPLE,
       description: quiniela.description,
       imageUrl: quiniela.imageUrl,
       createdAt: quiniela.createdAt,
@@ -314,6 +317,7 @@ export class QuinielaService {
       matchId: input.matchId,
       homeScore: input.homeScore,
       awayScore: input.awayScore,
+      simplePrediction: input.simplePrediction,
       submittedAt: new Date(),
     };
 
@@ -360,6 +364,7 @@ export class QuinielaService {
         matchId: input.matchId,
         homeScore: input.homeScore,
         awayScore: input.awayScore,
+        simplePrediction: input.simplePrediction,
         submittedAt: new Date(),
       };
 

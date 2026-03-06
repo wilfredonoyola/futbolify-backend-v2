@@ -17,6 +17,17 @@ registerEnumType(QuinielaStatus, {
   description: 'Status of the quiniela',
 });
 
+// Prediction mode enum
+export enum PredictionMode {
+  SIMPLE = 'simple', // Just pick winner/draw
+  DETAILED = 'detailed', // Predict exact scores
+}
+
+registerEnumType(PredictionMode, {
+  name: 'PredictionMode',
+  description: 'Mode of prediction for the quiniela',
+});
+
 // Rules for scoring
 @ObjectType()
 export class QuinielaRules {
@@ -36,11 +47,16 @@ export class MatchPrediction {
   @Field()
   matchId: string;
 
-  @Field()
-  homeScore: number;
+  // For detailed mode (exact scores)
+  @Field({ nullable: true })
+  homeScore?: number;
 
-  @Field()
-  awayScore: number;
+  @Field({ nullable: true })
+  awayScore?: number;
+
+  // For simple mode (just winner/draw): 'home' | 'draw' | 'away'
+  @Field({ nullable: true })
+  simplePrediction?: string;
 
   @Field(() => Date)
   submittedAt: Date;
@@ -141,6 +157,10 @@ export class Quiniela {
   @Prop({ type: Object, default: { exactScore: 5, correctResult: 2, bonusChampion: 10 } })
   @Field(() => QuinielaRules)
   rules: QuinielaRules;
+
+  @Prop({ type: String, enum: PredictionMode, default: PredictionMode.SIMPLE })
+  @Field(() => PredictionMode)
+  predictionMode: PredictionMode;
 
   @Prop({ type: [QuinielaMemberSchema], default: [] })
   @Field(() => [QuinielaMember])

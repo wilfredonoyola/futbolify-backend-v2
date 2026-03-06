@@ -1,7 +1,7 @@
 // DTOs for Quiniela GraphQL API
 
 import { Field, InputType, ObjectType, ID } from '@nestjs/graphql';
-import { QuinielaRules, MatchPrediction, QuinielaMember, QuinielaStatus } from '../schemas/quiniela.schema';
+import { QuinielaRules, MatchPrediction, QuinielaMember, QuinielaStatus, PredictionMode } from '../schemas/quiniela.schema';
 
 // Input: Create quiniela
 @InputType()
@@ -25,6 +25,10 @@ export class CreateQuinielaInput {
   // Owner name for anonymous creators
   @Field({ nullable: true })
   ownerName?: string;
+
+  // Prediction mode: simple (just winner) or detailed (exact scores)
+  @Field(() => PredictionMode, { defaultValue: PredictionMode.SIMPLE })
+  predictionMode: PredictionMode;
 }
 
 // Input: Claim anonymous quiniela
@@ -43,11 +47,16 @@ export class SavePredictionInput {
   @Field()
   matchId: string;
 
-  @Field()
-  homeScore: number;
+  // For detailed mode (exact scores)
+  @Field({ nullable: true })
+  homeScore?: number;
 
-  @Field()
-  awayScore: number;
+  @Field({ nullable: true })
+  awayScore?: number;
+
+  // For simple mode: 'home' | 'draw' | 'away'
+  @Field({ nullable: true })
+  simplePrediction?: string;
 }
 
 // Input: Save multiple predictions
@@ -110,6 +119,9 @@ export class QuinielaPublicInfo {
 
   @Field(() => QuinielaStatus)
   status: QuinielaStatus;
+
+  @Field(() => PredictionMode)
+  predictionMode: PredictionMode;
 
   @Field({ nullable: true })
   description?: string;

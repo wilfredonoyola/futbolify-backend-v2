@@ -1297,8 +1297,9 @@ type QuinielaRules {
 
 type MatchPrediction {
   matchId: String!
-  homeScore: Float!
-  awayScore: Float!
+  homeScore: Float
+  awayScore: Float
+  simplePrediction: String
   submittedAt: DateTime!
 }
 
@@ -1327,6 +1328,7 @@ type Quiniela {
   isPrivate: Boolean!
   status: QuinielaStatus!
   rules: QuinielaRules!
+  predictionMode: PredictionMode!
   members: [QuinielaMember!]!
   memberCount: Float!
   description: String
@@ -1340,6 +1342,12 @@ enum QuinielaStatus {
   OPEN
   ACTIVE
   CLOSED
+}
+
+"""Mode of prediction for the quiniela"""
+enum PredictionMode {
+  SIMPLE
+  DETAILED
 }
 
 type StoredMessage {
@@ -1552,6 +1560,7 @@ type QuinielaPublicInfo {
   memberCount: Float!
   isPrivate: Boolean!
   status: QuinielaStatus!
+  predictionMode: PredictionMode!
   description: String
   imageUrl: String
   createdAt: DateTime!
@@ -2260,6 +2269,7 @@ input CreateQuinielaInput {
   imageUrl: String
   anonymousCreatorId: String
   ownerName: String
+  predictionMode: PredictionMode! = SIMPLE
 }
 
 input ClaimQuinielaInput {
@@ -2269,8 +2279,9 @@ input ClaimQuinielaInput {
 
 input SavePredictionInput {
   matchId: String!
-  homeScore: Float!
-  awayScore: Float!
+  homeScore: Float
+  awayScore: Float
+  simplePrediction: String
 }
 
 input SavePredictionsInput {

@@ -2,6 +2,7 @@
 
 import { QueriesService } from '../queries/queries.service';
 import { QuinielaService } from '../../quiniela/quiniela.service';
+import { PredictionMode } from '../../quiniela/schemas/quiniela.schema';
 import { STAGES } from './constants';
 import type {
   Locale,
@@ -311,6 +312,7 @@ export async function handleCreateQuiniela(
         isPrivate,
         anonymousCreatorId,
         ownerName,
+        predictionMode: PredictionMode.SIMPLE, // Chat creates simple mode quinielas
       },
       undefined, // No userId (anonymous)
       ownerName,
