@@ -21,6 +21,7 @@ import {
   QuinielaInvite,
   QuinielaPublicInfo,
   LeaderboardEntry,
+  ClaimQuinielaInput,
 } from './dto/quiniela.dto';
 
 @Injectable()
@@ -35,31 +36,39 @@ export class QuinielaService {
     return Math.random().toString(36).slice(2, 8).toUpperCase();
   }
 
-  // Create a new quiniela
+  // Create a new quiniela (supports both authenticated and anonymous)
   async createQuiniela(
     input: CreateQuinielaInput,
-    userId: string,
-    userName: string,
+    userId?: string,
+    userName?: string,
   ): Promise<QuinielaInvite> {
     const code = this.generateCode();
+    const isAnonymous = !userId;
 
-    // Create owner as first member
-    const ownerMember: Partial<QuinielaMember> = {
-      _id: new Types.ObjectId(),
-      userId: new Types.ObjectId(userId),
-      userName,
-      predictions: [],
-      totalPoints: 0,
-      correctPredictions: 0,
-      exactScores: 0,
-      joinedAt: new Date(),
-    };
+    // Determine owner name
+    const ownerName = userName || input.ownerName || 'Anónimo';
+
+    // For authenticated users, create owner as first member
+    const members: Partial<QuinielaMember>[] = [];
+    if (userId) {
+      members.push({
+        _id: new Types.ObjectId(),
+        userId: new Types.ObjectId(userId),
+        userName: ownerName,
+        predictions: [],
+        totalPoints: 0,
+        correctPredictions: 0,
+        exactScores: 0,
+        joinedAt: new Date(),
+      });
+    }
 
     const quiniela = new this.quinielaModel({
       name: input.name,
       code,
-      ownerId: new Types.ObjectId(userId),
-      ownerName: userName,
+      ownerId: userId ? new Types.ObjectId(userId) : undefined,
+      ownerName,
+      anonymousCreatorId: isAnonymous ? input.anonymousCreatorId : undefined,
       isPrivate: input.isPrivate,
       description: input.description,
       imageUrl: input.imageUrl,
@@ -69,8 +78,8 @@ export class QuinielaService {
         correctResult: 2,
         bonusChampion: 10,
       },
-      members: [ownerMember],
-      memberCount: 1,
+      members,
+      memberCount: members.length,
     });
 
     await quiniela.save();
@@ -83,7 +92,79 @@ export class QuinielaService {
       inviteUrl: `https://futbolify.com/es/donde-ver/mundial-2026/q/${quiniela.code}`,
       memberCount: quiniela.memberCount,
       isPrivate: quiniela.isPrivate,
+      isAnonymous,
+      anonymousCreatorId: isAnonymous ? input.anonymousCreatorId : undefined,
     };
+  }
+
+  // Claim an anonymous quiniela (when user creates account)
+  async claimQuiniela(
+    input: ClaimQuinielaInput,
+    userId: string,
+    userName: string,
+    avatarUrl?: string,
+  ): Promise<QuinielaInvite> {
+    const quiniela = await this.quinielaModel.findOne({
+      code: input.code.toUpperCase(),
+    });
+
+    if (!quiniela) {
+      throw new NotFoundException('Quiniela not found');
+    }
+
+    // Verify this is an anonymous quiniela
+    if (quiniela.ownerId) {
+      throw new ForbiddenException('This quiniela already has an owner');
+    }
+
+    // Verify the anonymous creator ID matches
+    if (quiniela.anonymousCreatorId !== input.anonymousCreatorId) {
+      throw new ForbiddenException('Invalid anonymous creator ID');
+    }
+
+    // Claim the quiniela
+    quiniela.ownerId = new Types.ObjectId(userId);
+    quiniela.ownerName = userName;
+    quiniela.claimedAt = new Date();
+
+    // Add owner as first member
+    const ownerMember: Partial<QuinielaMember> = {
+      _id: new Types.ObjectId(),
+      userId: new Types.ObjectId(userId),
+      userName,
+      avatarUrl,
+      predictions: [],
+      totalPoints: 0,
+      correctPredictions: 0,
+      exactScores: 0,
+      joinedAt: new Date(),
+    };
+
+    quiniela.members.unshift(ownerMember as QuinielaMember);
+    quiniela.memberCount = quiniela.members.length;
+
+    await quiniela.save();
+
+    return {
+      quinielaId: quiniela._id.toString(),
+      quinielaName: quiniela.name,
+      ownerName: quiniela.ownerName,
+      code: quiniela.code,
+      inviteUrl: `https://futbolify.com/es/donde-ver/mundial-2026/q/${quiniela.code}`,
+      memberCount: quiniela.memberCount,
+      isPrivate: quiniela.isPrivate,
+      isAnonymous: false,
+    };
+  }
+
+  // Get anonymous quinielas by creator ID (for migration on login)
+  async getAnonymousQuinielasByCreator(
+    anonymousCreatorId: string,
+  ): Promise<Quiniela[]> {
+    return this.quinielaModel.find({
+      anonymousCreatorId,
+      ownerId: { $exists: false },
+    });
   }
 
   // Get quiniela by code (public info)

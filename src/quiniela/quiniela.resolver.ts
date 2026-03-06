@@ -11,6 +11,7 @@ import {
   QuinielaInvite,
   QuinielaPublicInfo,
   LeaderboardEntry,
+  ClaimQuinielaInput,
 } from './dto/quiniela.dto';
 
 // Note: In a real implementation, you would add proper auth guards
@@ -86,13 +87,37 @@ export class QuinielaResolver {
     @Context() context: { req?: { user?: { _id?: string; name?: string } } },
   ): Promise<QuinielaInvite> {
     const userId = context.req?.user?._id;
-    const userName = context.req?.user?.name || 'Usuario';
+    const userName = context.req?.user?.name;
 
-    if (!userId) {
-      throw new Error('Authentication required to create a quiniela');
+    // Allow anonymous creation if anonymousCreatorId is provided
+    if (!userId && !input.anonymousCreatorId) {
+      throw new Error('Either authentication or anonymousCreatorId is required');
     }
 
     return this.quinielaService.createQuiniela(input, userId, userName);
+  }
+
+  @Mutation(() => QuinielaInvite, { name: 'claimQuiniela' })
+  async claimQuiniela(
+    @Args('input') input: ClaimQuinielaInput,
+    @Context() context: { req?: { user?: { _id?: string; name?: string; avatarUrl?: string } } },
+  ): Promise<QuinielaInvite> {
+    const userId = context.req?.user?._id;
+    const userName = context.req?.user?.name || 'Usuario';
+    const avatarUrl = context.req?.user?.avatarUrl;
+
+    if (!userId) {
+      throw new Error('Authentication required to claim a quiniela');
+    }
+
+    return this.quinielaService.claimQuiniela(input, userId, userName, avatarUrl);
+  }
+
+  @Query(() => [Quiniela], { name: 'anonymousQuinielas' })
+  async getAnonymousQuinielas(
+    @Args('anonymousCreatorId') anonymousCreatorId: string,
+  ): Promise<Quiniela[]> {
+    return this.quinielaService.getAnonymousQuinielasByCreator(anonymousCreatorId);
   }
 
   @Mutation(() => QuinielaMember, { name: 'joinQuiniela' })

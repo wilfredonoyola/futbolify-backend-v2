@@ -17,6 +17,24 @@ export class CreateQuinielaInput {
 
   @Field({ nullable: true })
   imageUrl?: string;
+
+  // For anonymous creation - client generates UUID
+  @Field({ nullable: true })
+  anonymousCreatorId?: string;
+
+  // Owner name for anonymous creators
+  @Field({ nullable: true })
+  ownerName?: string;
+}
+
+// Input: Claim anonymous quiniela
+@InputType()
+export class ClaimQuinielaInput {
+  @Field()
+  code: string;
+
+  @Field()
+  anonymousCreatorId: string;
 }
 
 // Input: Save prediction
@@ -62,6 +80,14 @@ export class QuinielaInvite {
 
   @Field()
   isPrivate: boolean;
+
+  // True if created without an account - client should prompt for signup
+  @Field()
+  isAnonymous: boolean;
+
+  // Anonymous creator ID (for claiming later)
+  @Field({ nullable: true })
+  anonymousCreatorId?: string;
 }
 
 // Output: Public quiniela info (for join page)

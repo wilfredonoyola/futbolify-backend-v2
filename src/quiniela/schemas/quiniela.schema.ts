@@ -111,13 +111,24 @@ export class Quiniela {
   @Field()
   code: string; // Invite code
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  @Field(() => ID)
-  ownerId: Types.ObjectId;
+  // Owner can be null for anonymous quinielas
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  @Field(() => ID, { nullable: true })
+  ownerId?: Types.ObjectId;
 
   @Prop({ required: true })
   @Field()
   ownerName: string;
+
+  // Anonymous creator ID (UUID from client)
+  @Prop()
+  @Field({ nullable: true })
+  anonymousCreatorId?: string;
+
+  // When anonymous quiniela was claimed by authenticated user
+  @Prop()
+  @Field(() => Date, { nullable: true })
+  claimedAt?: Date;
 
   @Prop({ default: true })
   @Field()
