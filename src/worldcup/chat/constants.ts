@@ -77,10 +77,10 @@ export const CONFEDERATIONS: Record<string, { es: string; en: string }> = {
 };
 
 // Message limits
-export const ANONYMOUS_MESSAGE_LIMIT = 10; // Per 24 hours
+export const ANONYMOUS_MESSAGE_LIMIT = 25; // Per 24 hours
 export const AUTHENTICATED_MESSAGE_LIMIT = 50; // Per 24 hours
 export const MESSAGE_LIMIT_RESET_HOURS = 24;
 
 // Warning thresholds (show warning when X messages remaining)
-export const ANONYMOUS_WARNING_THRESHOLDS = [3, 1, 0]; // At 7, 9, 10 messages
+export const ANONYMOUS_WARNING_THRESHOLDS = [5, 2, 0]; // At 20, 23, 25 messages
 export const AUTHENTICATED_WARNING_THRESHOLDS = [10, 5, 0]; // At 40, 45, 50 messages
