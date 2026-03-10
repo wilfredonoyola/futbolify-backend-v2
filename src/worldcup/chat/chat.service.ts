@@ -1,4 +1,16 @@
 // Chat Service - Main agentic loop for World Cup 2026 chat
+//
+// PERFORMANCE NOTES:
+// - System prompt is generated per-request (fast string concatenation)
+// - Session lookup requires DB query (consider Redis cache for high traffic)
+// - Tool data (matches, teams, venues) is in-memory via QueriesService
+//
+// TODO: Implement streaming for perceived speed improvement
+// - Create REST endpoint with SSE for streaming responses
+// - Use client.messages.stream() instead of client.messages.create()
+// - Frontend: consume SSE stream and render tokens progressively
+// - GraphQL mutation remains for backwards compatibility
+//
 
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -25,6 +37,8 @@ import type { Locale, ChatDataPayload as TypeChatDataPayload, ActionResult as Ty
 @Injectable()
 export class ChatService {
   private anthropicClient: Anthropic | null = null;
+  // Cache system prompts by locale (with no favorite teams)
+  private systemPromptCache: Map<string, string> = new Map();
 
   constructor(
     @InjectModel(ChatSession.name)
@@ -216,11 +230,24 @@ export class ChatService {
         content: msg.content,
       }));
 
+      // Get or cache system prompt (personalized prompts are generated fresh)
+      const cacheKey = `${validLocale}:${validTimezone}:${userContext.favoriteTeams.join(',')}`;
+      let systemPrompt = this.systemPromptCache.get(cacheKey);
+      if (!systemPrompt) {
+        systemPrompt = getSystemPrompt(validLocale, validTimezone, userContext);
+        this.systemPromptCache.set(cacheKey, systemPrompt);
+        // Limit cache size to prevent memory bloat
+        if (this.systemPromptCache.size > 100) {
+          const firstKey = this.systemPromptCache.keys().next().value;
+          if (firstKey) this.systemPromptCache.delete(firstKey);
+        }
+      }
+
       // Initial API call with personalized system prompt and ALL tools
       let response = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1024,
-        system: getSystemPrompt(validLocale, validTimezone, userContext),
+        system: systemPrompt,
         tools: allWorldCupTools,
         messages: claudeMessages,
       });
@@ -326,11 +353,11 @@ export class ChatService {
           ],
         });
 
-        // Make another API call with the tool result
+        // Make another API call with the tool result (reuse cached system prompt)
         response = await client.messages.create({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1024,
-          system: getSystemPrompt(validLocale, validTimezone, userContext),
+          system: systemPrompt,
           tools: allWorldCupTools,
           messages: claudeMessages,
         });
