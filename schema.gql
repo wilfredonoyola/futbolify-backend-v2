@@ -1567,6 +1567,7 @@ type QuinielaPublicInfo {
   predictionMode: PredictionMode!
   description: String
   imageUrl: String
+  adminEmail: String
   createdAt: DateTime!
 }
 

@@ -148,6 +148,9 @@ export class QuinielaPublicInfo {
   @Field({ nullable: true })
   imageUrl?: string;
 
+  @Field({ nullable: true })
+  adminEmail?: string;
+
   @Field(() => Date)
   createdAt: Date;
 }
