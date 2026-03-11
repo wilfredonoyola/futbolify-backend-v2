@@ -20,6 +20,7 @@ import { FrasesModule } from './frases/frases.module'
 import { GoalGuruModule } from './goal-guru/goal-guru.module'
 import { WorldcupModule } from './worldcup/worldcup.module'
 import { QuinielaModule } from './quiniela/quiniela.module'
+import { EmailModule } from './email/email.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -78,6 +79,7 @@ import { AppService } from './app.service'
     GoalGuruModule,
     WorldcupModule,
     QuinielaModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

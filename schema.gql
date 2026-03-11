@@ -1325,6 +1325,8 @@ type Quiniela {
   ownerName: String!
   anonymousCreatorId: String
   claimedAt: DateTime
+  adminEmail: String
+  emailVerified: Boolean!
   isPrivate: Boolean!
   status: QuinielaStatus!
   rules: QuinielaRules!
@@ -1580,6 +1582,25 @@ type LeaderboardEntry {
   championPick: String
 }
 
+type SetAdminEmailResult {
+  success: Boolean!
+  message: String!
+}
+
+type VerifyAdminEmailResult {
+  success: Boolean!
+  message: String!
+  adminToken: String
+  adminUrl: String
+}
+
+type ValidateAdminTokenResult {
+  isValid: Boolean!
+  quinielaId: String
+  quinielaName: String
+  message: String
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
@@ -1713,6 +1734,7 @@ type Query {
   anonymousQuinielas(anonymousCreatorId: String!): [Quiniela!]!
   memberPredictions(quinielaId: String!, memberId: String!): QuinielaMember
   isQuinielaOwner(quinielaId: String!): Boolean!
+  validateQuinielaAdminToken(input: ValidateAdminTokenInput!): ValidateAdminTokenResult!
 }
 
 input LateMatchOptionsDto {
@@ -1767,6 +1789,11 @@ input FhgLogFilterInput {
   endDate: DateTime
   limit: Int
   offset: Int
+}
+
+input ValidateAdminTokenInput {
+  code: String!
+  token: String!
 }
 
 type Mutation {
@@ -1917,6 +1944,9 @@ type Mutation {
   updateQuiniela(quinielaId: String!, input: UpdateQuinielaInput!): Quiniela!
   deleteQuiniela(quinielaId: String!): Boolean!
   removeMember(quinielaId: String!, memberId: String!): Boolean!
+  setQuinielaAdminEmail(input: SetAdminEmailInput!): SetAdminEmailResult!
+  verifyQuinielaAdminEmail(input: VerifyAdminEmailInput!): VerifyAdminEmailResult!
+  regenerateQuinielaAdminToken(code: String!, email: String!): SetAdminEmailResult!
 }
 
 input SigninInputDto {
@@ -2299,6 +2329,17 @@ input UpdateQuinielaInput {
   description: String
   isPrivate: Boolean
   imageUrl: String
+}
+
+input SetAdminEmailInput {
+  code: String!
+  anonymousCreatorId: String!
+  email: String!
+}
+
+input VerifyAdminEmailInput {
+  code: String!
+  verificationCode: String!
 }
 
 type Subscription {

@@ -13,6 +13,12 @@ import {
   QuinielaPublicInfo,
   LeaderboardEntry,
   ClaimQuinielaInput,
+  SetAdminEmailInput,
+  SetAdminEmailResult,
+  VerifyAdminEmailInput,
+  VerifyAdminEmailResult,
+  ValidateAdminTokenInput,
+  ValidateAdminTokenResult,
 } from './dto/quiniela.dto';
 
 // Note: In a real implementation, you would add proper auth guards
@@ -251,5 +257,36 @@ export class QuinielaResolver {
       return false;
     }
     return this.quinielaService.isOwner(quinielaId, userId);
+  }
+
+  // ============ ADMIN EMAIL FLOW ============
+
+  @Mutation(() => SetAdminEmailResult, { name: 'setQuinielaAdminEmail' })
+  async setAdminEmail(
+    @Args('input') input: SetAdminEmailInput,
+  ): Promise<SetAdminEmailResult> {
+    return this.quinielaService.setAdminEmail(input);
+  }
+
+  @Mutation(() => VerifyAdminEmailResult, { name: 'verifyQuinielaAdminEmail' })
+  async verifyAdminEmail(
+    @Args('input') input: VerifyAdminEmailInput,
+  ): Promise<VerifyAdminEmailResult> {
+    return this.quinielaService.verifyAdminEmail(input);
+  }
+
+  @Query(() => ValidateAdminTokenResult, { name: 'validateQuinielaAdminToken' })
+  async validateAdminToken(
+    @Args('input') input: ValidateAdminTokenInput,
+  ): Promise<ValidateAdminTokenResult> {
+    return this.quinielaService.validateAdminToken(input);
+  }
+
+  @Mutation(() => SetAdminEmailResult, { name: 'regenerateQuinielaAdminToken' })
+  async regenerateAdminToken(
+    @Args('code') code: string,
+    @Args('email') email: string,
+  ): Promise<SetAdminEmailResult> {
+    return this.quinielaService.regenerateAdminToken(code, email);
   }
 }

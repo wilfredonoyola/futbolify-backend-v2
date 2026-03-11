@@ -146,6 +146,32 @@ export class Quiniela {
   @Field(() => Date, { nullable: true })
   claimedAt?: Date;
 
+  // Admin email for anonymous quinielas (optional, for recovery/management)
+  @Prop()
+  @Field({ nullable: true })
+  adminEmail?: string;
+
+  // Hashed admin token for magic link access
+  @Prop()
+  adminToken?: string;
+
+  // When admin token was created (for expiration - 30 days)
+  @Prop()
+  adminTokenCreatedAt?: Date;
+
+  // Whether admin email has been verified
+  @Prop({ default: false })
+  @Field({ defaultValue: false })
+  emailVerified?: boolean;
+
+  // Verification code for email (temporary, cleared after verification)
+  @Prop()
+  verificationCode?: string;
+
+  // When verification code was created (expires in 10 minutes)
+  @Prop()
+  verificationCodeCreatedAt?: Date;
+
   @Prop({ default: true })
   @Field()
   isPrivate: boolean;

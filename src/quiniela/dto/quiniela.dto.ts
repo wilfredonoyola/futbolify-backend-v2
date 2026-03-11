@@ -232,3 +232,82 @@ export class MyQuinielaStatus {
   @Field({ nullable: true })
   championPick?: string;
 }
+
+// ============ ADMIN EMAIL FLOW ============
+
+// Input: Set admin email for anonymous quiniela
+@InputType()
+export class SetAdminEmailInput {
+  @Field()
+  code: string;
+
+  @Field()
+  anonymousCreatorId: string;
+
+  @Field()
+  email: string;
+}
+
+// Input: Verify admin email with code
+@InputType()
+export class VerifyAdminEmailInput {
+  @Field()
+  code: string;
+
+  @Field()
+  verificationCode: string;
+}
+
+// Input: Validate admin token (magic link)
+@InputType()
+export class ValidateAdminTokenInput {
+  @Field()
+  code: string;
+
+  @Field()
+  token: string;
+}
+
+// Output: Admin email set result
+@ObjectType()
+export class SetAdminEmailResult {
+  @Field()
+  success: boolean;
+
+  @Field()
+  message: string;
+}
+
+// Output: Verify admin email result
+@ObjectType()
+export class VerifyAdminEmailResult {
+  @Field()
+  success: boolean;
+
+  @Field()
+  message: string;
+
+  // Admin token for future access (only returned on success)
+  @Field({ nullable: true })
+  adminToken?: string;
+
+  // Admin URL with token
+  @Field({ nullable: true })
+  adminUrl?: string;
+}
+
+// Output: Validate admin token result
+@ObjectType()
+export class ValidateAdminTokenResult {
+  @Field()
+  isValid: boolean;
+
+  @Field({ nullable: true })
+  quinielaId?: string;
+
+  @Field({ nullable: true })
+  quinielaName?: string;
+
+  @Field({ nullable: true })
+  message?: string;
+}

@@ -23,13 +23,22 @@ import {
   QuinielaPublicInfo,
   LeaderboardEntry,
   ClaimQuinielaInput,
+  SetAdminEmailInput,
+  SetAdminEmailResult,
+  VerifyAdminEmailInput,
+  VerifyAdminEmailResult,
+  ValidateAdminTokenInput,
+  ValidateAdminTokenResult,
 } from './dto/quiniela.dto';
+import { EmailService } from '../email/email.service';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class QuinielaService {
   constructor(
     @InjectModel(Quiniela.name)
     private quinielaModel: Model<QuinielaDocument>,
+    private emailService: EmailService,
   ) {}
 
   // Generate unique invite code
@@ -542,5 +551,248 @@ export class QuinielaService {
     const quiniela = await this.quinielaModel.findById(quinielaId);
     if (!quiniela) return false;
     return quiniela.ownerId?.toString() === userId;
+  }
+
+  // ============ ADMIN EMAIL FLOW ============
+
+  // Generate a 6-digit verification code
+  private generateVerificationCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  // Generate a secure admin token (32 chars)
+  private generateAdminToken(): string {
+    return crypto.randomBytes(16).toString('hex');
+  }
+
+  // Hash an admin token for storage
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  // Set admin email for anonymous quiniela (sends verification code)
+  async setAdminEmail(input: SetAdminEmailInput): Promise<SetAdminEmailResult> {
+    const quiniela = await this.quinielaModel.findOne({
+      code: input.code.toUpperCase(),
+    });
+
+    if (!quiniela) {
+      throw new NotFoundException('Quiniela no encontrada');
+    }
+
+    // Verify this is an anonymous quiniela
+    if (quiniela.ownerId) {
+      throw new ForbiddenException('Esta quiniela ya tiene un propietario');
+    }
+
+    // Verify the anonymous creator ID matches
+    if (quiniela.anonymousCreatorId !== input.anonymousCreatorId) {
+      throw new ForbiddenException('ID de creador anónimo inválido');
+    }
+
+    // Generate verification code
+    const verificationCode = this.generateVerificationCode();
+
+    // Update quiniela with pending email and verification code
+    quiniela.adminEmail = input.email.toLowerCase();
+    quiniela.verificationCode = verificationCode;
+    quiniela.verificationCodeCreatedAt = new Date();
+    quiniela.emailVerified = false;
+
+    await quiniela.save();
+
+    // Send verification email with code
+    await this.emailService.sendQuinielaVerificationCode(
+      input.email,
+      verificationCode,
+      quiniela.name,
+    );
+
+    return {
+      success: true,
+      message: `Código de verificación enviado a ${input.email}`,
+    };
+  }
+
+  // Verify admin email with code and generate admin token
+  async verifyAdminEmail(input: VerifyAdminEmailInput): Promise<VerifyAdminEmailResult> {
+    const quiniela = await this.quinielaModel.findOne({
+      code: input.code.toUpperCase(),
+    });
+
+    if (!quiniela) {
+      throw new NotFoundException('Quiniela no encontrada');
+    }
+
+    // Check if there's a pending verification
+    if (!quiniela.verificationCode || !quiniela.verificationCodeCreatedAt) {
+      throw new ForbiddenException('No hay verificación pendiente');
+    }
+
+    // Check if verification code expired (10 minutes)
+    const codeAge = Date.now() - quiniela.verificationCodeCreatedAt.getTime();
+    const tenMinutes = 10 * 60 * 1000;
+    if (codeAge > tenMinutes) {
+      throw new ForbiddenException('El código de verificación ha expirado');
+    }
+
+    // Verify the code
+    if (quiniela.verificationCode !== input.verificationCode) {
+      throw new ForbiddenException('Código de verificación incorrecto');
+    }
+
+    // Generate admin token
+    const adminToken = this.generateAdminToken();
+    const hashedToken = this.hashToken(adminToken);
+
+    // Update quiniela
+    quiniela.emailVerified = true;
+    quiniela.adminToken = hashedToken;
+    quiniela.adminTokenCreatedAt = new Date();
+    quiniela.verificationCode = undefined;
+    quiniela.verificationCodeCreatedAt = undefined;
+
+    await quiniela.save();
+
+    const adminUrl = `https://futbolify.com/quiniela/${quiniela.code}/admin?token=${adminToken}`;
+
+    // Send admin link email for future reference
+    await this.emailService.sendQuinielaAdminLink(
+      quiniela.adminEmail,
+      adminUrl,
+      quiniela.name,
+    );
+
+    return {
+      success: true,
+      message: 'Email verificado correctamente',
+      adminToken,
+      adminUrl,
+    };
+  }
+
+  // Validate admin token (for magic link access)
+  async validateAdminToken(input: ValidateAdminTokenInput): Promise<ValidateAdminTokenResult> {
+    const quiniela = await this.quinielaModel.findOne({
+      code: input.code.toUpperCase(),
+    });
+
+    if (!quiniela) {
+      return {
+        isValid: false,
+        message: 'Quiniela no encontrada',
+      };
+    }
+
+    // Check if there's an admin token
+    if (!quiniela.adminToken || !quiniela.adminTokenCreatedAt) {
+      return {
+        isValid: false,
+        message: 'Esta quiniela no tiene acceso de administrador configurado',
+      };
+    }
+
+    // Check if token expired (30 days)
+    const tokenAge = Date.now() - quiniela.adminTokenCreatedAt.getTime();
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    if (tokenAge > thirtyDays) {
+      return {
+        isValid: false,
+        message: 'El token de administrador ha expirado',
+      };
+    }
+
+    // Verify the token
+    const hashedInput = this.hashToken(input.token);
+    if (quiniela.adminToken !== hashedInput) {
+      return {
+        isValid: false,
+        message: 'Token de administrador inválido',
+      };
+    }
+
+    return {
+      isValid: true,
+      quinielaId: quiniela._id.toString(),
+      quinielaName: quiniela.name,
+    };
+  }
+
+  // Regenerate admin token (when expired or lost)
+  async regenerateAdminToken(code: string, email: string): Promise<SetAdminEmailResult> {
+    const quiniela = await this.quinielaModel.findOne({
+      code: code.toUpperCase(),
+      adminEmail: email.toLowerCase(),
+      emailVerified: true,
+    });
+
+    if (!quiniela) {
+      throw new NotFoundException('Quiniela no encontrada o email no coincide');
+    }
+
+    // Generate new verification code (user needs to verify again)
+    const verificationCode = this.generateVerificationCode();
+
+    quiniela.verificationCode = verificationCode;
+    quiniela.verificationCodeCreatedAt = new Date();
+
+    await quiniela.save();
+
+    // Send verification email
+    await this.emailService.sendQuinielaVerificationCode(
+      email,
+      verificationCode,
+      quiniela.name,
+    );
+
+    return {
+      success: true,
+      message: `Código de verificación enviado a ${email}`,
+    };
+  }
+
+  // Merge anonymous quinielas when user creates Cognito account with same email
+  async mergeQuinielasOnSignup(email: string, userId: string, userName: string): Promise<number> {
+    // Find all anonymous quinielas with this verified email
+    const quinielas = await this.quinielaModel.find({
+      adminEmail: email.toLowerCase(),
+      emailVerified: true,
+      ownerId: { $exists: false },
+    });
+
+    let mergedCount = 0;
+
+    for (const quiniela of quinielas) {
+      // Claim the quiniela
+      quiniela.ownerId = new Types.ObjectId(userId);
+      quiniela.ownerName = userName;
+      quiniela.claimedAt = new Date();
+
+      // Add owner as first member if not already
+      const isAlreadyMember = quiniela.members.some(
+        (m) => m.userId.toString() === userId,
+      );
+
+      if (!isAlreadyMember) {
+        const ownerMember: Partial<QuinielaMember> = {
+          _id: new Types.ObjectId(),
+          userId: new Types.ObjectId(userId),
+          userName,
+          predictions: [],
+          totalPoints: 0,
+          correctPredictions: 0,
+          exactScores: 0,
+          joinedAt: new Date(),
+        };
+
+        quiniela.members.unshift(ownerMember as QuinielaMember);
+        quiniela.memberCount = quiniela.members.length;
+      }
+
+      await quiniela.save();
+      mergedCount++;
+    }
+
+    return mergedCount;
   }
 }
