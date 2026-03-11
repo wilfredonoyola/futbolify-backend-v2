@@ -21,12 +21,12 @@ export class EmailService {
     this.isProduction = process.env.NODE_ENV === 'production';
     this.fromEmail = process.env.SES_FROM_EMAIL || 'noreply@futbolify.com';
 
-    // Initialize SES client
+    // Initialize SES client (reusing existing AWS credentials)
     this.sesClient = new SESClient({
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: process.env.AWS_COGNITO_REGION || 'us-east-1',
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+        accessKeyId: process.env.AMZ_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AMZ_SECRET_ACCESS_KEY || '',
       },
     });
   }
