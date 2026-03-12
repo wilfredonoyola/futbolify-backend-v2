@@ -10,6 +10,7 @@ import { Message } from 'telegraf/types';
 import { PlatformLink, PlatformLinkDocument, Platform } from './schemas/platform-link.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Quiniela, QuinielaDocument, QuinielaMember } from '../quiniela/schemas/quiniela.schema';
+import { messages, getLang, Lang } from './i18n/messages';
 
 // Types for Telegram context
 interface TelegramUser {
@@ -17,6 +18,7 @@ interface TelegramUser {
   first_name: string;
   last_name?: string;
   username?: string;
+  language_code?: string;
 }
 
 interface EnsureUserInput {
@@ -167,10 +169,10 @@ export class TelegramService implements OnModuleInit {
     // /start - Welcome message OR auto-join via deep link
     this.bot.start(async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
+      const lang = getLang(ctx.from?.language_code);
       const payload = (ctx as any).startPayload || '';
 
       // Check if this is a deep link to join a quiniela
-      // Format: /start join_CODIGO or /start CODIGO
       if (payload) {
         const code = payload.startsWith('join_')
           ? payload.replace('join_', '').toUpperCase()
@@ -180,33 +182,18 @@ export class TelegramService implements OnModuleInit {
           const result = await this.joinQuiniela(code, user._id.toString(), user.name || user.userName, user.avatarUrl);
 
           return ctx.reply(
-            `✅ ¡Bienvenido ${user.name}! Te uniste automáticamente.\n\n` +
-            `📋 *${result.quinielaName}*\n` +
-            `👥 ${result.memberCount} participantes\n\n` +
-            `Usa /predecir para hacer tus predicciones.`,
+            messages.autoJoinSuccess[lang](user.name || user.userName, result.quinielaName, result.memberCount),
             { parse_mode: 'Markdown' }
           );
         } catch (error) {
-          // If already member or error, show welcome message
-          await ctx.reply(
-            `${error.message || 'No se pudo unir a la quiniela.'}\n\n` +
-            `Usa /misquinielas para ver tus quinielas.`
-          );
+          await ctx.reply(messages.autoJoinError[lang](error.message || 'Error'));
           return;
         }
       }
 
       // Normal welcome message
       await ctx.reply(
-        `¡Hola ${user.name}! 👋\n\n` +
-        `Soy el bot de Futbolify para quinielas ⚽🏆\n\n` +
-        `Comandos disponibles:\n` +
-        `/crear [nombre] - Crear una quiniela\n` +
-        `/unirse [código] - Unirse a una quiniela\n` +
-        `/predecir - Hacer predicciones\n` +
-        `/ranking - Ver el leaderboard\n` +
-        `/partidos - Próximos partidos\n` +
-        `/misquinielas - Ver tus quinielas`,
+        `${messages.welcome[lang](user.name || user.userName)}\n\n${messages.commands[lang]}`,
         { parse_mode: 'HTML' }
       );
     });
@@ -214,121 +201,139 @@ export class TelegramService implements OnModuleInit {
     // /crear - Create quiniela
     this.bot.command('crear', async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
+      const lang = getLang(ctx.from?.language_code);
       const args = ctx.message.text.split(' ').slice(1).join(' ').trim();
 
       if (!args) {
-        return ctx.reply('❌ Debes indicar el nombre de la quiniela.\n\nEjemplo: /crear Mi Quiniela del Mundial');
+        return ctx.reply(messages.createNoName[lang]);
       }
 
       try {
         const quiniela = await this.createQuiniela(args, user._id.toString(), user.name || user.userName);
         const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'futbolify_quinielas_bot';
-
-        // Escape underscores for Markdown
         const escapedUsername = botUsername.replace(/_/g, '\\_');
+        const telegramLink = `https://t.me/${escapedUsername}?start=${quiniela.code}`;
+        const webLink = `https://futbolify.com/q/${quiniela.code}`;
 
         await ctx.reply(
-          `✅ ¡Quiniela creada!\n\n` +
-          `📋 *${quiniela.name}*\n` +
-          `🔑 Código: \`${quiniela.code}\`\n\n` +
-          `*Comparte para invitar:*\n\n` +
-          `📱 Telegram:\nhttps://t.me/${escapedUsername}?start=${quiniela.code}\n\n` +
-          `🌐 Web:\nhttps://futbolify.com/q/${quiniela.code}`,
+          messages.createSuccess[lang](quiniela.name, quiniela.code, telegramLink, webLink),
           { parse_mode: 'Markdown' }
         );
       } catch (error) {
         this.logger.error('Error creating quiniela', error);
-        await ctx.reply('❌ Error al crear la quiniela. Intenta de nuevo.');
+        await ctx.reply(messages.createError[lang]);
       }
     });
 
     // /unirse - Join quiniela
     this.bot.command('unirse', async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
+      const lang = getLang(ctx.from?.language_code);
       const code = ctx.message.text.split(' ')[1]?.trim().toUpperCase();
 
       if (!code) {
-        return ctx.reply('❌ Debes indicar el código de la quiniela.\n\nEjemplo: /unirse ABC123');
+        return ctx.reply(messages.joinNoCode[lang]);
       }
 
       try {
         const result = await this.joinQuiniela(code, user._id.toString(), user.name || user.userName, user.avatarUrl);
-
         await ctx.reply(
-          `✅ ¡Te uniste a la quiniela!\n\n` +
-          `📋 *${result.quinielaName}*\n` +
-          `👥 ${result.memberCount} participantes\n\n` +
-          `Usa /predecir para hacer tus predicciones.`,
+          messages.joinSuccess[lang](result.quinielaName, result.memberCount),
           { parse_mode: 'Markdown' }
         );
       } catch (error) {
         this.logger.error('Error joining quiniela', error);
-        await ctx.reply(`❌ ${error.message || 'Error al unirse a la quiniela'}`);
+        await ctx.reply(`❌ ${error.message || 'Error'}`);
       }
     });
 
-    // /predecir - Show matches with prediction buttons
+    // /predecir - Show quiniela selector then matches
     this.bot.command('predecir', async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
-
-      // Get user's quinielas first
+      const lang = getLang(ctx.from?.language_code);
       const quinielas = await this.getUserQuinielas(user._id.toString());
 
       if (quinielas.length === 0) {
+        return ctx.reply(messages.predictNoQuinielas[lang]);
+      }
+
+      // If only one quiniela, show it directly
+      if (quinielas.length === 1) {
         return ctx.reply(
-          '❌ No estás en ninguna quiniela.\n\n' +
-          'Usa /crear para crear una o /unirse para unirte a una existente.'
+          `📊 *${quinielas[0].name}*\n\n${messages.predictComingSoon[lang]}`,
+          { parse_mode: 'Markdown' }
         );
       }
 
-      // For now, show a message - matches will come from worldcup module
+      // Multiple quinielas - show selector buttons
+      const buttons = quinielas.map(q => [
+        Markup.button.callback(`📋 ${q.name} (${q.memberCount} 👥)`, `predict:${q.code}`)
+      ]);
+
       await ctx.reply(
-        `📊 Tienes ${quinielas.length} quiniela(s):\n\n` +
-        quinielas.map((q, i) => `${i + 1}. ${q.name} (${q.code})`).join('\n') +
-        '\n\n🔜 Próximamente podrás predecir directamente aquí.',
-        { parse_mode: 'HTML' }
+        messages.predictSelectQuiniela[lang],
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard(buttons)
+        }
       );
     });
 
-    // /ranking - Show leaderboard
+    // /ranking - Show quiniela selector then leaderboard
     this.bot.command('ranking', async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
-      const code = ctx.message.text.split(' ')[1]?.trim().toUpperCase();
-
-      // Get user's quinielas
+      const lang = getLang(ctx.from?.language_code);
+      const codeArg = ctx.message.text.split(' ')[1]?.trim().toUpperCase();
       const quinielas = await this.getUserQuinielas(user._id.toString());
 
       if (quinielas.length === 0) {
-        return ctx.reply('❌ No estás en ninguna quiniela.');
+        return ctx.reply(messages.rankingNoQuinielas[lang]);
       }
 
-      // If code provided, show that quiniela's ranking
-      const quiniela = code
-        ? quinielas.find(q => q.code === code)
-        : quinielas[0]; // Default to first quiniela
-
-      if (!quiniela) {
-        return ctx.reply('❌ Quiniela no encontrada.');
+      // If code provided, show that quiniela's ranking directly
+      if (codeArg) {
+        const quiniela = quinielas.find(q => q.code === codeArg);
+        if (!quiniela) {
+          return ctx.reply(messages.rankingNotFound[lang]);
+        }
+        const leaderboard = this.formatLeaderboard(quiniela, lang);
+        return ctx.reply(
+          `${messages.rankingTitle[lang](quiniela.name)}\n\n${leaderboard}`,
+          { parse_mode: 'Markdown' }
+        );
       }
 
-      const leaderboard = this.formatLeaderboard(quiniela);
+      // If only one quiniela, show it directly
+      if (quinielas.length === 1) {
+        const leaderboard = this.formatLeaderboard(quinielas[0], lang);
+        return ctx.reply(
+          `${messages.rankingTitle[lang](quinielas[0].name)}\n\n${leaderboard}`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+
+      // Multiple quinielas - show selector buttons
+      const buttons = quinielas.map(q => [
+        Markup.button.callback(`🏆 ${q.name} (${q.memberCount} 👥)`, `ranking:${q.code}`)
+      ]);
 
       await ctx.reply(
-        `🏆 *Ranking: ${quiniela.name}*\n\n${leaderboard}`,
-        { parse_mode: 'Markdown' }
+        messages.rankingSelectQuiniela[lang],
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard(buttons)
+        }
       );
     });
 
     // /misquinielas - List user's quinielas
     this.bot.command('misquinielas', async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
+      const lang = getLang(ctx.from?.language_code);
       const quinielas = await this.getUserQuinielas(user._id.toString());
 
       if (quinielas.length === 0) {
-        return ctx.reply(
-          '📭 No tienes quinielas aún.\n\n' +
-          'Usa /crear para crear una o /unirse para unirte.'
-        );
+        return ctx.reply(messages.myQuinielasEmpty[lang]);
       }
 
       const list = quinielas.map((q, i) => {
@@ -339,20 +344,15 @@ export class TelegramService implements OnModuleInit {
       }).join('\n\n');
 
       await ctx.reply(
-        `📋 *Tus Quinielas:*\n\n${list}`,
+        `${messages.myQuinielasTitle[lang]}\n\n${list}`,
         { parse_mode: 'Markdown' }
       );
     });
 
     // /partidos - Upcoming matches
     this.bot.command('partidos', async (ctx) => {
-      // This will integrate with worldcup module
-      await ctx.reply(
-        '⚽ *Próximos Partidos*\n\n' +
-        '🔜 Esta función estará disponible cuando comience el Mundial 2026.\n\n' +
-        'Por ahora, puedes crear o unirte a quinielas para estar listo.',
-        { parse_mode: 'Markdown' }
-      );
+      const lang = getLang(ctx.from?.language_code);
+      await ctx.reply(messages.matchesComingSoon[lang], { parse_mode: 'Markdown' });
     });
 
     // Handle callback queries (for inline buttons)
@@ -360,14 +360,52 @@ export class TelegramService implements OnModuleInit {
       const data = (ctx.callbackQuery as { data?: string }).data;
       if (!data) return;
 
-      // Handle prediction callbacks: pred:matchId:outcome
+      const { user } = await this.ensureUserFromContext(ctx);
+      const lang = getLang(ctx.from?.language_code);
+
+      // Handle ranking selection: ranking:CODE
+      if (data.startsWith('ranking:')) {
+        const code = data.replace('ranking:', '');
+        const quiniela = await this.quinielaModel.findOne({ code }).exec();
+
+        if (!quiniela) {
+          await ctx.answerCbQuery(messages.rankingNotFound[lang]);
+          return;
+        }
+
+        const leaderboard = this.formatLeaderboard(quiniela, lang);
+        await ctx.answerCbQuery(messages.callbackRankingFor[lang](quiniela.name));
+        await ctx.editMessageText(
+          `${messages.rankingTitle[lang](quiniela.name)}\n\n${leaderboard}`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Handle predict selection: predict:CODE
+      if (data.startsWith('predict:')) {
+        const code = data.replace('predict:', '');
+        const quiniela = await this.quinielaModel.findOne({ code }).exec();
+
+        if (!quiniela) {
+          await ctx.answerCbQuery(messages.rankingNotFound[lang]);
+          return;
+        }
+
+        await ctx.answerCbQuery(messages.callbackPredictFor[lang](quiniela.name));
+        await ctx.editMessageText(
+          `📊 *${quiniela.name}*\n\n${messages.predictComingSoon[lang]}`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Handle prediction callbacks: pred:matchId:outcome (future)
       if (data.startsWith('pred:')) {
         const [, matchId, outcome] = data.split(':');
-        const { user } = await this.ensureUserFromContext(ctx);
-
         // TODO: Submit prediction via quiniela service
-        await ctx.answerCbQuery(`✅ Predicción guardada: ${outcome}`);
-        await ctx.editMessageText(`✅ Predicción registrada para partido ${matchId}`);
+        await ctx.answerCbQuery(`✅ ${outcome}`);
+        await ctx.editMessageText(`✅ ${matchId}`);
       }
     });
   }
@@ -417,9 +455,10 @@ export class TelegramService implements OnModuleInit {
 
   private async joinQuiniela(code: string, odUserId: string, userName: string, avatarUrl?: string): Promise<{ quinielaName: string; memberCount: number }> {
     const quiniela = await this.quinielaModel.findOne({ code: code.toUpperCase() }).exec();
+    const lang: Lang = 'es'; // Default for error messages
 
     if (!quiniela) {
-      throw new Error('Quiniela no encontrada. Verifica el código.');
+      throw new Error(messages.joinNotFound[lang]);
     }
 
     const userId = new Types.ObjectId(odUserId);
@@ -427,7 +466,7 @@ export class TelegramService implements OnModuleInit {
     // Check if already a member
     const isMember = quiniela.members.some(m => m.userId.toString() === odUserId);
     if (isMember) {
-      throw new Error('Ya eres miembro de esta quiniela.');
+      throw new Error(messages.joinAlreadyMember[lang]);
     }
 
     // Add member
@@ -459,7 +498,7 @@ export class TelegramService implements OnModuleInit {
     }).exec();
   }
 
-  private formatLeaderboard(quiniela: QuinielaDocument): string {
+  private formatLeaderboard(quiniela: QuinielaDocument, lang: Lang): string {
     const medals = ['🥇', '🥈', '🥉'];
 
     const sorted = [...quiniela.members]
@@ -467,7 +506,7 @@ export class TelegramService implements OnModuleInit {
       .slice(0, 10);
 
     if (sorted.length === 0) {
-      return 'Sin participantes aún.';
+      return messages.rankingNoParticipants[lang];
     }
 
     return sorted.map((m, i) => {
