@@ -450,8 +450,10 @@ export class TelegramService implements OnModuleInit {
           if (match) {
             const homeTeam = this.queriesService.getTeamById(match.homeTeamId);
             const awayTeam = this.queriesService.getTeamById(match.awayTeamId);
-            if (outcome === 'home') predictionText = `${homeTeam?.flag || ''} ${homeTeam?.name[lang] || match.homeTeamId}`;
-            else if (outcome === 'away') predictionText = `${awayTeam?.flag || ''} ${awayTeam?.name[lang] || match.awayTeamId}`;
+            const homeFlag = this.countryCodeToFlag(homeTeam?.flag || '');
+            const awayFlag = this.countryCodeToFlag(awayTeam?.flag || '');
+            if (outcome === 'home') predictionText = `${homeFlag} ${homeTeam?.name[lang] || match.homeTeamId}`;
+            else if (outcome === 'away') predictionText = `${awayFlag} ${awayTeam?.name[lang] || match.awayTeamId}`;
             else predictionText = messages.predictDraw[lang];
           }
 
@@ -619,8 +621,8 @@ export class TelegramService implements OnModuleInit {
 
       const homeName = homeTeam?.name[lang] || match.homeTeamId;
       const awayName = awayTeam?.name[lang] || match.awayTeamId;
-      const homeFlag = homeTeam?.flag || '🏳️';
-      const awayFlag = awayTeam?.flag || '🏳️';
+      const homeFlag = this.countryCodeToFlag(homeTeam?.flag || '');
+      const awayFlag = this.countryCodeToFlag(awayTeam?.flag || '');
 
       // Check if already predicted
       const prediction = existingPredictions.find(p => p.matchId === match.id);
@@ -680,8 +682,8 @@ export class TelegramService implements OnModuleInit {
 
     const homeName = homeTeam?.name[lang] || match.homeTeamId;
     const awayName = awayTeam?.name[lang] || match.awayTeamId;
-    const homeFlag = homeTeam?.flag || '🏳️';
-    const awayFlag = awayTeam?.flag || '🏳️';
+    const homeFlag = this.countryCodeToFlag(homeTeam?.flag || '');
+    const awayFlag = this.countryCodeToFlag(awayTeam?.flag || '');
 
     // Format date
     const dateStr = matchTime.toLocaleDateString(lang === 'es' ? 'es-MX' : 'en-US', {
@@ -715,6 +717,33 @@ export class TelegramService implements OnModuleInit {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
+  }
+
+  /**
+   * Convert country code to flag emoji
+   * e.g., "mx" → "🇲🇽", "us" → "🇺🇸"
+   */
+  private countryCodeToFlag(code: string): string {
+    if (!code || code.length < 2) return '🏳️';
+
+    // Handle special cases
+    const specialFlags: Record<string, string> = {
+      'gb-eng': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+      'gb-sct': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+      'gb-wls': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+      'un': '🇺🇳',
+    };
+
+    const lowerCode = code.toLowerCase();
+    if (specialFlags[lowerCode]) {
+      return specialFlags[lowerCode];
+    }
+
+    // Convert 2-letter code to flag emoji using regional indicator symbols
+    const firstLetter = lowerCode.charCodeAt(0) - 97 + 0x1F1E6;
+    const secondLetter = lowerCode.charCodeAt(1) - 97 + 0x1F1E6;
+
+    return String.fromCodePoint(firstLetter, secondLetter);
   }
 
   // ============ BOT LIFECYCLE ============
