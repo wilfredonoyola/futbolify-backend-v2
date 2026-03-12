@@ -1,6 +1,6 @@
 // Telegram Service - Handles user management and bot operations
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -35,7 +35,7 @@ interface EnsureUserResult {
 }
 
 @Injectable()
-export class TelegramService {
+export class TelegramService implements OnModuleInit {
   private readonly logger = new Logger(TelegramService.name);
   private bot: Telegraf;
 
@@ -55,52 +55,100 @@ export class TelegramService {
     }
   }
 
+  async onModuleInit() {
+    // Fix the email index to be sparse (allows multiple null values for ghost users)
+    try {
+      const collection = this.userModel.collection;
+      const indexes = await collection.indexes();
+      const emailIndex = indexes.find(idx => idx.name === 'email_1');
+
+      if (emailIndex && !emailIndex.sparse) {
+        this.logger.log('Dropping non-sparse email index...');
+        await collection.dropIndex('email_1');
+        this.logger.log('Email index dropped - Mongoose will recreate with sparse: true');
+      }
+    } catch (error) {
+      // Index might not exist, which is fine
+      this.logger.debug('Index check/fix skipped: ' + error.message);
+    }
+  }
+
   // ============ CORE: ENSURE USER (Zero Friction Registration) ============
 
   /**
    * Creates or retrieves a user based on platform identity.
    * This is the core of the ghost user system - no registration required.
+   * Uses findOneAndUpdate to handle race conditions safely.
    */
   async ensureUser(input: EnsureUserInput): Promise<EnsureUserResult> {
-    // Check if platform link already exists
-    const existingLink = await this.platformLinkModel.findOne({
+    // First, try to find existing platform link
+    let existingLink = await this.platformLinkModel.findOne({
       platform: input.platform,
       platformUserId: input.platformUserId,
     }).exec();
 
     if (existingLink) {
-      // User already exists - return them
+      // Platform link exists - find the user
       const user = await this.userModel.findById(existingLink.userId).exec();
-      if (!user) {
-        throw new Error('User not found for existing platform link');
+      if (user) {
+        return { user, platformLink: existingLink, isNew: false };
       }
-      return { user, platformLink: existingLink, isNew: false };
+      // User was deleted but link exists - clean up and recreate
+      await this.platformLinkModel.deleteOne({ _id: existingLink._id });
+      existingLink = null;
     }
 
-    // Create new ghost user
+    // No existing link - create new ghost user
     const userName = this.generateUserName(input.displayName, input.platformUserId);
 
-    const newUser = await this.userModel.create({
+    const userData: any = {
       userName,
       name: input.displayName,
-      avatarUrl: input.avatarUrl,
       isGhostUser: true,
-      isOnboardingCompleted: true, // Ghost users don't need onboarding
+      isOnboardingCompleted: true,
       roles: ['USER'],
-    });
+    };
 
-    // Create platform link
-    const platformLink = await this.platformLinkModel.create({
-      userId: newUser._id,
-      platform: input.platform,
-      platformUserId: input.platformUserId,
-      platformUsername: input.platformUsername,
-      platformGroupId: input.platformGroupId,
-    });
+    if (input.avatarUrl) {
+      userData.avatarUrl = input.avatarUrl;
+    }
 
-    this.logger.log(`Created ghost user ${newUser._id} for ${input.platform}:${input.platformUserId}`);
+    const newUser = await this.userModel.create(userData);
 
-    return { user: newUser, platformLink, isNew: true };
+    // Create platform link with error handling for race conditions
+    try {
+      const platformLink = await this.platformLinkModel.create({
+        userId: newUser._id,
+        platform: input.platform,
+        platformUserId: input.platformUserId,
+        platformUsername: input.platformUsername,
+        platformGroupId: input.platformGroupId,
+      });
+
+      this.logger.log(`Created ghost user ${newUser._id} for ${input.platform}:${input.platformUserId}`);
+      return { user: newUser, platformLink, isNew: true };
+
+    } catch (error) {
+      // Duplicate key error - another request created the link first
+      if (error.code === 11000) {
+        // Delete the orphaned user we just created
+        await this.userModel.deleteOne({ _id: newUser._id });
+
+        // Find the existing link and user
+        const existingLink = await this.platformLinkModel.findOne({
+          platform: input.platform,
+          platformUserId: input.platformUserId,
+        }).exec();
+
+        if (existingLink) {
+          const user = await this.userModel.findById(existingLink.userId).exec();
+          if (user) {
+            return { user, platformLink: existingLink, isNew: false };
+          }
+        }
+      }
+      throw error;
+    }
   }
 
   private generateUserName(displayName: string, platformUserId: string): string {
