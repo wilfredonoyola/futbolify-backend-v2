@@ -10,7 +10,7 @@ export const messages = {
   },
   commands: {
     es: `Comandos disponibles:\n/crear [nombre] - Crear una quiniela\n/unirse [código] - Unirse a una quiniela\n/predecir - Hacer predicciones\n/ranking - Ver el leaderboard\n/partidos - Próximos partidos\n/misquinielas - Ver tus quinielas`,
-    en: `Available commands:\n/crear [name] - Create a pool\n/unirse [code] - Join a pool\n/predecir - Make predictions\n/ranking - View leaderboard\n/partidos - Upcoming matches\n/misquinielas - View your pools`,
+    en: `Available commands:\n/create [name] - Create a pool\n/join [code] - Join a pool\n/predict - Make predictions\n/leaderboard - View leaderboard\n/matches - Upcoming matches\n/mypools - View your pools`,
   },
 
   // Auto-join via deep link
@@ -18,17 +18,17 @@ export const messages = {
     es: (name: string, quinielaName: string, memberCount: number) =>
       `✅ ¡Bienvenido ${name}! Te uniste automáticamente.\n\n📋 *${quinielaName}*\n👥 ${memberCount} participantes\n\nUsa /predecir para hacer tus predicciones.`,
     en: (name: string, quinielaName: string, memberCount: number) =>
-      `✅ Welcome ${name}! You joined automatically.\n\n📋 *${quinielaName}*\n👥 ${memberCount} participants\n\nUse /predecir to make your predictions.`,
+      `✅ Welcome ${name}! You joined automatically.\n\n📋 *${quinielaName}*\n👥 ${memberCount} participants\n\nUse /predict to make your predictions.`,
   },
   autoJoinError: {
     es: (error: string) => `${error}\n\nUsa /misquinielas para ver tus quinielas.`,
-    en: (error: string) => `${error}\n\nUse /misquinielas to see your pools.`,
+    en: (error: string) => `${error}\n\nUse /mypools to see your pools.`,
   },
 
   // Create quiniela
   createNoName: {
     es: '❌ Debes indicar el nombre de la quiniela.\n\nEjemplo: /crear Mi Quiniela del Mundial',
-    en: '❌ You must provide a name for the pool.\n\nExample: /crear My World Cup Pool',
+    en: '❌ You must provide a name for the pool.\n\nExample: /create My World Cup Pool',
   },
   createSuccess: {
     es: (name: string, code: string, telegramLink: string, webLink: string) =>
@@ -44,13 +44,13 @@ export const messages = {
   // Join quiniela
   joinNoCode: {
     es: '❌ Debes indicar el código de la quiniela.\n\nEjemplo: /unirse ABC123',
-    en: '❌ You must provide the pool code.\n\nExample: /unirse ABC123',
+    en: '❌ You must provide the pool code.\n\nExample: /join ABC123',
   },
   joinSuccess: {
     es: (quinielaName: string, memberCount: number) =>
       `✅ ¡Te uniste a la quiniela!\n\n📋 *${quinielaName}*\n👥 ${memberCount} participantes\n\nUsa /predecir para hacer tus predicciones.`,
     en: (quinielaName: string, memberCount: number) =>
-      `✅ You joined the pool!\n\n📋 *${quinielaName}*\n👥 ${memberCount} participants\n\nUse /predecir to make your predictions.`,
+      `✅ You joined the pool!\n\n📋 *${quinielaName}*\n👥 ${memberCount} participants\n\nUse /predict to make your predictions.`,
   },
   joinNotFound: {
     es: 'Quiniela no encontrada. Verifica el código.',
@@ -64,7 +64,7 @@ export const messages = {
   // Predict
   predictNoQuinielas: {
     es: '❌ No estás en ninguna quiniela.\n\nUsa /crear para crear una o /unirse para unirte a una existente.',
-    en: '❌ You are not in any pool.\n\nUse /crear to create one or /unirse to join an existing one.',
+    en: '❌ You are not in any pool.\n\nUse /create to create one or /join to join an existing one.',
   },
   predictSelectQuiniela: {
     es: '📊 *Selecciona una quiniela:*',
@@ -100,7 +100,7 @@ export const messages = {
   // My quinielas
   myQuinielasEmpty: {
     es: '📭 No tienes quinielas aún.\n\nUsa /crear para crear una o /unirse para unirte.',
-    en: '📭 You have no pools yet.\n\nUse /crear to create one or /unirse to join.',
+    en: '📭 You have no pools yet.\n\nUse /create to create one or /join to join.',
   },
   myQuinielasTitle: {
     es: '📋 *Tus Quinielas:*',

@@ -198,8 +198,8 @@ export class TelegramService implements OnModuleInit {
       );
     });
 
-    // /crear - Create quiniela
-    this.bot.command('crear', async (ctx) => {
+    // /crear or /create - Create quiniela
+    this.bot.command(['crear', 'create'], async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
       const lang = getLang(ctx.from?.language_code);
       const args = ctx.message.text.split(' ').slice(1).join(' ').trim();
@@ -225,8 +225,8 @@ export class TelegramService implements OnModuleInit {
       }
     });
 
-    // /unirse - Join quiniela
-    this.bot.command('unirse', async (ctx) => {
+    // /unirse or /join - Join quiniela
+    this.bot.command(['unirse', 'join'], async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
       const lang = getLang(ctx.from?.language_code);
       const code = ctx.message.text.split(' ')[1]?.trim().toUpperCase();
@@ -247,8 +247,8 @@ export class TelegramService implements OnModuleInit {
       }
     });
 
-    // /predecir - Show quiniela selector then matches
-    this.bot.command('predecir', async (ctx) => {
+    // /predecir or /predict - Show quiniela selector then matches
+    this.bot.command(['predecir', 'predict'], async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
       const lang = getLang(ctx.from?.language_code);
       const quinielas = await this.getUserQuinielas(user._id.toString());
@@ -279,8 +279,8 @@ export class TelegramService implements OnModuleInit {
       );
     });
 
-    // /ranking - Show quiniela selector then leaderboard
-    this.bot.command('ranking', async (ctx) => {
+    // /ranking or /leaderboard - Show quiniela selector then leaderboard
+    this.bot.command(['ranking', 'leaderboard'], async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
       const lang = getLang(ctx.from?.language_code);
       const codeArg = ctx.message.text.split(' ')[1]?.trim().toUpperCase();
@@ -326,8 +326,8 @@ export class TelegramService implements OnModuleInit {
       );
     });
 
-    // /misquinielas - List user's quinielas
-    this.bot.command('misquinielas', async (ctx) => {
+    // /misquinielas or /mypools - List user's quinielas
+    this.bot.command(['misquinielas', 'mypools'], async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
       const lang = getLang(ctx.from?.language_code);
       const quinielas = await this.getUserQuinielas(user._id.toString());
@@ -349,8 +349,8 @@ export class TelegramService implements OnModuleInit {
       );
     });
 
-    // /partidos - Upcoming matches
-    this.bot.command('partidos', async (ctx) => {
+    // /partidos or /matches - Upcoming matches
+    this.bot.command(['partidos', 'matches'], async (ctx) => {
       const lang = getLang(ctx.from?.language_code);
       await ctx.reply(messages.matchesComingSoon[lang], { parse_mode: 'Markdown' });
     });
