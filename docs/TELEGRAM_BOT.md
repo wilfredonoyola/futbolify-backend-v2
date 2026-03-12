@@ -118,10 +118,44 @@ src/telegram/
 ├── telegram.module.ts      # Módulo NestJS
 ├── telegram.service.ts     # Lógica del bot (Telegraf)
 ├── telegram.controller.ts  # Endpoint webhook
+├── i18n/
+│   └── messages.ts         # Traducciones es/en
 ├── schemas/
 │   └── platform-link.schema.ts
 └── index.ts               # Exports
 ```
+
+---
+
+## Internacionalización (i18n)
+
+El bot detecta automáticamente el idioma del usuario desde `ctx.from.language_code`:
+
+- **Español (es)**: Idioma por defecto
+- **English (en)**: Si `language_code` empieza con "en"
+
+```typescript
+import { messages, getLang } from './i18n/messages';
+
+const lang = getLang(ctx.from?.language_code); // 'es' | 'en'
+ctx.reply(messages.welcome[lang](userName));
+```
+
+---
+
+## Selector de Quinielas
+
+Cuando el usuario tiene múltiples quinielas, `/ranking` y `/predecir` muestran botones inline:
+
+```
+🏆 Selecciona una quiniela para ver el ranking:
+
+[🏆 Mi Quiniela (5 👥)]
+[🏆 Familia González (3 👥)]
+[🏆 Amigos del Trabajo (8 👥)]
+```
+
+Si solo tiene 1 quiniela, se muestra directamente sin selector.
 
 ---
 
