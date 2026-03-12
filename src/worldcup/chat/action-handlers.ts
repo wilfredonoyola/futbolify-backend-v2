@@ -12,6 +12,7 @@ import type {
   CreateQuinielaParams,
   GenerateBracketShareParams,
   SetReminderParams,
+  SavePredictionParams,
 } from './types';
 
 // ============================================
@@ -477,6 +478,91 @@ export function handleSetReminder(
 }
 
 // ============================================
+// SAVE PREDICTION
+// ============================================
+
+export function handleSavePrediction(
+  params: SavePredictionParams,
+  queriesService: QueriesService,
+  locale: Locale,
+): ActionResult {
+  const { matchId, homeTeamId, awayTeamId, simplePrediction, homeScore, awayScore } = params;
+
+  // Find match by ID or by team IDs
+  let match = matchId ? queriesService.getMatchById(matchId) : null;
+
+  if (!match && homeTeamId && awayTeamId) {
+    // Find match by teams
+    const allMatches = queriesService.getUpcomingMatches(20);
+    match = allMatches.find(
+      (m) =>
+        (m.homeTeamId === homeTeamId && m.awayTeamId === awayTeamId) ||
+        (m.homeTeamId === awayTeamId && m.awayTeamId === homeTeamId),
+    );
+  }
+
+  if (!match) {
+    return {
+      success: false,
+      actionType: 'save_prediction',
+      error: locale === 'es' ? 'Partido no encontrado' : 'Match not found',
+    };
+  }
+
+  const homeTeam = queriesService.getTeamById(match.homeTeamId);
+  const awayTeam = queriesService.getTeamById(match.awayTeamId);
+
+  // Build prediction data
+  const hasExactScore = homeScore !== undefined && awayScore !== undefined;
+  const predictionText = hasExactScore
+    ? `${homeTeam?.name[locale]} ${homeScore} - ${awayScore} ${awayTeam?.name[locale]}`
+    : simplePrediction === 'home'
+      ? homeTeam?.name[locale]
+      : simplePrediction === 'away'
+        ? awayTeam?.name[locale]
+        : locale === 'es'
+          ? 'Empate'
+          : 'Draw';
+
+  return {
+    success: true,
+    actionType: 'save_prediction',
+    artifact: {
+      type: 'embed',
+      embedType: 'prediction_confirmed',
+      embedData: {
+        matchId: match.id,
+        homeTeam: {
+          id: homeTeam?.id,
+          name: homeTeam?.name[locale],
+          flag: homeTeam?.flag,
+          code: homeTeam?.code,
+        },
+        awayTeam: {
+          id: awayTeam?.id,
+          name: awayTeam?.name[locale],
+          flag: awayTeam?.flag,
+          code: awayTeam?.code,
+        },
+        matchDate: match.dateTimeUTC,
+        prediction: {
+          simplePrediction,
+          homeScore: homeScore ?? null,
+          awayScore: awayScore ?? null,
+          isExactScore: hasExactScore,
+          displayText: predictionText,
+        },
+        points: hasExactScore ? 3 : 1,
+        message:
+          locale === 'es'
+            ? `✅ Predicción: ${predictionText}`
+            : `✅ Prediction: ${predictionText}`,
+      },
+    },
+  };
+}
+
+// ============================================
 // MAIN DISPATCHER
 // ============================================
 
@@ -521,6 +607,13 @@ export async function executeAction(
     case 'generate_bracket_share':
       return handleGenerateBracketShare(
         toolInput as unknown as GenerateBracketShareParams,
+        queriesService,
+        locale,
+      );
+
+    case 'save_prediction':
+      return handleSavePrediction(
+        toolInput as unknown as SavePredictionParams,
         queriesService,
         locale,
       );

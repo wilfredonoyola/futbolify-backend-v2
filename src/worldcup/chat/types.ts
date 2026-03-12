@@ -94,7 +94,8 @@ export type ActionType =
   | 'generate_calendar'
   | 'generate_share_image'
   | 'create_quiniela'
-  | 'set_reminder';
+  | 'set_reminder'
+  | 'save_prediction';
 
 export interface ActionResult {
   success: boolean;
@@ -113,7 +114,8 @@ export interface ActionArtifact {
     | 'share_image'
     | 'quiniela_invite'
     | 'reminder_set'
-    | 'bracket_share';
+    | 'bracket_share'
+    | 'prediction_confirmed';
   embedData?: Record<string, unknown>;
 }
 
@@ -191,4 +193,13 @@ export interface GenerateBracketShareParams {
 export interface SetReminderParams {
   matchId: string;
   minutesBefore?: number;
+}
+
+export interface SavePredictionParams {
+  matchId?: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
+  simplePrediction: 'home' | 'draw' | 'away';
+  homeScore?: number;
+  awayScore?: number;
 }

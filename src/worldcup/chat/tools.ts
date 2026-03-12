@@ -272,6 +272,42 @@ export const actionTools: Anthropic.Tool[] = [
       required: ['matchId'],
     },
   },
+  {
+    name: 'save_prediction',
+    description:
+      "Save a match prediction for the user. Use this when the user says something like 'mi predicción es México 2-1', 'creo que gana Argentina', 'va a quedar 3-0', etc. Can save either a simple prediction (home/draw/away) or an exact score prediction.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        matchId: {
+          type: 'string',
+          description: 'The match ID to predict',
+        },
+        homeTeamId: {
+          type: 'string',
+          description: 'Home team ID (for finding the match if matchId not provided)',
+        },
+        awayTeamId: {
+          type: 'string',
+          description: 'Away team ID (for finding the match if matchId not provided)',
+        },
+        simplePrediction: {
+          type: 'string',
+          enum: ['home', 'draw', 'away'],
+          description: 'Simple prediction: home team wins, draw, or away team wins',
+        },
+        homeScore: {
+          type: 'number',
+          description: 'Exact score prediction for home team (0-10)',
+        },
+        awayScore: {
+          type: 'number',
+          description: 'Exact score prediction for away team (0-10)',
+        },
+      },
+      required: ['simplePrediction'],
+    },
+  },
 ];
 
 // Combined tools for Claude API
@@ -284,4 +320,5 @@ export const ACTION_TOOL_NAMES = new Set([
   'create_quiniela',
   'generate_bracket_share',
   'set_match_reminder',
+  'save_prediction',
 ]);
