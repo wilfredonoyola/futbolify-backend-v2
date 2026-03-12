@@ -47,17 +47,21 @@ TELEGRAM_WEBHOOK_URL=https://urchin-app-8ronl.ondigitalocean.app/telegram/webhoo
 
 ---
 
-## Comandos del Bot
+## Comandos del Bot (Bilingüe)
 
-| Comando | Descripción |
-|---------|-------------|
-| `/start` | Bienvenida + auto-join si viene con código |
-| `/crear [nombre]` | Crear nueva quiniela |
-| `/unirse [código]` | Unirse a quiniela existente |
-| `/predecir` | Hacer predicciones (próximamente) |
-| `/ranking [código]` | Ver leaderboard |
-| `/misquinielas` | Listar quinielas del usuario |
-| `/partidos` | Próximos partidos (próximamente) |
+El bot soporta comandos en español e inglés. Ambos funcionan independientemente del idioma del usuario.
+
+| Español | English | Descripción |
+|---------|---------|-------------|
+| `/start` | `/start` | Bienvenida + auto-join si viene con código |
+| `/crear [nombre]` | `/create [name]` | Crear nueva quiniela |
+| `/unirse [código]` | `/join [code]` | Unirse a quiniela existente |
+| `/predecir` | `/predict` | Hacer predicciones (próximamente) |
+| `/ranking [código]` | `/leaderboard [code]` | Ver leaderboard |
+| `/misquinielas` | `/mypools` | Listar quinielas del usuario |
+| `/partidos` | `/matches` | Próximos partidos (próximamente) |
+
+**Nota:** Las respuestas del bot se muestran en el idioma configurado en Telegram del usuario, no según el comando usado.
 
 ---
 
@@ -161,16 +165,43 @@ Si solo tiene 1 quiniela, se muestra directamente sin selector.
 
 ## Configuración en BotFather
 
-### Comandos (ya configurados)
+### Comandos Bilingües (ya configurados)
+
+Los comandos se configuran por idioma usando la API de Telegram:
+
+```bash
+# Configurar comandos en español
+curl -X POST "https://api.telegram.org/bot<TOKEN>/setMyCommands" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "commands": [
+      {"command": "crear", "description": "Crear una quiniela"},
+      {"command": "unirse", "description": "Unirse con código"},
+      {"command": "predecir", "description": "Hacer predicciones"},
+      {"command": "ranking", "description": "Ver clasificación"},
+      {"command": "misquinielas", "description": "Tus quinielas"},
+      {"command": "partidos", "description": "Próximos partidos"}
+    ],
+    "language_code": "es"
+  }'
+
+# Configurar comandos en inglés
+curl -X POST "https://api.telegram.org/bot<TOKEN>/setMyCommands" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "commands": [
+      {"command": "create", "description": "Create a pool"},
+      {"command": "join", "description": "Join with code"},
+      {"command": "predict", "description": "Make predictions"},
+      {"command": "leaderboard", "description": "View rankings"},
+      {"command": "mypools", "description": "Your pools"},
+      {"command": "matches", "description": "Upcoming matches"}
+    ],
+    "language_code": "en"
+  }'
 ```
-start - Iniciar el bot
-crear - Crear una quiniela
-unirse - Unirse con código
-predecir - Hacer predicciones
-ranking - Ver el leaderboard
-misquinielas - Ver tus quinielas
-partidos - Próximos partidos
-```
+
+El menú del bot mostrará comandos según el idioma de Telegram del usuario.
 
 ### Descripción
 ```
