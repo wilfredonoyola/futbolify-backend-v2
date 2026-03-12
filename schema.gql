@@ -4,7 +4,7 @@
 
 type User {
   userId: ID!
-  email: String!
+  email: String
   birthday: DateTime
   phone: String!
   roles: [UserRole!]!
@@ -12,6 +12,7 @@ type User {
   createdAt: Int!
   updatedAt: Int!
   userName: String!
+  isGhostUser: Boolean!
   name: String
   avatarUrl: String
   googleId: String

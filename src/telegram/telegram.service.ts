@@ -116,13 +116,42 @@ export class TelegramService {
   // ============ BOT SETUP ============
 
   private setupCommands() {
-    // /start - Welcome message
+    // /start - Welcome message OR auto-join via deep link
     this.bot.start(async (ctx) => {
       const { user } = await this.ensureUserFromContext(ctx);
+      const payload = (ctx as any).startPayload || '';
 
+      // Check if this is a deep link to join a quiniela
+      // Format: /start join_CODIGO or /start CODIGO
+      if (payload) {
+        const code = payload.startsWith('join_')
+          ? payload.replace('join_', '').toUpperCase()
+          : payload.toUpperCase();
+
+        try {
+          const result = await this.joinQuiniela(code, user._id.toString(), user.name || user.userName, user.avatarUrl);
+
+          return ctx.reply(
+            `✅ ¡Bienvenido ${user.name}! Te uniste automáticamente.\n\n` +
+            `📋 *${result.quinielaName}*\n` +
+            `👥 ${result.memberCount} participantes\n\n` +
+            `Usa /predecir para hacer tus predicciones.`,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (error) {
+          // If already member or error, show welcome message
+          await ctx.reply(
+            `${error.message || 'No se pudo unir a la quiniela.'}\n\n` +
+            `Usa /misquinielas para ver tus quinielas.`
+          );
+          return;
+        }
+      }
+
+      // Normal welcome message
       await ctx.reply(
         `¡Hola ${user.name}! 👋\n\n` +
-        `Soy el bot de Futbolify para quinielas del Mundial 2026 ⚽🏆\n\n` +
+        `Soy el bot de Futbolify para quinielas ⚽🏆\n\n` +
         `Comandos disponibles:\n` +
         `/crear [nombre] - Crear una quiniela\n` +
         `/unirse [código] - Unirse a una quiniela\n` +
@@ -145,13 +174,15 @@ export class TelegramService {
 
       try {
         const quiniela = await this.createQuiniela(args, user._id.toString(), user.name || user.userName);
+        const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'futbolify_quinielas_bot';
 
         await ctx.reply(
           `✅ ¡Quiniela creada!\n\n` +
           `📋 *${quiniela.name}*\n` +
           `🔑 Código: \`${quiniela.code}\`\n\n` +
-          `Comparte este enlace para invitar:\n` +
-          `https://futbolify.com/q/${quiniela.code}`,
+          `*Comparte para invitar:*\n\n` +
+          `📱 Telegram:\nhttps://t.me/${botUsername}?start=${quiniela.code}\n\n` +
+          `🌐 Web:\nhttps://futbolify.com/q/${quiniela.code}`,
           { parse_mode: 'Markdown' }
         );
       } catch (error) {
