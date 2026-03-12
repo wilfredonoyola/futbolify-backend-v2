@@ -1,6 +1,6 @@
 // Telegram Module - Bot integration for Futbolify Quinielas
 
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 
@@ -20,8 +20,8 @@ import { QuinielaModule } from '../quiniela/quiniela.module';
       { name: User.name, schema: UserSchema },
       { name: Quiniela.name, schema: QuinielaSchema },
     ]),
-    WorldcupModule,
-    QuinielaModule,
+    forwardRef(() => WorldcupModule),
+    forwardRef(() => QuinielaModule),
   ],
   controllers: [TelegramController],
   providers: [TelegramService],

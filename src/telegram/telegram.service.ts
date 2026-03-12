@@ -1,6 +1,6 @@
 // Telegram Service - Handles user management and bot operations
 
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -48,8 +48,8 @@ export class TelegramService implements OnModuleInit {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Quiniela.name) private quinielaModel: Model<QuinielaDocument>,
     private configService: ConfigService,
-    private queriesService: QueriesService,
-    private quinielaService: QuinielaService,
+    @Inject(forwardRef(() => QueriesService)) private queriesService: QueriesService,
+    @Inject(forwardRef(() => QuinielaService)) private quinielaService: QuinielaService,
   ) {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (token) {
