@@ -11,6 +11,8 @@ import { PlatformLink, PlatformLinkDocument, Platform } from './schemas/platform
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Quiniela, QuinielaDocument, QuinielaMember } from '../quiniela/schemas/quiniela.schema';
 import { messages, getLang, Lang } from './i18n/messages';
+import { QueriesService } from '../worldcup/queries/queries.service';
+import { QuinielaService } from '../quiniela/quiniela.service';
 
 // Types for Telegram context
 interface TelegramUser {
@@ -46,6 +48,8 @@ export class TelegramService implements OnModuleInit {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Quiniela.name) private quinielaModel: Model<QuinielaDocument>,
     private configService: ConfigService,
+    private queriesService: QueriesService,
+    private quinielaService: QuinielaService,
   ) {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (token) {
@@ -257,12 +261,9 @@ export class TelegramService implements OnModuleInit {
         return ctx.reply(messages.predictNoQuinielas[lang]);
       }
 
-      // If only one quiniela, show it directly
+      // If only one quiniela, show matches directly
       if (quinielas.length === 1) {
-        return ctx.reply(
-          `📊 *${quinielas[0].name}*\n\n${messages.predictComingSoon[lang]}`,
-          { parse_mode: 'Markdown' }
-        );
+        return this.showMatchesForPrediction(ctx, quinielas[0], user._id.toString(), lang);
       }
 
       // Multiple quinielas - show selector buttons
@@ -382,8 +383,8 @@ export class TelegramService implements OnModuleInit {
         return;
       }
 
-      // Handle predict selection: predict:CODE
-      if (data.startsWith('predict:')) {
+      // Handle predict selection: predict:CODE (select quiniela, show matches)
+      if (data.startsWith('predict:') && !data.includes(':match:')) {
         const code = data.replace('predict:', '');
         const quiniela = await this.quinielaModel.findOne({ code }).exec();
 
@@ -393,19 +394,89 @@ export class TelegramService implements OnModuleInit {
         }
 
         await ctx.answerCbQuery(messages.callbackPredictFor[lang](quiniela.name));
-        await ctx.editMessageText(
-          `📊 *${quiniela.name}*\n\n${messages.predictComingSoon[lang]}`,
-          { parse_mode: 'Markdown' }
-        );
+        await this.showMatchesForPrediction(ctx, quiniela, user._id.toString(), lang, true);
         return;
       }
 
-      // Handle prediction callbacks: pred:matchId:outcome (future)
+      // Handle match selection: predict:CODE:match:MATCHID (select match, show prediction options)
+      if (data.includes(':match:')) {
+        const parts = data.split(':');
+        const code = parts[1];
+        const matchId = parts[3];
+
+        const quiniela = await this.quinielaModel.findOne({ code }).exec();
+        if (!quiniela) {
+          await ctx.answerCbQuery(messages.rankingNotFound[lang]);
+          return;
+        }
+
+        await this.showPredictionOptions(ctx, quiniela, matchId, lang);
+        return;
+      }
+
+      // Handle prediction submission: pred:CODE:MATCHID:OUTCOME
       if (data.startsWith('pred:')) {
-        const [, matchId, outcome] = data.split(':');
-        // TODO: Submit prediction via quiniela service
-        await ctx.answerCbQuery(`✅ ${outcome}`);
-        await ctx.editMessageText(`✅ ${matchId}`);
+        const [, code, matchId, outcome] = data.split(':');
+
+        try {
+          const quiniela = await this.quinielaModel.findOne({ code }).exec();
+          if (!quiniela) {
+            await ctx.answerCbQuery(messages.rankingNotFound[lang]);
+            return;
+          }
+
+          // Check if match has already started
+          const match = this.queriesService.getMatchById(matchId);
+          if (match) {
+            const matchTime = new Date(match.dateTimeUTC);
+            if (matchTime <= new Date()) {
+              await ctx.answerCbQuery(messages.predictAlreadyStarted[lang]);
+              return;
+            }
+          }
+
+          // Save prediction
+          await this.quinielaService.savePrediction(
+            quiniela._id.toString(),
+            user._id.toString(),
+            {
+              matchId,
+              simplePrediction: outcome, // 'home', 'draw', 'away'
+            }
+          );
+
+          // Format outcome for display
+          let predictionText = outcome;
+          if (match) {
+            const homeTeam = this.queriesService.getTeamById(match.homeTeamId);
+            const awayTeam = this.queriesService.getTeamById(match.awayTeamId);
+            if (outcome === 'home') predictionText = `${homeTeam?.flag || ''} ${homeTeam?.name[lang] || match.homeTeamId}`;
+            else if (outcome === 'away') predictionText = `${awayTeam?.flag || ''} ${awayTeam?.name[lang] || match.awayTeamId}`;
+            else predictionText = messages.predictDraw[lang];
+          }
+
+          await ctx.answerCbQuery('✅');
+          await ctx.editMessageText(
+            messages.predictSaved[lang](predictionText),
+            { parse_mode: 'Markdown' }
+          );
+        } catch (error) {
+          this.logger.error('Error saving prediction', error);
+          await ctx.answerCbQuery(messages.predictError[lang]);
+        }
+        return;
+      }
+
+      // Handle back to matches: back:predict:CODE
+      if (data.startsWith('back:predict:')) {
+        const code = data.replace('back:predict:', '');
+        const quiniela = await this.quinielaModel.findOne({ code }).exec();
+
+        if (quiniela) {
+          await ctx.answerCbQuery();
+          await this.showMatchesForPrediction(ctx, quiniela, user._id.toString(), lang, true);
+        }
+        return;
       }
     });
   }
@@ -513,6 +584,128 @@ export class TelegramService implements OnModuleInit {
       const medal = medals[i] || `${i + 1}.`;
       return `${medal} ${m.userName} — ${m.totalPoints} pts`;
     }).join('\n');
+  }
+
+  // ============ PREDICTION METHODS ============
+
+  private async showMatchesForPrediction(
+    ctx: any,
+    quiniela: QuinielaDocument,
+    userId: string,
+    lang: Lang,
+    editMessage = false
+  ) {
+    // Get upcoming matches (next 5)
+    const upcomingMatches = this.queriesService.getUpcomingMatches(5);
+
+    if (!upcomingMatches || upcomingMatches.length === 0) {
+      const text = `📊 *${quiniela.name}*\n\n${messages.predictNoMatches[lang]}`;
+      if (editMessage) {
+        await ctx.editMessageText(text, { parse_mode: 'Markdown' });
+      } else {
+        await ctx.reply(text, { parse_mode: 'Markdown' });
+      }
+      return;
+    }
+
+    // Get user's existing predictions for this quiniela
+    const member = quiniela.members.find(m => m.userId.toString() === userId);
+    const existingPredictions = member?.predictions || [];
+
+    // Build match buttons
+    const buttons = upcomingMatches.map(match => {
+      const homeTeam = this.queriesService.getTeamById(match.homeTeamId);
+      const awayTeam = this.queriesService.getTeamById(match.awayTeamId);
+
+      const homeName = homeTeam?.name[lang] || match.homeTeamId;
+      const awayName = awayTeam?.name[lang] || match.awayTeamId;
+      const homeFlag = homeTeam?.flag || '🏳️';
+      const awayFlag = awayTeam?.flag || '🏳️';
+
+      // Check if already predicted
+      const prediction = existingPredictions.find(p => p.matchId === match.id);
+      const checkMark = prediction ? ' ✅' : '';
+
+      // Format date
+      const matchDate = new Date(match.dateTimeUTC);
+      const dateStr = matchDate.toLocaleDateString(lang === 'es' ? 'es-MX' : 'en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+
+      return [
+        Markup.button.callback(
+          `${homeFlag} ${homeName} vs ${awayName} ${awayFlag} (${dateStr})${checkMark}`,
+          `predict:${quiniela.code}:match:${match.id}`
+        )
+      ];
+    });
+
+    const text = messages.predictSelectMatch[lang](quiniela.name);
+
+    if (editMessage) {
+      await ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(buttons)
+      });
+    } else {
+      await ctx.reply(text, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard(buttons)
+      });
+    }
+  }
+
+  private async showPredictionOptions(
+    ctx: any,
+    quiniela: QuinielaDocument,
+    matchId: string,
+    lang: Lang
+  ) {
+    const match = this.queriesService.getMatchById(matchId);
+    if (!match) {
+      await ctx.answerCbQuery(messages.rankingNotFound[lang]);
+      return;
+    }
+
+    // Check if match has started
+    const matchTime = new Date(match.dateTimeUTC);
+    if (matchTime <= new Date()) {
+      await ctx.answerCbQuery(messages.predictAlreadyStarted[lang]);
+      return;
+    }
+
+    const homeTeam = this.queriesService.getTeamById(match.homeTeamId);
+    const awayTeam = this.queriesService.getTeamById(match.awayTeamId);
+
+    const homeName = homeTeam?.name[lang] || match.homeTeamId;
+    const awayName = awayTeam?.name[lang] || match.awayTeamId;
+    const homeFlag = homeTeam?.flag || '🏳️';
+    const awayFlag = awayTeam?.flag || '🏳️';
+
+    // Format date
+    const dateStr = matchTime.toLocaleDateString(lang === 'es' ? 'es-MX' : 'en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const text = messages.predictForMatch[lang](`${homeFlag} ${homeName}`, `${awayName} ${awayFlag}`, dateStr);
+
+    const buttons = [
+      [Markup.button.callback(messages.predictHome[lang](`${homeFlag} ${homeName}`), `pred:${quiniela.code}:${matchId}:home`)],
+      [Markup.button.callback(messages.predictDraw[lang], `pred:${quiniela.code}:${matchId}:draw`)],
+      [Markup.button.callback(messages.predictAway[lang](`${awayFlag} ${awayName}`), `pred:${quiniela.code}:${matchId}:away`)],
+      [Markup.button.callback(messages.predictBack[lang], `back:predict:${quiniela.code}`)],
+    ];
+
+    await ctx.answerCbQuery();
+    await ctx.editMessageText(text, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard(buttons)
+    });
   }
 
   private generateInviteCode(): string {

@@ -70,9 +70,47 @@ export const messages = {
     es: '📊 *Selecciona una quiniela:*',
     en: '📊 *Select a pool:*',
   },
-  predictComingSoon: {
-    es: '🔜 Próximamente podrás predecir directamente aquí.',
-    en: '🔜 Soon you will be able to predict directly here.',
+  predictSelectMatch: {
+    es: (quinielaName: string) => `⚽ *${quinielaName}*\n\nSelecciona un partido para predecir:`,
+    en: (quinielaName: string) => `⚽ *${quinielaName}*\n\nSelect a match to predict:`,
+  },
+  predictNoMatches: {
+    es: '📭 No hay partidos próximos disponibles para predecir.',
+    en: '📭 No upcoming matches available for prediction.',
+  },
+  predictForMatch: {
+    es: (homeTeam: string, awayTeam: string, date: string) =>
+      `⚽ *${homeTeam} vs ${awayTeam}*\n📅 ${date}\n\n¿Quién ganará?`,
+    en: (homeTeam: string, awayTeam: string, date: string) =>
+      `⚽ *${homeTeam} vs ${awayTeam}*\n📅 ${date}\n\nWho will win?`,
+  },
+  predictHome: {
+    es: (team: string) => `🏠 ${team}`,
+    en: (team: string) => `🏠 ${team}`,
+  },
+  predictDraw: {
+    es: '🤝 Empate',
+    en: '🤝 Draw',
+  },
+  predictAway: {
+    es: (team: string) => `✈️ ${team}`,
+    en: (team: string) => `✈️ ${team}`,
+  },
+  predictSaved: {
+    es: (prediction: string) => `✅ ¡Predicción guardada!\n\nTu predicción: ${prediction}`,
+    en: (prediction: string) => `✅ Prediction saved!\n\nYour prediction: ${prediction}`,
+  },
+  predictAlreadyStarted: {
+    es: '❌ Este partido ya comenzó. No puedes predecir.',
+    en: '❌ This match has already started. You cannot predict.',
+  },
+  predictError: {
+    es: '❌ Error al guardar la predicción. Intenta de nuevo.',
+    en: '❌ Error saving prediction. Please try again.',
+  },
+  predictBack: {
+    es: '⬅️ Volver',
+    en: '⬅️ Back',
   },
 
   // Ranking
