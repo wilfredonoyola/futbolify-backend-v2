@@ -4,6 +4,7 @@ import { AppModule } from './app.module'
 import { ConfigService } from '@nestjs/config'
 import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.mjs'
 import { json, urlencoded } from 'express'
+import { TelegramService } from './telegram/telegram.service'
 
 const logger = new Logger('App')
 
@@ -58,6 +59,10 @@ async function bootstrap() {
   await app.listen(port)
 
   logger.log(`Server run in: http://localhost:${port}/graphql`)
+
+  // Start Telegram bot (if configured)
+  const telegramService = app.get(TelegramService)
+  await telegramService.startBot()
 }
 
 bootstrap()

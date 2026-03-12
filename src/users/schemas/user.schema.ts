@@ -28,9 +28,10 @@ export class User extends Document {
     return this._id.toString()
   }
 
-  @Prop({ required: true, unique: true })
-  @Field()
-  email: string
+  // Email is optional for ghost users (from bots)
+  @Prop({ required: false, unique: true, sparse: true })
+  @Field({ nullable: true })
+  email?: string
 
   @Prop({ required: false })
   @Field({ nullable: true })
@@ -56,9 +57,15 @@ export class User extends Document {
   @Field(() => Int)
   updatedAt: number
 
+  // userName can be auto-generated for ghost users
   @Prop({ required: true, unique: true })
   @Field()
   userName: string
+
+  // True for users created via bots without email
+  @Prop({ default: false })
+  @Field(() => Boolean, { defaultValue: false })
+  isGhostUser?: boolean
 
   @Prop({ required: false })
   @Field({ nullable: true })

@@ -21,6 +21,7 @@ import { GoalGuruModule } from './goal-guru/goal-guru.module'
 import { WorldcupModule } from './worldcup/worldcup.module'
 import { QuinielaModule } from './quiniela/quiniela.module'
 import { EmailModule } from './email/email.module'
+import { TelegramModule } from './telegram/telegram.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -80,6 +81,7 @@ import { AppService } from './app.service'
     WorldcupModule,
     QuinielaModule,
     EmailModule,
+    TelegramModule,
   ],
   controllers: [AppController],
   providers: [AppService],
