@@ -176,12 +176,15 @@ export class TelegramService {
         const quiniela = await this.createQuiniela(args, user._id.toString(), user.name || user.userName);
         const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'futbolify_quinielas_bot';
 
+        // Escape underscores for Markdown
+        const escapedUsername = botUsername.replace(/_/g, '\\_');
+
         await ctx.reply(
           `✅ ¡Quiniela creada!\n\n` +
           `📋 *${quiniela.name}*\n` +
           `🔑 Código: \`${quiniela.code}\`\n\n` +
           `*Comparte para invitar:*\n\n` +
-          `📱 Telegram:\nhttps://t.me/${botUsername}?start=${quiniela.code}\n\n` +
+          `📱 Telegram:\nhttps://t.me/${escapedUsername}?start=${quiniela.code}\n\n` +
           `🌐 Web:\nhttps://futbolify.com/q/${quiniela.code}`,
           { parse_mode: 'Markdown' }
         );
