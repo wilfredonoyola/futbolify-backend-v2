@@ -4,6 +4,7 @@ import { Injectable, Logger, OnModuleInit, Inject, forwardRef } from '@nestjs/co
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Telegraf, Markup } from 'telegraf';
 import { Message } from 'telegraf/types';
 
@@ -480,6 +481,111 @@ export class TelegramService implements OnModuleInit {
         }
         return;
       }
+
+      // Handle exact score selection: score:CODE:MATCHID:SELECTING:VALUE:HOME:AWAY
+      if (data.startsWith('score:')) {
+        const parts = data.split(':');
+        const code = parts[1];
+        const matchId = parts[2];
+        const selecting = parts[3] as 'home' | 'away';
+        const value = parseInt(parts[4], 10);
+        let homeScore = parseInt(parts[5], 10);
+        let awayScore = parseInt(parts[6], 10);
+
+        // Update the score being selected
+        if (selecting === 'home') {
+          homeScore = value;
+        } else {
+          awayScore = value;
+        }
+
+        const quiniela = await this.quinielaModel.findOne({ code }).exec();
+        if (!quiniela) {
+          await ctx.answerCbQuery(messages.rankingNotFound[lang]);
+          return;
+        }
+
+        // Switch to other team selection
+        const nextSelecting = selecting === 'home' ? 'away' : 'home';
+        await this.showExactScoreInput(ctx, quiniela, matchId, lang, homeScore, awayScore, nextSelecting);
+        return;
+      }
+
+      // Handle exact score confirmation: scoreconfirm:CODE:MATCHID:HOME:AWAY
+      if (data.startsWith('scoreconfirm:')) {
+        const parts = data.split(':');
+        const code = parts[1];
+        const matchId = parts[2];
+        const homeScore = parseInt(parts[3], 10);
+        const awayScore = parseInt(parts[4], 10);
+
+        try {
+          const quiniela = await this.quinielaModel.findOne({ code }).exec();
+          if (!quiniela) {
+            await ctx.answerCbQuery(messages.rankingNotFound[lang]);
+            return;
+          }
+
+          // Check if match has already started
+          const match = this.queriesService.getMatchById(matchId);
+          if (match) {
+            const matchTime = new Date(match.dateTimeUTC);
+            if (matchTime <= new Date()) {
+              await ctx.answerCbQuery(messages.predictAlreadyStarted[lang]);
+              return;
+            }
+          }
+
+          // Determine simple outcome from exact score
+          let simplePrediction: 'home' | 'draw' | 'away';
+          if (homeScore > awayScore) simplePrediction = 'home';
+          else if (awayScore > homeScore) simplePrediction = 'away';
+          else simplePrediction = 'draw';
+
+          // Save prediction with exact score
+          await this.quinielaService.savePrediction(
+            quiniela._id.toString(),
+            user._id.toString(),
+            {
+              matchId,
+              simplePrediction,
+              homeScore,
+              awayScore,
+            }
+          );
+
+          const homeTeam = this.queriesService.getTeamById(match.homeTeamId);
+          const awayTeam = this.queriesService.getTeamById(match.awayTeamId);
+          const homeName = homeTeam?.name[lang] || match.homeTeamId;
+          const awayName = awayTeam?.name[lang] || match.awayTeamId;
+
+          await ctx.answerCbQuery('✅');
+          await ctx.editMessageText(
+            messages.predictScoreSaved[lang](homeScore, awayScore, homeName, awayName),
+            { parse_mode: 'Markdown' }
+          );
+        } catch (error) {
+          this.logger.error('Error saving exact score prediction', error);
+          await ctx.answerCbQuery(messages.predictError[lang]);
+        }
+        return;
+      }
+
+      // Handle switch to exact score mode: exactscore:CODE:MATCHID
+      if (data.startsWith('exactscore:')) {
+        const parts = data.split(':');
+        const code = parts[1];
+        const matchId = parts[2];
+
+        const quiniela = await this.quinielaModel.findOne({ code }).exec();
+        if (!quiniela) {
+          await ctx.answerCbQuery(messages.rankingNotFound[lang]);
+          return;
+        }
+
+        await this.showExactScoreInput(ctx, quiniela, matchId, lang, 0, 0, 'home');
+        return;
+      }
     });
   }
 
@@ -700,8 +806,17 @@ export class TelegramService implements OnModuleInit {
       [Markup.button.callback(messages.predictHome[lang](`${homeFlag} ${homeName}`), `pred:${quiniela.code}:${matchId}:home`)],
       [Markup.button.callback(messages.predictDraw[lang], `pred:${quiniela.code}:${matchId}:draw`)],
       [Markup.button.callback(messages.predictAway[lang](`${awayFlag} ${awayName}`), `pred:${quiniela.code}:${matchId}:away`)],
-      [Markup.button.callback(messages.predictBack[lang], `back:predict:${quiniela.code}`)],
     ];
+
+    // Add exact score option
+    buttons.push([
+      Markup.button.callback(
+        lang === 'es' ? '🎯 Marcador exacto' : '🎯 Exact score',
+        `exactscore:${quiniela.code}:${matchId}`
+      )
+    ]);
+
+    buttons.push([Markup.button.callback(messages.predictBack[lang], `back:predict:${quiniela.code}`)]);
 
     await ctx.answerCbQuery();
     await ctx.editMessageText(text, {
@@ -744,6 +859,304 @@ export class TelegramService implements OnModuleInit {
     const secondLetter = lowerCode.charCodeAt(1) - 97 + 0x1F1E6;
 
     return String.fromCodePoint(firstLetter, secondLetter);
+  }
+
+  // ============ PRE-MATCH NOTIFICATIONS ============
+
+  /**
+   * Cron job: Check for matches starting in ~2 hours and notify users
+   * Runs every 30 minutes
+   */
+  @Cron(CronExpression.EVERY_30_MINUTES)
+  async checkUpcomingMatchesForNotifications() {
+    if (!this.bot) return;
+
+    this.logger.log('Checking for upcoming matches to send notifications...');
+
+    try {
+      // Get matches starting in 1.5 to 2.5 hours (30 min window around 2h mark)
+      const now = new Date();
+      const minTime = new Date(now.getTime() + 90 * 60 * 1000); // 1.5 hours
+      const maxTime = new Date(now.getTime() + 150 * 60 * 1000); // 2.5 hours
+
+      const upcomingMatches = this.queriesService.getUpcomingMatches(20);
+      const matchesToNotify = upcomingMatches.filter(match => {
+        const matchTime = new Date(match.dateTimeUTC);
+        return matchTime >= minTime && matchTime <= maxTime;
+      });
+
+      if (matchesToNotify.length === 0) {
+        this.logger.debug('No matches in 2-hour notification window');
+        return;
+      }
+
+      this.logger.log(`Found ${matchesToNotify.length} matches to notify about`);
+
+      // Get all quinielas and their members
+      const quinielas = await this.quinielaModel.find({ status: 'open' }).exec();
+
+      for (const match of matchesToNotify) {
+        for (const quiniela of quinielas) {
+          await this.sendMatchNotifications(match, quiniela);
+        }
+      }
+    } catch (error) {
+      this.logger.error('Error in notification cron job', error);
+    }
+  }
+
+  /**
+   * Send notifications to quiniela members who haven't predicted a match
+   */
+  private async sendMatchNotifications(match: any, quiniela: QuinielaDocument) {
+    const homeTeam = this.queriesService.getTeamById(match.homeTeamId);
+    const awayTeam = this.queriesService.getTeamById(match.awayTeamId);
+
+    for (const member of quiniela.members) {
+      // Check if user has already predicted this match
+      const hasPredicted = member.predictions?.some(p => p.matchId === match.id);
+      if (hasPredicted) continue;
+
+      // Get user's Telegram platform link
+      const platformLink = await this.platformLinkModel.findOne({
+        userId: member.userId,
+        platform: Platform.TELEGRAM,
+      }).exec();
+
+      if (!platformLink) continue;
+
+      // Get user's language preference (default to Spanish)
+      const user = await this.userModel.findById(member.userId).exec();
+      const lang: Lang = 'es'; // Default, could store user preference
+
+      const homeFlag = this.countryCodeToFlag(homeTeam?.flag || '');
+      const awayFlag = this.countryCodeToFlag(awayTeam?.flag || '');
+      const homeName = homeTeam?.name[lang] || match.homeTeamId;
+      const awayName = awayTeam?.name[lang] || match.awayTeamId;
+
+      const matchTime = new Date(match.dateTimeUTC);
+      const timeStr = matchTime.toLocaleTimeString(lang === 'es' ? 'es-MX' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      try {
+        await this.bot.telegram.sendMessage(
+          platformLink.platformUserId,
+          messages.notificationMatchSoon[lang](
+            `${homeFlag} ${homeName}`,
+            `${awayName} ${awayFlag}`,
+            timeStr,
+            quiniela.name
+          ),
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback(messages.notificationPredictNow[lang], `predict:${quiniela.code}:match:${match.id}`)]
+            ])
+          }
+        );
+
+        this.logger.debug(`Sent notification to ${member.userName} for match ${match.id}`);
+      } catch (error) {
+        // User may have blocked the bot
+        this.logger.debug(`Failed to notify user ${member.userId}: ${error.message}`);
+      }
+    }
+  }
+
+  // ============ MATCH RESULTS & POINTS ============
+
+  /**
+   * Send match result to all users who predicted
+   * Called by external service when a match ends
+   */
+  async sendMatchResult(matchId: string, homeScore: number, awayScore: number) {
+    if (!this.bot) return;
+
+    const match = this.queriesService.getMatchById(matchId);
+    if (!match) {
+      this.logger.warn(`Match ${matchId} not found for result notification`);
+      return;
+    }
+
+    const homeTeam = this.queriesService.getTeamById(match.homeTeamId);
+    const awayTeam = this.queriesService.getTeamById(match.awayTeamId);
+
+    // Determine actual outcome
+    let actualOutcome: 'home' | 'draw' | 'away';
+    if (homeScore > awayScore) actualOutcome = 'home';
+    else if (awayScore > homeScore) actualOutcome = 'away';
+    else actualOutcome = 'draw';
+
+    // Get all quinielas
+    const quinielas = await this.quinielaModel.find({ status: 'open' }).exec();
+
+    for (const quiniela of quinielas) {
+      for (const member of quiniela.members) {
+        const prediction = member.predictions?.find(p => p.matchId === matchId);
+        if (!prediction) continue;
+
+        // Get user's Telegram platform link
+        const platformLink = await this.platformLinkModel.findOne({
+          userId: member.userId,
+          platform: Platform.TELEGRAM,
+        }).exec();
+
+        if (!platformLink) continue;
+
+        const lang: Lang = 'es';
+        const homeFlag = this.countryCodeToFlag(homeTeam?.flag || '');
+        const awayFlag = this.countryCodeToFlag(awayTeam?.flag || '');
+        const homeName = homeTeam?.name[lang] || match.homeTeamId;
+        const awayName = awayTeam?.name[lang] || match.awayTeamId;
+
+        // Calculate points - Check exact score FIRST, then simple prediction
+        let points = 0;
+        let pointsMessage = '';
+
+        if (prediction.homeScore !== undefined && prediction.awayScore !== undefined) {
+          // Exact score prediction - check exact match first
+          if (prediction.homeScore === homeScore && prediction.awayScore === awayScore) {
+            points = 3; // Exact score match!
+            pointsMessage = messages.matchResultPoints[lang](points);
+          } else {
+            // Check if outcome matches (partial credit)
+            let predictedOutcome: 'home' | 'draw' | 'away';
+            if (prediction.homeScore > prediction.awayScore) predictedOutcome = 'home';
+            else if (prediction.awayScore > prediction.homeScore) predictedOutcome = 'away';
+            else predictedOutcome = 'draw';
+
+            if (predictedOutcome === actualOutcome) {
+              points = 1; // Correct outcome but wrong score
+              pointsMessage = messages.matchResultPoints[lang](points);
+            } else {
+              pointsMessage = messages.matchResultNoPoints[lang];
+            }
+          }
+        } else if (prediction.simplePrediction === actualOutcome) {
+          // Simple prediction - just outcome
+          points = 1;
+          pointsMessage = messages.matchResultPoints[lang](points);
+        } else {
+          pointsMessage = messages.matchResultNoPoints[lang];
+        }
+
+        // Format prediction text
+        let predictionText: string;
+        if (prediction.homeScore !== undefined && prediction.awayScore !== undefined) {
+          predictionText = `${homeName} ${prediction.homeScore} - ${prediction.awayScore} ${awayName}`;
+        } else if (prediction.simplePrediction === 'home') {
+          predictionText = `${homeFlag} ${homeName}`;
+        } else if (prediction.simplePrediction === 'away') {
+          predictionText = `${awayFlag} ${awayName}`;
+        } else {
+          predictionText = messages.predictDraw[lang];
+        }
+
+        const resultMessage = `${messages.matchResultTitle[lang](`${homeFlag} ${homeName}`, `${awayName} ${awayFlag}`)}\n\n${messages.matchResultScore[lang](homeScore, awayScore)}\n\n${messages.matchResultYourPrediction[lang](predictionText)}\n${pointsMessage}`;
+
+        try {
+          await this.bot.telegram.sendMessage(
+            platformLink.platformUserId,
+            resultMessage,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (error) {
+          this.logger.debug(`Failed to send result to user ${member.userId}: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  // ============ EXACT SCORE PREDICTION ============
+
+  /**
+   * Show exact score input keyboard
+   */
+  private async showExactScoreInput(
+    ctx: any,
+    quiniela: QuinielaDocument,
+    matchId: string,
+    lang: Lang,
+    currentHomeScore = 0,
+    currentAwayScore = 0,
+    selecting: 'home' | 'away' = 'home'
+  ) {
+    const match = this.queriesService.getMatchById(matchId);
+    if (!match) return;
+
+    const homeTeam = this.queriesService.getTeamById(match.homeTeamId);
+    const awayTeam = this.queriesService.getTeamById(match.awayTeamId);
+    const homeFlag = this.countryCodeToFlag(homeTeam?.flag || '');
+    const awayFlag = this.countryCodeToFlag(awayTeam?.flag || '');
+    const homeName = homeTeam?.name[lang] || match.homeTeamId;
+    const awayName = awayTeam?.name[lang] || match.awayTeamId;
+
+    const currentScore = `${homeName} ${currentHomeScore} - ${currentAwayScore} ${awayName}`;
+    const selectingTeam = selecting === 'home'
+      ? messages.predictScoreHome[lang](`${homeFlag} ${homeName}`)
+      : messages.predictScoreAway[lang](`${awayFlag} ${awayName}`);
+
+    const text = `${messages.predictExactScore[lang]}\n\n📊 ${currentScore}\n\n${selectingTeam}`;
+
+    // Score buttons 0-6
+    const scoreButtons = [];
+    for (let i = 0; i <= 6; i++) {
+      scoreButtons.push(
+        Markup.button.callback(
+          `${i}`,
+          `score:${quiniela.code}:${matchId}:${selecting}:${i}:${currentHomeScore}:${currentAwayScore}`
+        )
+      );
+    }
+
+    const buttons = [
+      scoreButtons,
+      [
+        Markup.button.callback(
+          `✅ ${lang === 'es' ? 'Confirmar' : 'Confirm'} (${currentHomeScore}-${currentAwayScore})`,
+          `scoreconfirm:${quiniela.code}:${matchId}:${currentHomeScore}:${currentAwayScore}`
+        )
+      ],
+      [Markup.button.callback(messages.predictBack[lang], `back:predict:${quiniela.code}`)],
+    ];
+
+    await ctx.answerCbQuery();
+    await ctx.editMessageText(text, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard(buttons)
+    });
+  }
+
+  // ============ TEST HELPERS ============
+
+  /**
+   * Get upcoming matches for testing (exposes match IDs)
+   */
+  getUpcomingMatchesForTest() {
+    const matches = this.queriesService.getUpcomingMatches(10);
+    return matches.map(match => {
+      const homeTeam = this.queriesService.getTeamById(match.homeTeamId);
+      const awayTeam = this.queriesService.getTeamById(match.awayTeamId);
+      return {
+        matchId: match.id,
+        homeTeam: homeTeam?.name.es || match.homeTeamId,
+        awayTeam: awayTeam?.name.es || match.awayTeamId,
+        dateTimeUTC: match.dateTimeUTC,
+        stage: match.stage,
+      };
+    });
+  }
+
+  /**
+   * Send a direct message to a Telegram user (for testing)
+   */
+  async sendDirectMessage(telegramId: string, message: string) {
+    if (!this.bot) {
+      throw new Error('Bot not initialized');
+    }
+    await this.bot.telegram.sendMessage(telegramId, message, { parse_mode: 'Markdown' });
   }
 
   // ============ BOT LIFECYCLE ============

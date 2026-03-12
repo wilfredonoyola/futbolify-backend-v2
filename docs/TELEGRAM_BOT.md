@@ -264,14 +264,54 @@ npm run start:dev
 
 ---
 
+## Funcionalidades Implementadas
+
+### ✅ Predicciones con Botones Inline
+
+El usuario puede seleccionar:
+1. **Quiniela** - Si tiene múltiples, se muestran como botones
+2. **Partido** - Lista de próximos partidos con banderas
+3. **Predicción** - Home / Empate / Away o Marcador exacto
+
+### ✅ Marcador Exacto
+
+Los usuarios pueden predecir el marcador exacto (ej: 2-1):
+- Botones del 0 al 6 para cada equipo
+- Alterna entre selección de goles del equipo local y visitante
+- Puntos extra por acertar el marcador exacto
+
+### ✅ Notificaciones Pre-Partido (Cron Job)
+
+- Se ejecuta cada 30 minutos
+- Detecta partidos que comenzarán en ~2 horas
+- Envía notificación a usuarios que NO han predicho
+- Incluye botón directo para predecir
+
+```typescript
+@Cron(CronExpression.EVERY_30_MINUTES)
+async checkUpcomingMatchesForNotifications()
+```
+
+### ✅ Resultados y Puntos
+
+Cuando un partido termina, el sistema puede notificar a los usuarios:
+- Resultado final del partido
+- Predicción del usuario
+- Puntos ganados (+3 marcador exacto, +1 resultado correcto)
+
+```typescript
+// Llamar cuando termine un partido
+await telegramService.sendMatchResult(matchId, homeScore, awayScore);
+```
+
+---
+
 ## Próximas Mejoras
 
-- [ ] Predicciones con botones inline
-- [ ] Notificaciones pre-partido (2h antes)
-- [ ] Conectar con WorldCup module para partidos reales
 - [ ] Soporte para grupos de Telegram
 - [ ] Integración con Slack (Priority 2)
 - [ ] Integración con Discord (Priority 3)
+- [ ] Comando /resultados para ver historial
 
 ---
 

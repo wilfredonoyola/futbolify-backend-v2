@@ -160,6 +160,72 @@ export const messages = {
     es: (name: string) => `Predicciones para ${name}`,
     en: (name: string) => `Predictions for ${name}`,
   },
+
+  // Notifications
+  notificationMatchSoon: {
+    es: (homeTeam: string, awayTeam: string, time: string, quinielaName: string) =>
+      `⏰ *¡Partido en 2 horas!*\n\n${homeTeam} vs ${awayTeam}\n🕐 ${time}\n\n📋 Quiniela: ${quinielaName}\n\n¿Ya hiciste tu predicción?`,
+    en: (homeTeam: string, awayTeam: string, time: string, quinielaName: string) =>
+      `⏰ *Match in 2 hours!*\n\n${homeTeam} vs ${awayTeam}\n🕐 ${time}\n\n📋 Pool: ${quinielaName}\n\nHave you made your prediction?`,
+  },
+  notificationPredictNow: {
+    es: '🎯 Predecir ahora',
+    en: '🎯 Predict now',
+  },
+
+  // Match Results
+  matchResultTitle: {
+    es: (homeTeam: string, awayTeam: string) => `⚽ *Resultado Final*\n\n${homeTeam} vs ${awayTeam}`,
+    en: (homeTeam: string, awayTeam: string) => `⚽ *Final Result*\n\n${homeTeam} vs ${awayTeam}`,
+  },
+  matchResultScore: {
+    es: (home: number, away: number) => `*${home} - ${away}*`,
+    en: (home: number, away: number) => `*${home} - ${away}*`,
+  },
+  matchResultYourPrediction: {
+    es: (prediction: string) => `Tu predicción: ${prediction}`,
+    en: (prediction: string) => `Your prediction: ${prediction}`,
+  },
+  matchResultPoints: {
+    es: (points: number) => `🏆 +${points} puntos`,
+    en: (points: number) => `🏆 +${points} points`,
+  },
+  matchResultNoPoints: {
+    es: '😔 0 puntos',
+    en: '😔 0 points',
+  },
+  matchResultNoPrediction: {
+    es: '❌ No predijiste este partido',
+    en: '❌ You didn\'t predict this match',
+  },
+
+  // Exact Score Mode
+  predictExactScoreButton: {
+    es: '🎯 Marcador exacto',
+    en: '🎯 Exact score',
+  },
+  predictExactScore: {
+    es: '🎯 *Predicción de marcador exacto*\n\nIngresa el marcador:',
+    en: '🎯 *Exact score prediction*\n\nEnter the score:',
+  },
+  predictScoreConfirm: {
+    es: '✅ Confirmar',
+    en: '✅ Confirm',
+  },
+  predictScoreHome: {
+    es: (team: string) => `Goles ${team}:`,
+    en: (team: string) => `${team} goals:`,
+  },
+  predictScoreAway: {
+    es: (team: string) => `Goles ${team}:`,
+    en: (team: string) => `${team} goals:`,
+  },
+  predictScoreSaved: {
+    es: (home: number, away: number, homeTeam: string, awayTeam: string) =>
+      `✅ ¡Predicción guardada!\n\n${homeTeam} ${home} - ${away} ${awayTeam}`,
+    en: (home: number, away: number, homeTeam: string, awayTeam: string) =>
+      `✅ Prediction saved!\n\n${homeTeam} ${home} - ${away} ${awayTeam}`,
+  },
 };
 
 /**
