@@ -8,6 +8,7 @@ import { SmartNotification } from './schemas/smart-notification.schema'
 import {
   NotificationPreferences,
   UpdateNotificationPreferencesInput,
+  SmartNotificationType,
 } from './schemas/notification-preferences.schema'
 import { NotificationDispatcherService, NOTIFICATION_EVENTS } from './notification-dispatcher.service'
 import { SmartNotificationJobs } from './jobs/smart-notification.jobs'
@@ -146,6 +147,25 @@ export class SmartNotificationsResolver {
     favorites.delete(teamCode.toUpperCase())
     return this.dispatcherService.updatePreferences(user.userId, {
       favoriteTeams: Array.from(favorites),
+    })
+  }
+
+  /**
+   * Send a test notification to the current user
+   * Useful for testing push notifications setup
+   */
+  @Mutation(() => SmartNotification)
+  @UseGuards(GqlAuthGuard)
+  async sendTestNotification(
+    @CurrentUser() user: { userId: string },
+  ): Promise<SmartNotification> {
+    return this.dispatcherService.dispatch({
+      userId: user.userId,
+      type: SmartNotificationType.MORNING_BRIEFING,
+      title: 'Notificación de prueba',
+      message: 'Si ves esto, las notificaciones están funcionando correctamente.',
+      shortMessage: 'Test exitoso',
+      priority: 1,
     })
   }
 
