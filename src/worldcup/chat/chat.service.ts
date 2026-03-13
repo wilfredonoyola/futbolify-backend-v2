@@ -246,7 +246,7 @@ export class ChatService {
       // Initial API call with personalized system prompt and ALL tools
       // Using Haiku 3.5 for cost efficiency (4x cheaper than Sonnet, same quality for this use case)
       let response = await client.messages.create({
-        model: 'claude-3-5-haiku-20241022',
+        model: 'claude-3-haiku-20240307',
         max_tokens: 1024,
         system: systemPrompt,
         tools: allWorldCupTools,
@@ -356,7 +356,7 @@ export class ChatService {
 
         // Make another API call with the tool result (reuse cached system prompt)
         response = await client.messages.create({
-          model: 'claude-3-5-haiku-20241022',
+          model: 'claude-3-haiku-20240307',
           max_tokens: 1024,
           system: systemPrompt,
           tools: allWorldCupTools,
