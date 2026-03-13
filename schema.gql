@@ -2030,6 +2030,7 @@ type Mutation {
   updateNotificationPreferences(input: UpdateNotificationPreferencesInput!): NotificationPreferences!
   addFavoriteTeam(teamCode: String!): NotificationPreferences!
   removeFavoriteTeam(teamCode: String!): NotificationPreferences!
+  sendTestNotification: SmartNotification!
   processMatchResult(matchId: String!, homeScore: Int!, awayScore: Int!): ProcessMatchResultOutput!
   worldcupChat(input: WorldcupChatInput!): WorldcupChatResponse!
   worldcupClearChatSession(sessionId: String!): Boolean!
