@@ -7,14 +7,14 @@ export const queryTools: Anthropic.Tool[] = [
   {
     name: 'get_team_matches',
     description:
-      "Get all matches for a specific team. Use this when the user asks about a team's schedule, games, or when they play. The teamId should be the lowercase country code (e.g., 'mex' for Mexico, 'usa' for USA, 'arg' for Argentina).",
+      "Get all matches for a specific team. Use this when the user asks about a team's schedule, games, or when they play. You can use the team name or country code.",
     input_schema: {
       type: 'object' as const,
       properties: {
         teamId: {
           type: 'string',
           description:
-            "The team ID (lowercase country code, e.g., 'mex', 'usa', 'arg', 'bra', 'esp', 'ger')",
+            "The team name or code (e.g., 'mexico', 'usa', 'argentina', 'brazil', 'spain', 'germany', 'MEX', 'ARG')",
         },
       },
       required: ['teamId'],

@@ -90,16 +90,29 @@ export function handleGetTeamMatches(
 ): ToolResult {
   try {
     const { teamId } = params;
-    const matches = queriesService.getMatchesByTeam(teamId.toLowerCase());
+    let resolvedTeamId = teamId.toLowerCase();
+
+    // Try direct lookup first
+    let matches = queriesService.getMatchesByTeam(resolvedTeamId);
+    let team = queriesService.getTeamById(resolvedTeamId);
+
+    // If no matches found, try searching for the team by name/code
+    if (matches.length === 0) {
+      const searchResults = queriesService.searchTeams(teamId);
+      if (searchResults.length > 0) {
+        resolvedTeamId = searchResults[0].id;
+        matches = queriesService.getMatchesByTeam(resolvedTeamId);
+        team = searchResults[0];
+      }
+    }
 
     if (matches.length === 0) {
       return {
         success: false,
-        error: `No matches found for team: ${teamId}`,
+        error: `No matches found for team: ${teamId}. Try using the full team name like 'mexico', 'argentina', 'brazil'.`,
       };
     }
 
-    const team = queriesService.getTeamById(teamId.toLowerCase());
     const formattedMatches = matches
       .map((m) => formatMatchData(m, queriesService, locale))
       .filter((m): m is MatchData => m !== null);
