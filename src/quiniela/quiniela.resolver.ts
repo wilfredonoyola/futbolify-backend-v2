@@ -1,8 +1,9 @@
 // Quiniela Resolver - GraphQL endpoints for prediction pools
 
-import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Context, InputType, Field } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { QuinielaService } from './quiniela.service';
+import { QuinielaAIService } from './quiniela-ai.service';
 import { Quiniela, QuinielaMember } from './schemas/quiniela.schema';
 import {
   CreateQuinielaInput,
@@ -19,14 +20,38 @@ import {
   VerifyAdminEmailResult,
   ValidateAdminTokenInput,
   ValidateAdminTokenResult,
+  AIPrediction,
+  AIScoreData,
 } from './dto/quiniela.dto';
+
+// Input for AI predictions batch request
+@InputType()
+export class MatchInfoInput {
+  @Field()
+  matchId: string;
+
+  @Field()
+  homeTeamCode: string;
+
+  @Field()
+  awayTeamCode: string;
+
+  @Field()
+  homeTeamId: string;
+
+  @Field()
+  awayTeamId: string;
+}
 
 // Note: In a real implementation, you would add proper auth guards
 // import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Resolver()
 export class QuinielaResolver {
-  constructor(private readonly quinielaService: QuinielaService) {}
+  constructor(
+    private readonly quinielaService: QuinielaService,
+    private readonly quinielaAIService: QuinielaAIService,
+  ) {}
 
   // ============ PUBLIC QUERIES ============
 
@@ -288,5 +313,66 @@ export class QuinielaResolver {
     @Args('email') email: string,
   ): Promise<SetAdminEmailResult> {
     return this.quinielaService.regenerateAdminToken(code, email);
+  }
+
+  // ============ AI PREDICTIONS ============
+
+  @Query(() => [AIPrediction], { name: 'aiPredictionsForMatches' })
+  async getAIPredictionsForMatches(
+    @Args('matches', { type: () => [MatchInfoInput] }) matches: MatchInfoInput[],
+    @Args('locale', { nullable: true, defaultValue: 'es' }) locale: string,
+  ): Promise<AIPrediction[]> {
+    return this.quinielaAIService.getAIPredictionsForMatches(
+      matches,
+      locale as 'es' | 'en',
+    );
+  }
+
+  @Query(() => AIPrediction, { name: 'aiPredictionForMatch', nullable: true })
+  async getAIPredictionForMatch(
+    @Args('matchId') matchId: string,
+    @Args('homeTeamCode') homeTeamCode: string,
+    @Args('awayTeamCode') awayTeamCode: string,
+    @Args('homeTeamId') homeTeamId: string,
+    @Args('awayTeamId') awayTeamId: string,
+    @Args('locale', { nullable: true, defaultValue: 'es' }) locale: string,
+  ): Promise<AIPrediction> {
+    return this.quinielaAIService.getAIPrediction(
+      matchId,
+      homeTeamCode,
+      awayTeamCode,
+      homeTeamId,
+      awayTeamId,
+      locale as 'es' | 'en',
+    );
+  }
+
+  @Query(() => AIScoreData, { name: 'myAIScore' })
+  async getMyAIScore(
+    @Args('quinielaId') quinielaId: string,
+    @Context() context: { req?: { user?: { userId?: string } } },
+  ): Promise<AIScoreData> {
+    const userId = context.req?.user?.userId;
+    if (!userId) {
+      return {
+        userCorrect: 0,
+        aiCorrect: 0,
+        userExact: 0,
+        aiExact: 0,
+        totalMatches: 0,
+        streak: { type: 'none', count: 0 },
+      };
+    }
+    return this.quinielaAIService.getAIScore(quinielaId, userId);
+  }
+
+  @Mutation(() => Boolean, { name: 'evaluateMatchResult' })
+  async evaluateMatchResult(
+    @Args('matchId') matchId: string,
+    @Args('homeScore') homeScore: number,
+    @Args('awayScore') awayScore: number,
+  ): Promise<boolean> {
+    await this.quinielaAIService.evaluateMatchResult(matchId, homeScore, awayScore);
+    return true;
   }
 }

@@ -314,3 +314,59 @@ export class ValidateAdminTokenResult {
   @Field({ nullable: true })
   message?: string;
 }
+
+// ============ AI PREDICTIONS ============
+
+// Output: AI prediction for a match
+@ObjectType()
+export class AIPrediction {
+  @Field()
+  matchId: string;
+
+  @Field()
+  homeScore: number;
+
+  @Field()
+  awayScore: number;
+
+  @Field()
+  confidence: number; // 0-100
+
+  @Field()
+  reasoning: string;
+
+  @Field({ nullable: true })
+  isUpset?: boolean; // AI predicts underdog wins
+}
+
+// Output: User vs AI score streak
+@ObjectType()
+export class AIScoreStreak {
+  @Field()
+  type: string; // 'user' | 'ai' | 'none'
+
+  @Field()
+  count: number;
+}
+
+// Output: User vs AI score comparison
+@ObjectType()
+export class AIScoreData {
+  @Field()
+  userCorrect: number; // User correct predictions (direction)
+
+  @Field()
+  aiCorrect: number; // AI correct predictions (direction)
+
+  @Field()
+  userExact: number; // User exact score predictions
+
+  @Field()
+  aiExact: number; // AI exact score predictions
+
+  @Field()
+  totalMatches: number; // Total evaluated matches
+
+  @Field(() => AIScoreStreak)
+  streak: AIScoreStreak;
+}
