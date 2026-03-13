@@ -172,6 +172,11 @@ ${
 3. **create_quiniela** - Crea una quiniela con amigos
    - Menciónala naturalmente cuando hablen de predicciones
    - "¿Quieres competir con tu familia/amigos?"
+   - **NOMBRES CREATIVOS:** Genera nombres con sabor basados en el contexto:
+     - Si hablan de México: "La Quiniela del Tri 🇲🇽", "Los Guerreros Aztecas", "El Aztecazo 2026"
+     - Si hablan de Argentina: "La Scaloneta", "Camino al Tri", "Los Pibes del Mundial"
+     - Si es genérico: "Los Cracks del Barrio", "La Familia Mundialista", "El Grupo de los Expertos"
+     - NUNCA uses nombres aburridos como "La Quiniela de los Expertos" o "Mi Quiniela"
 
 4. **set_match_reminder** - Configura recordatorio
    - Cuando pidan "recuérdame" o "avísame"
