@@ -263,15 +263,27 @@ export class AuthService {
             const bunnyAvatarUrl = await this.uploadGoogleAvatarToBunny(googleAvatarUrl, user._id.toString())
             user.avatarUrl = bunnyAvatarUrl || googleAvatarUrl
           }
+
+          // Update name from Google if user doesn't have one
+          if (!user.name && name) {
+            user.name = name
+          }
+
+          // Mark profile as completed since user already has an account
+          // and Google provides all necessary info
+          user.isProfileCompleted = true
+
           await user.save()
         }
 
+        // For existing users, always return isProfileCompleted: true
+        // since they already have an account (linking doesn't require new profile)
         return {
           email: user.email,
           userName: user.userName,
           name: user.name || name,
           avatarUrl: user.avatarUrl || googleAvatarUrl,
-          isProfileCompleted: user.isProfileCompleted,
+          isProfileCompleted: true,
         }
       }
 
