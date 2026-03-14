@@ -279,6 +279,7 @@ export class AuthService {
         // For existing users, always return isProfileCompleted: true
         // since they already have an account (linking doesn't require new profile)
         return {
+          id: user._id.toString(),
           email: user.email,
           userName: user.userName,
           name: user.name || name,
@@ -330,6 +331,7 @@ export class AuthService {
       await user.save()
 
       return {
+        id: user._id.toString(),
         email,
         userName,
         name,
