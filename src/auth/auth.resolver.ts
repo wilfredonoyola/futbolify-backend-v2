@@ -124,15 +124,24 @@ export class AuthResolver {
     @Args('idToken') idToken: string
   ): Promise<GoogleSigninResponse> {
     try {
-      const verifiedToken = await this.authService.validateGoogleToken(idToken)
+      const verifiedUser = await this.authService.validateGoogleToken(idToken)
+
+      // Generate JWT token for Google user
+      const accessToken = this.authService.generateGoogleUserToken({
+        id: verifiedUser.id,
+        email: verifiedUser.email,
+        roles: verifiedUser.roles,
+      })
 
       return {
-        id: verifiedToken.id,
-        email: verifiedToken.email,
-        userName: verifiedToken.userName,
-        name: verifiedToken.name,
-        avatarUrl: verifiedToken.avatarUrl,
-        isProfileCompleted: verifiedToken.isProfileCompleted,
+        id: verifiedUser.id,
+        email: verifiedUser.email,
+        userName: verifiedUser.userName,
+        name: verifiedUser.name,
+        avatarUrl: verifiedUser.avatarUrl,
+        isProfileCompleted: verifiedUser.isProfileCompleted,
+        access_token: accessToken,
+        roles: verifiedUser.roles,
       }
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.UNAUTHORIZED)

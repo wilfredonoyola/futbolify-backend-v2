@@ -21,6 +21,7 @@ import axios from 'axios'
 import { OAuth2Client } from 'google-auth-library'
 import { UpdateProfileInputDto } from './dto/update-profile-input.dto'
 import { BunnyStorageService } from '../bunny/bunny-storage.service'
+import * as jwt from 'jsonwebtoken'
 
 @Injectable()
 export class AuthService {
@@ -314,6 +315,7 @@ export class AuthService {
           name: user.name || name,
           avatarUrl: user.avatarUrl || googleAvatarUrl,
           isProfileCompleted: true,
+          roles: user.roles || [UserRole.USER],
         }
       }
 
@@ -366,6 +368,7 @@ export class AuthService {
         name,
         avatarUrl,
         isProfileCompleted: true, // Skip complete-profile screen
+        roles: user.roles || [UserRole.USER],
       }
     } catch (error) {
       console.error('Google validation error:', error)
@@ -375,6 +378,22 @@ export class AuthService {
         HttpStatus.UNAUTHORIZED
       )
     }
+  }
+
+  /**
+   * Generate a JWT token for Google-authenticated users
+   */
+  generateGoogleUserToken(user: { id: string; email: string; roles: UserRole[] }): string {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      roles: user.roles,
+      iss: 'futbolify-google-auth',
+    }
+
+    return jwt.sign(payload, process.env.JWT_SECRET || 'futbolify-secret-key', {
+      expiresIn: '7d',
+    })
   }
 
   /**

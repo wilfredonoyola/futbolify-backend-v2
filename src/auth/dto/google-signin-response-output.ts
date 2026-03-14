@@ -1,6 +1,7 @@
 /** @format */
 
 import { ObjectType, Field } from '@nestjs/graphql'
+import { UserRole } from 'src/users/schemas/user.schema'
 
 @ObjectType()
 export class GoogleSigninResponse {
@@ -21,4 +22,10 @@ export class GoogleSigninResponse {
 
   @Field()
   isProfileCompleted: boolean
+
+  @Field()
+  access_token: string
+
+  @Field(() => [UserRole])
+  roles: UserRole[]
 }

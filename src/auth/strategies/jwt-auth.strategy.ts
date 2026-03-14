@@ -34,13 +34,29 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
     try {
       const decodedToken = jwt.decode(token) as any;
 
-      // Verificar que el token fue emitido por tu Cognito User Pool
-      const issuer = `https://cognito-idp.${process.env.AWS_COGNITO_REGION}.amazonaws.com/${process.env.AWS_COGNITO_USER_POOL_ID}`;
-      if (decodedToken.iss !== issuer) {
+      // Check token issuer - accept both Cognito and Google-auth tokens
+      const cognitoIssuer = `https://cognito-idp.${process.env.AWS_COGNITO_REGION}.amazonaws.com/${process.env.AWS_COGNITO_USER_POOL_ID}`;
+      const googleAuthIssuer = 'futbolify-google-auth';
+
+      const isValidIssuer = decodedToken.iss === cognitoIssuer || decodedToken.iss === googleAuthIssuer;
+
+      if (!isValidIssuer) {
         return this.fail(
           new UnauthorizedException('Token issuer is invalid'),
           401,
         );
+      }
+
+      // For Google-auth tokens, verify the signature
+      if (decodedToken.iss === googleAuthIssuer) {
+        try {
+          jwt.verify(token, process.env.JWT_SECRET || 'futbolify-secret-key');
+        } catch (verifyError) {
+          return this.fail(
+            new UnauthorizedException('Invalid token signature'),
+            401,
+          );
+        }
       }
 
       // Buscar al usuario en la base de datos

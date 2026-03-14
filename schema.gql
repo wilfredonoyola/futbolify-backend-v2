@@ -84,6 +84,8 @@ type GoogleSigninResponse {
   name: String
   avatarUrl: String
   isProfileCompleted: Boolean!
+  access_token: String!
+  roles: [UserRole!]!
 }
 
 type TimelineEventDto {
