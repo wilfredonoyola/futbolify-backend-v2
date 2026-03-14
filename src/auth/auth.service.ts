@@ -586,8 +586,12 @@ export class AuthService {
   private mapLinkedProviders(user: UserDocument): LinkedProviderInfo[] {
     const providers: LinkedProviderInfo[] = []
 
-    // Add primary provider (email/cognito)
-    if (user.email) {
+    // Add Cognito provider only if user registered with email/password
+    // (primaryProvider is 'cognito' or authProvider is not set/cognito)
+    const hasCognitoAccount = user.primaryProvider === AuthProvider.COGNITO ||
+      (!user.authProvider || user.authProvider === AuthProvider.COGNITO)
+
+    if (user.email && hasCognitoAccount) {
       providers.push({
         provider: AuthProvider.COGNITO,
         email: user.email,
@@ -596,7 +600,7 @@ export class AuthService {
       })
     }
 
-    // Add linked providers
+    // Add linked providers (e.g., Google)
     if (user.linkedProviders) {
       for (const lp of user.linkedProviders) {
         providers.push({
