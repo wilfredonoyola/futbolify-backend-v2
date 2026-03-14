@@ -20,6 +20,7 @@ import { CurrentUserPayload } from './current-user-payload.interface'
 import axios from 'axios'
 import { OAuth2Client } from 'google-auth-library'
 import { UpdateProfileInputDto } from './dto/update-profile-input.dto'
+import { BunnyStorageService } from '../bunny/bunny-storage.service'
 
 @Injectable()
 export class AuthService {
@@ -27,7 +28,10 @@ export class AuthService {
   private clientId: string
   private googleClient: OAuth2Client
 
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private bunnyStorage: BunnyStorageService,
+  ) {
     this.client = new CognitoIdentityProviderClient({
       region: process.env.AWS_COGNITO_REGION,
       credentials: {
@@ -222,7 +226,7 @@ export class AuthService {
       const email = payload?.email
       const name = payload?.name || ''
       let userName = payload?.name || 'UsuarioGoogle'
-      const avatarUrl = payload?.picture || ''
+      const googleAvatarUrl = payload?.picture || ''
       const googleId = payload?.sub
 
       if (!email || !googleId) {
@@ -244,8 +248,6 @@ export class AuthService {
 
         if (!hasGoogleLinked) {
           // AUTO-LINK: User registered with email/password, now logging in with Google
-          // Link Google identity to existing account in MongoDB
-          // Note: Cognito federado linking not used - Google auth is handled directly
           const linkedProvider: LinkedProvider = {
             provider: AuthProvider.GOOGLE,
             providerId: googleId,
@@ -255,9 +257,11 @@ export class AuthService {
 
           user.googleId = googleId
           user.linkedProviders = [...(user.linkedProviders || []), linkedProvider]
-          // Update avatar if user doesn't have one
-          if (!user.avatarUrl && avatarUrl) {
-            user.avatarUrl = avatarUrl
+
+          // Upload Google avatar to Bunny if user doesn't have one
+          if (!user.avatarUrl && googleAvatarUrl) {
+            const bunnyAvatarUrl = await this.uploadGoogleAvatarToBunny(googleAvatarUrl, user._id.toString())
+            user.avatarUrl = bunnyAvatarUrl || googleAvatarUrl
           }
           await user.save()
         }
@@ -266,18 +270,28 @@ export class AuthService {
           email: user.email,
           userName: user.userName,
           name: user.name || name,
-          avatarUrl: user.avatarUrl || avatarUrl,
+          avatarUrl: user.avatarUrl || googleAvatarUrl,
           isProfileCompleted: user.isProfileCompleted,
         }
       }
 
       // User does NOT exist - create new user with Google as primary
-      // Note: No Cognito user created for Google-only users (they authenticate via Google directly)
-
       // Check if username already exists
       const existingUserName = await this.userModel.findOne({ userName })
       if (existingUserName) {
         userName = `${userName}_${Math.floor(Math.random() * 10000)}`
+      }
+
+      // Generate a temporary user ID for avatar upload
+      const tempUserId = new Date().getTime().toString()
+
+      // Upload Google avatar to Bunny CDN
+      let avatarUrl = googleAvatarUrl
+      if (googleAvatarUrl) {
+        const bunnyAvatarUrl = await this.uploadGoogleAvatarToBunny(googleAvatarUrl, tempUserId)
+        if (bunnyAvatarUrl) {
+          avatarUrl = bunnyAvatarUrl
+        }
       }
 
       // Create user in MongoDB with Google as primary provider
@@ -297,7 +311,7 @@ export class AuthService {
         authProvider: AuthProvider.GOOGLE,
         primaryProvider: AuthProvider.GOOGLE,
         linkedProviders: [linkedProvider],
-        isProfileCompleted: false,
+        isProfileCompleted: true, // Auto-complete profile for Google users
         roles: [UserRole.USER],
       })
 
@@ -308,7 +322,7 @@ export class AuthService {
         userName,
         name,
         avatarUrl,
-        isProfileCompleted: false,
+        isProfileCompleted: true, // Skip complete-profile screen
       }
     } catch (error) {
       console.error('Google validation error:', error)
@@ -317,6 +331,31 @@ export class AuthService {
         'Invalid token or error processing user',
         HttpStatus.UNAUTHORIZED
       )
+    }
+  }
+
+  /**
+   * Downloads Google profile picture and uploads to Bunny CDN
+   */
+  private async uploadGoogleAvatarToBunny(googleAvatarUrl: string, userId: string): Promise<string | null> {
+    try {
+      // Download image from Google
+      const response = await axios.get(googleAvatarUrl, {
+        responseType: 'arraybuffer',
+        timeout: 10000,
+      })
+
+      const buffer = Buffer.from(response.data)
+
+      // Upload to Bunny Storage
+      const result = await this.bunnyStorage.uploadAvatar(buffer, 'avatar.jpg', userId)
+
+      console.log(`[Auth] Uploaded Google avatar to Bunny: ${result.cdnUrl}`)
+      return result.cdnUrl
+    } catch (error) {
+      console.error('[Auth] Failed to upload Google avatar to Bunny:', error.message)
+      // Return null to fall back to Google URL
+      return null
     }
   }
 

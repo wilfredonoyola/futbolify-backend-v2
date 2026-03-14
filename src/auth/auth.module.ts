@@ -8,6 +8,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UserSchema } from 'src/users/schemas/user.schema';
 import { AwsCognitoAuthStrategy } from './strategies/jwt-auth.strategy';
 import { AuthMiddleware } from './auth.middleware';
+import { BunnyModule } from '../bunny/bunny.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuthMiddleware } from './auth.middleware';
       secret: 'secretKey',
       signOptions: { expiresIn: '1h' },
     }),
+    BunnyModule,
   ],
   providers: [AuthService, AuthResolver, AwsCognitoAuthStrategy, AuthMiddleware],
   exports: [AuthService, JwtModule, AuthMiddleware],
