@@ -22,6 +22,7 @@ import { WorldcupModule } from './worldcup/worldcup.module'
 import { QuinielaModule } from './quiniela/quiniela.module'
 import { EmailModule } from './email/email.module'
 import { TelegramModule } from './telegram/telegram.module'
+import { FeedModule } from './feed/feed.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -82,6 +83,7 @@ import { AppService } from './app.service'
     QuinielaModule,
     EmailModule,
     TelegramModule,
+    FeedModule,
   ],
   controllers: [AppController],
   providers: [AppService],
