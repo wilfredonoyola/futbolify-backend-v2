@@ -32,27 +32,17 @@ export class FhgSchedulerService implements OnModuleInit {
    * Log startup message when module initializes
    */
   async onModuleInit() {
-    await this.logService.info(
-      FhgLogCategory.CRON,
-      'FHG Scheduler initialized - Cron jobs registered',
-      {
-        jobs: [
-          '06:00 - Import matches',
-          '08,10,12,14,16,18,20,22:00 - Refresh odds',
-          '10:00 - Daily pipeline',
-          'Every hour - Settlement',
-          '04:00 Sunday - Team stats',
-        ],
-      }
-    )
-    this.logger.log('FHG Scheduler initialized with cron jobs')
+    // FHG cron jobs are DISABLED during World Cup 2026 focus
+    // Focus areas: quinielas, feed, activity (notifications), World Cup 2026
+    this.logger.log('FHG Scheduler initialized - ALL CRON JOBS DISABLED (World Cup 2026 focus)')
   }
 
   /**
    * Import matches daily at 06:00
    * Fetches fixtures for the next 7 days from API-Football
+   * DISABLED: Not using Goal-Guru during World Cup 2026 focus
    */
-  @Cron('0 6 * * *', { name: 'fhg-import-matches', timeZone: 'America/New_York' })
+  // @Cron('0 6 * * *', { name: 'fhg-import-matches', timeZone: 'America/New_York' })
   async importMatches() {
     const startTime = Date.now()
     await this.logService.info(
@@ -83,8 +73,9 @@ export class FhgSchedulerService implements OnModuleInit {
   /**
    * Refresh odds every 2 hours from 08:00 to 22:00
    * Updates G1H odds from The Odds API
+   * DISABLED: Not using Goal-Guru during World Cup 2026 focus
    */
-  @Cron('0 8,10,12,14,16,18,20,22 * * *', { name: 'fhg-refresh-odds', timeZone: 'America/New_York' })
+  // @Cron('0 8,10,12,14,16,18,20,22 * * *', { name: 'fhg-refresh-odds', timeZone: 'America/New_York' })
   async refreshOdds() {
     const startTime = Date.now()
     await this.logService.info(FhgLogCategory.CRON, 'Starting scheduled odds refresh')
@@ -112,8 +103,9 @@ export class FhgSchedulerService implements OnModuleInit {
   /**
    * Run daily pipeline at 10:00
    * Generates predictions and selections for today's matches
+   * DISABLED: Not using Goal-Guru during World Cup 2026 focus
    */
-  @Cron('0 10 * * *', { name: 'fhg-daily-pipeline', timeZone: 'America/New_York' })
+  // @Cron('0 10 * * *', { name: 'fhg-daily-pipeline', timeZone: 'America/New_York' })
   async runDailyPipeline() {
     const startTime = Date.now()
     await this.logService.info(FhgLogCategory.CRON, 'Starting scheduled daily pipeline')
@@ -153,8 +145,9 @@ export class FhgSchedulerService implements OnModuleInit {
   /**
    * Settle selections every hour
    * Checks finished matches and calculates outcomes
+   * DISABLED: Not using Goal-Guru during World Cup 2026 focus
    */
-  @Cron(CronExpression.EVERY_HOUR, { name: 'fhg-settle-selections' })
+  // @Cron(CronExpression.EVERY_HOUR, { name: 'fhg-settle-selections' })
   async settleSelections() {
     const startTime = Date.now()
 
@@ -184,8 +177,9 @@ export class FhgSchedulerService implements OnModuleInit {
   /**
    * Refresh team statistics weekly on Sunday at 04:00
    * Updates G1H rates and form data from API-Football
+   * DISABLED: Not using Goal-Guru during World Cup 2026 focus
    */
-  @Cron('0 4 * * 0', { name: 'fhg-refresh-team-stats', timeZone: 'America/New_York' })
+  // @Cron('0 4 * * 0', { name: 'fhg-refresh-team-stats', timeZone: 'America/New_York' })
   async refreshTeamStats() {
     const startTime = Date.now()
     await this.logService.info(
@@ -215,8 +209,9 @@ export class FhgSchedulerService implements OnModuleInit {
 
   /**
    * Generate health report daily at 23:00
+   * DISABLED: Not using Goal-Guru during World Cup 2026 focus
    */
-  @Cron('0 23 * * *', { name: 'fhg-health-report', timeZone: 'America/New_York' })
+  // @Cron('0 23 * * *', { name: 'fhg-health-report', timeZone: 'America/New_York' })
   async generateHealthReport() {
     const startTime = Date.now()
 
