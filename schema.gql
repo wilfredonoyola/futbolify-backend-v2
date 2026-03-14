@@ -78,6 +78,7 @@ type UserOutputDto {
 }
 
 type GoogleSigninResponse {
+  id: String!
   email: String!
   userName: String!
   name: String
