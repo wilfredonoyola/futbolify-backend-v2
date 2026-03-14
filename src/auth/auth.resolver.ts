@@ -127,6 +127,7 @@ export class AuthResolver {
       const verifiedToken = await this.authService.validateGoogleToken(idToken)
 
       return {
+        id: verifiedToken.id,
         email: verifiedToken.email,
         userName: verifiedToken.userName,
         name: verifiedToken.name,
