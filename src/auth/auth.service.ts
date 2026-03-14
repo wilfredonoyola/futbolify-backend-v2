@@ -11,9 +11,6 @@ import {
   ConfirmForgotPasswordCommand,
   ResendConfirmationCodeCommand,
   AdminDeleteUserCommand,
-  AdminGetUserCommand,
-  AdminLinkProviderForUserCommand,
-  AdminDisableProviderForUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
@@ -247,30 +244,8 @@ export class AuthService {
 
         if (!hasGoogleLinked) {
           // AUTO-LINK: User registered with email/password, now logging in with Google
-          // Link Google identity to existing account
-
-          // Try to link in Cognito
-          try {
-            await this.client.send(
-              new AdminLinkProviderForUserCommand({
-                UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-                DestinationUser: {
-                  ProviderName: 'Cognito',
-                  ProviderAttributeValue: email,
-                },
-                SourceUser: {
-                  ProviderName: 'Google',
-                  ProviderAttributeName: 'Cognito_Subject',
-                  ProviderAttributeValue: googleId,
-                },
-              })
-            )
-          } catch (cognitoError) {
-            // Log but continue - user might not have Cognito native account
-            console.log('Auto-link Cognito warning:', cognitoError.message)
-          }
-
-          // Link in MongoDB
+          // Link Google identity to existing account in MongoDB
+          // Note: Cognito federado linking not used - Google auth is handled directly
           const linkedProvider: LinkedProvider = {
             provider: AuthProvider.GOOGLE,
             providerId: googleId,
@@ -297,31 +272,12 @@ export class AuthService {
       }
 
       // User does NOT exist - create new user with Google as primary
+      // Note: No Cognito user created for Google-only users (they authenticate via Google directly)
 
       // Check if username already exists
       const existingUserName = await this.userModel.findOne({ userName })
       if (existingUserName) {
         userName = `${userName}_${Math.floor(Math.random() * 10000)}`
-      }
-
-      // Create user in Cognito (for federated identity)
-      try {
-        await this.client.send(
-          new AdminCreateUserCommand({
-            UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-            Username: email,
-            UserAttributes: [
-              { Name: 'email', Value: email },
-              { Name: 'email_verified', Value: 'true' },
-              { Name: 'name', Value: userName },
-              { Name: 'picture', Value: avatarUrl },
-            ],
-            MessageAction: 'SUPPRESS',
-          })
-        )
-      } catch (cognitoError) {
-        // User might already exist in Cognito from another flow
-        console.log('Create Cognito user warning:', cognitoError.message)
       }
 
       // Create user in MongoDB with Google as primary provider
@@ -434,28 +390,7 @@ export class AuthService {
         )
       }
 
-      // 5. Link Google identity in Cognito (if user has Cognito account)
-      try {
-        await this.client.send(
-          new AdminLinkProviderForUserCommand({
-            UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-            DestinationUser: {
-              ProviderName: 'Cognito',
-              ProviderAttributeValue: user.email,
-            },
-            SourceUser: {
-              ProviderName: 'Google',
-              ProviderAttributeName: 'Cognito_Subject',
-              ProviderAttributeValue: googleId,
-            },
-          })
-        )
-      } catch (cognitoError) {
-        // Log but don't fail - user might not have Cognito account yet
-        console.log('Could not link in Cognito (might not exist):', cognitoError.message)
-      }
-
-      // 6. Update user in MongoDB
+      // 5. Update user in MongoDB (Cognito linking not used - Google auth is direct)
       const linkedProvider: LinkedProvider = {
         provider: AuthProvider.GOOGLE,
         providerId: googleId,
@@ -516,25 +451,7 @@ export class AuthService {
         throw new HttpException('Provider not found', HttpStatus.NOT_FOUND)
       }
 
-      // Try to unlink in Cognito
-      if (provider === AuthProvider.GOOGLE && user.googleId) {
-        try {
-          await this.client.send(
-            new AdminDisableProviderForUserCommand({
-              UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-              User: {
-                ProviderName: 'Google',
-                ProviderAttributeName: 'Cognito_Subject',
-                ProviderAttributeValue: user.googleId,
-              },
-            })
-          )
-        } catch (cognitoError) {
-          console.log('Could not unlink in Cognito:', cognitoError.message)
-        }
-      }
-
-      // Update MongoDB
+      // Update MongoDB (Cognito unlinking not used - Google auth is direct)
       user.linkedProviders.splice(providerIndex, 1)
       if (provider === AuthProvider.GOOGLE) {
         user.googleId = undefined
