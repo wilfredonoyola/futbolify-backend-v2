@@ -63,7 +63,10 @@ export class AuthService {
 
     const idToken = response.AuthenticationResult?.IdToken
 
-    const user = await this.userModel.findOne({ email })
+    // Case-insensitive email lookup
+    const user = await this.userModel.findOne({
+      email: { $regex: new RegExp(`^${email.toLowerCase()}$`, 'i') }
+    })
 
     if (!user) {
       throw new Error('User not found')
@@ -268,8 +271,13 @@ export class AuthService {
 
       userName = userName.replace(/\s+/g, '_').toLowerCase()
 
-      // Check if user already exists in our DB
-      let user = await this.userModel.findOne({ email })
+      // Normalize email to lowercase for consistent matching
+      const normalizedEmail = email.toLowerCase()
+
+      // Check if user already exists in our DB (case-insensitive email search)
+      let user = await this.userModel.findOne({
+        email: { $regex: new RegExp(`^${normalizedEmail}$`, 'i') }
+      })
 
       if (user) {
         // User EXISTS - check if Google is already linked
@@ -281,7 +289,7 @@ export class AuthService {
           const linkedProvider: LinkedProvider = {
             provider: AuthProvider.GOOGLE,
             providerId: googleId,
-            email: email,
+            email: normalizedEmail,
             linkedAt: new Date(),
           }
 
@@ -342,12 +350,12 @@ export class AuthService {
       const linkedProvider: LinkedProvider = {
         provider: AuthProvider.GOOGLE,
         providerId: googleId,
-        email: email,
+        email: normalizedEmail,
         linkedAt: new Date(),
       }
 
       user = new this.userModel({
-        email,
+        email: normalizedEmail,
         userName,
         name,
         avatarUrl,
@@ -363,7 +371,7 @@ export class AuthService {
 
       return {
         id: user._id.toString(),
-        email,
+        email: normalizedEmail,
         userName,
         name,
         avatarUrl,
