@@ -59,9 +59,11 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
         }
       }
 
-      // Buscar al usuario en la base de datos
+      // Buscar al usuario en la base de datos (case-insensitive)
       const user = await this.userModel
-        .findOne({ email: decodedToken.email })
+        .findOne({
+          email: { $regex: new RegExp(`^${decodedToken.email}$`, 'i') }
+        })
         .exec();
 
       if (!user) {
