@@ -70,10 +70,11 @@ export class AuthService {
 
     return {
       id: user._id.toString(),
+      email: user.email,
       avatarUrl: user.avatarUrl,
       access_token: idToken,
       isOnboardingCompleted: user.isOnboardingCompleted,
-      roles: user.roles,
+      roles: user.roles, // Roles from MongoDB, not Cognito groups
       name: user.name || user.userName,
       userName: user.userName,
     }
@@ -167,6 +168,7 @@ export class AuthService {
 
     return {
       id: createdUser._id.toString(),
+      email: createdUser.email,
       isOnboardingCompleted: false,
       access_token: idToken,
       roles: createdUser.roles,
