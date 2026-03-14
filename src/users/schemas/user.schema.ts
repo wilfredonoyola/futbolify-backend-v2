@@ -12,10 +12,43 @@ export enum UserRole {
   SUPER_ADMIN = 'SUPER_ADMIN',
 }
 
-// Register the enum with GraphQL
+export enum AuthProvider {
+  COGNITO = 'cognito',
+  GOOGLE = 'google',
+}
+
+// Subdocument for linked providers
+@Schema({ _id: false })
+@ObjectType()
+export class LinkedProvider {
+  @Prop({ required: true, enum: AuthProvider })
+  @Field()
+  provider: string
+
+  @Prop({ required: true })
+  @Field()
+  providerId: string // cognitoSub or googleId
+
+  @Prop()
+  @Field({ nullable: true })
+  email?: string
+
+  @Prop({ default: Date.now })
+  @Field()
+  linkedAt: Date
+}
+
+export const LinkedProviderSchema = SchemaFactory.createForClass(LinkedProvider)
+
+// Register the enums with GraphQL
 registerEnumType(UserRole, {
   name: 'UserRole',
   description: 'The roles a user can have in the system',
+})
+
+registerEnumType(AuthProvider, {
+  name: 'AuthProvider',
+  description: 'Authentication providers available',
 })
 
 @Schema({
@@ -82,6 +115,16 @@ export class User extends Document {
   @Prop({ required: false })
   @Field({ nullable: true })
   authProvider?: string
+
+  // Array of linked providers (for account linking)
+  @Prop({ type: [LinkedProviderSchema], default: [] })
+  @Field(() => [LinkedProvider], { defaultValue: [] })
+  linkedProviders: LinkedProvider[]
+
+  // Primary provider for login preference
+  @Prop({ default: 'cognito' })
+  @Field({ defaultValue: 'cognito' })
+  primaryProvider: string
 
   @Prop({ default: false })
   isProfileCompleted: boolean

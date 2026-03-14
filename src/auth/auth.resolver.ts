@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Args } from '@nestjs/graphql'
+import { Resolver, Mutation, Args, Query } from '@nestjs/graphql'
 import { AuthService } from './auth.service'
 import {
   UseGuards,
@@ -15,6 +15,8 @@ import {
   SignupInputDto,
   SigninOutputDto,
   AddUserInputDto,
+  LinkedProviderInfo,
+  LinkAccountResponse,
 } from './dto'
 import { UserOutputDto } from 'src/users/dto'
 import { CurrentUser } from './current-user.decorator'
@@ -159,5 +161,44 @@ export class AuthResolver {
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.UNAUTHORIZED)
     }
+  }
+
+  // ============ ACCOUNT LINKING ============
+
+  /**
+   * Link a Google account to an existing user
+   * User must be authenticated
+   */
+  @Mutation(() => LinkAccountResponse)
+  @UseGuards(GqlAuthGuard)
+  async linkGoogleAccount(
+    @Args('idToken') idToken: string,
+    @CurrentUser() user: CurrentUserPayload
+  ): Promise<LinkAccountResponse> {
+    return await this.authService.linkGoogleAccount(user.userId, idToken)
+  }
+
+  /**
+   * Unlink a provider from user account
+   * Cannot unlink the primary provider or the only login method
+   */
+  @Mutation(() => Boolean)
+  @UseGuards(GqlAuthGuard)
+  async unlinkProvider(
+    @Args('provider') provider: string,
+    @CurrentUser() user: CurrentUserPayload
+  ): Promise<boolean> {
+    return await this.authService.unlinkProvider(user.userId, provider)
+  }
+
+  /**
+   * Get all linked providers for the current user
+   */
+  @Query(() => [LinkedProviderInfo])
+  @UseGuards(GqlAuthGuard)
+  async getLinkedProviders(
+    @CurrentUser() user: CurrentUserPayload
+  ): Promise<LinkedProviderInfo[]> {
+    return await this.authService.getLinkedProviders(user.userId)
   }
 }

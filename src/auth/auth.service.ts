@@ -12,11 +12,13 @@ import {
   ResendConfirmationCodeCommand,
   AdminDeleteUserCommand,
   AdminGetUserCommand,
+  AdminLinkProviderForUserCommand,
+  AdminDisableProviderForUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { User, UserDocument, UserRole } from 'src/users/schemas/user.schema'
-import { ConfirmSignupInputDto } from './dto'
+import { User, UserDocument, UserRole, AuthProvider, LinkedProvider } from 'src/users/schemas/user.schema'
+import { ConfirmSignupInputDto, LinkedProviderInfo, LinkAccountResponse } from './dto'
 import { CurrentUserPayload } from './current-user-payload.interface'
 import axios from 'axios'
 import { OAuth2Client } from 'google-auth-library'
@@ -221,88 +223,140 @@ export class AuthService {
       const payload = ticket.getPayload()
 
       const email = payload?.email
-      const name = payload?.name || '' // Keep original name
+      const name = payload?.name || ''
       let userName = payload?.name || 'UsuarioGoogle'
       const avatarUrl = payload?.picture || ''
       const googleId = payload?.sub
-      const authProvider = 'google'
 
-      if (!email) {
+      if (!email || !googleId) {
         throw new HttpException(
-          'Google token does not contain a valid email',
+          'Google token does not contain valid email or ID',
           HttpStatus.UNAUTHORIZED
         )
       }
 
       userName = userName.replace(/\s+/g, '_').toLowerCase()
 
-      let existingUserName = await this.userModel.findOne({ userName })
+      // Check if user already exists in our DB
+      let user = await this.userModel.findOne({ email })
 
+      if (user) {
+        // User EXISTS - check if Google is already linked
+        const hasGoogleLinked = user.googleId === googleId ||
+          user.linkedProviders?.some(lp => lp.provider === AuthProvider.GOOGLE && lp.providerId === googleId)
+
+        if (!hasGoogleLinked) {
+          // AUTO-LINK: User registered with email/password, now logging in with Google
+          // Link Google identity to existing account
+
+          // Try to link in Cognito
+          try {
+            await this.client.send(
+              new AdminLinkProviderForUserCommand({
+                UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+                DestinationUser: {
+                  ProviderName: 'Cognito',
+                  ProviderAttributeValue: email,
+                },
+                SourceUser: {
+                  ProviderName: 'Google',
+                  ProviderAttributeName: 'Cognito_Subject',
+                  ProviderAttributeValue: googleId,
+                },
+              })
+            )
+          } catch (cognitoError) {
+            // Log but continue - user might not have Cognito native account
+            console.log('Auto-link Cognito warning:', cognitoError.message)
+          }
+
+          // Link in MongoDB
+          const linkedProvider: LinkedProvider = {
+            provider: AuthProvider.GOOGLE,
+            providerId: googleId,
+            email: email,
+            linkedAt: new Date(),
+          }
+
+          user.googleId = googleId
+          user.linkedProviders = [...(user.linkedProviders || []), linkedProvider]
+          // Update avatar if user doesn't have one
+          if (!user.avatarUrl && avatarUrl) {
+            user.avatarUrl = avatarUrl
+          }
+          await user.save()
+        }
+
+        return {
+          email: user.email,
+          userName: user.userName,
+          name: user.name || name,
+          avatarUrl: user.avatarUrl || avatarUrl,
+          isProfileCompleted: user.isProfileCompleted,
+        }
+      }
+
+      // User does NOT exist - create new user with Google as primary
+
+      // Check if username already exists
+      const existingUserName = await this.userModel.findOne({ userName })
       if (existingUserName) {
         userName = `${userName}_${Math.floor(Math.random() * 10000)}`
       }
 
-      let isUserInCognito = true
+      // Create user in Cognito (for federated identity)
       try {
         await this.client.send(
-          new AdminGetUserCommand({
+          new AdminCreateUserCommand({
             UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
             Username: email,
+            UserAttributes: [
+              { Name: 'email', Value: email },
+              { Name: 'email_verified', Value: 'true' },
+              { Name: 'name', Value: userName },
+              { Name: 'picture', Value: avatarUrl },
+            ],
+            MessageAction: 'SUPPRESS',
           })
         )
-      } catch (error) {
-        isUserInCognito = false
+      } catch (cognitoError) {
+        // User might already exist in Cognito from another flow
+        console.log('Create Cognito user warning:', cognitoError.message)
       }
 
-      if (!isUserInCognito) {
-        const createUserCommand = new AdminCreateUserCommand({
-          UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
-          Username: email,
-          UserAttributes: [
-            { Name: 'email', Value: email },
-            { Name: 'email_verified', Value: 'true' },
-            { Name: 'name', Value: userName },
-            { Name: 'picture', Value: avatarUrl },
-          ],
-          MessageAction: 'SUPPRESS',
-        })
-
-        await this.client.send(createUserCommand)
+      // Create user in MongoDB with Google as primary provider
+      const linkedProvider: LinkedProvider = {
+        provider: AuthProvider.GOOGLE,
+        providerId: googleId,
+        email: email,
+        linkedAt: new Date(),
       }
 
-      let user = await this.userModel.findOne({ email })
+      user = new this.userModel({
+        email,
+        userName,
+        name,
+        avatarUrl,
+        googleId,
+        authProvider: AuthProvider.GOOGLE,
+        primaryProvider: AuthProvider.GOOGLE,
+        linkedProviders: [linkedProvider],
+        isProfileCompleted: false,
+        roles: [UserRole.USER],
+      })
 
-      if (!user) {
-        user = new this.userModel({
-          email,
-          userName,
-          name, // Save original name
-          avatarUrl,
-          googleId,
-          authProvider,
-          isProfileCompleted: false,
-          roles: [UserRole.USER],
-        })
-
-        await user.save()
-
-        return {
-          email,
-          userName,
-          name, // Return original name
-          avatarUrl,
-          isProfileCompleted: false,
-        }
-      }
+      await user.save()
 
       return {
-        email: user.email,
-        userName: user.userName,
-        name: user.name || name, // Return name from DB or from Google
-        avatarUrl: user.avatarUrl,
-        isProfileCompleted: user.isProfileCompleted,
+        email,
+        userName,
+        name,
+        avatarUrl,
+        isProfileCompleted: false,
       }
     } catch (error) {
+      console.error('Google validation error:', error)
+      if (error instanceof HttpException) throw error
       throw new HttpException(
         'Invalid token or error processing user',
         HttpStatus.UNAUTHORIZED
@@ -333,5 +387,209 @@ export class AuthService {
         HttpStatus.INTERNAL_SERVER_ERROR
       )
     }
+  }
+
+  /**
+   * Link a Google account to an existing user
+   * This allows users who registered with email/password to also login with Google
+   */
+  async linkGoogleAccount(userId: string, idToken: string): Promise<LinkAccountResponse> {
+    try {
+      // 1. Verify Google token
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      })
+      const googlePayload = ticket.getPayload()
+      const googleEmail = googlePayload?.email
+      const googleId = googlePayload?.sub
+
+      if (!googleEmail || !googleId) {
+        throw new HttpException('Invalid Google token', HttpStatus.BAD_REQUEST)
+      }
+
+      // 2. Get the current user
+      const user = await this.userModel.findById(userId)
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND)
+      }
+
+      // 3. Check if this Google account is already linked to another user
+      const existingUserWithGoogle = await this.userModel.findOne({ googleId })
+      if (existingUserWithGoogle && existingUserWithGoogle._id.toString() !== userId) {
+        throw new HttpException(
+          'This Google account is already linked to another user',
+          HttpStatus.CONFLICT
+        )
+      }
+
+      // 4. Check if user already has Google linked
+      const alreadyLinked = user.linkedProviders?.some(
+        (lp) => lp.provider === AuthProvider.GOOGLE
+      )
+      if (alreadyLinked) {
+        throw new HttpException(
+          'Google account is already linked',
+          HttpStatus.CONFLICT
+        )
+      }
+
+      // 5. Link Google identity in Cognito (if user has Cognito account)
+      try {
+        await this.client.send(
+          new AdminLinkProviderForUserCommand({
+            UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+            DestinationUser: {
+              ProviderName: 'Cognito',
+              ProviderAttributeValue: user.email,
+            },
+            SourceUser: {
+              ProviderName: 'Google',
+              ProviderAttributeName: 'Cognito_Subject',
+              ProviderAttributeValue: googleId,
+            },
+          })
+        )
+      } catch (cognitoError) {
+        // Log but don't fail - user might not have Cognito account yet
+        console.log('Could not link in Cognito (might not exist):', cognitoError.message)
+      }
+
+      // 6. Update user in MongoDB
+      const linkedProvider: LinkedProvider = {
+        provider: AuthProvider.GOOGLE,
+        providerId: googleId,
+        email: googleEmail,
+        linkedAt: new Date(),
+      }
+
+      user.googleId = googleId
+      user.linkedProviders = [...(user.linkedProviders || []), linkedProvider]
+      await user.save()
+
+      return {
+        success: true,
+        message: 'Google account linked successfully',
+        linkedProviders: this.mapLinkedProviders(user),
+      }
+    } catch (error) {
+      if (error instanceof HttpException) throw error
+      throw new HttpException(
+        'Failed to link Google account',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      )
+    }
+  }
+
+  /**
+   * Unlink a provider from user account
+   */
+  async unlinkProvider(userId: string, provider: string): Promise<boolean> {
+    try {
+      const user = await this.userModel.findById(userId)
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND)
+      }
+
+      // Check that user has at least 2 providers (can't unlink the only one)
+      const totalProviders = (user.linkedProviders?.length || 0) + 1 // +1 for primary
+      if (totalProviders <= 1) {
+        throw new HttpException(
+          'Cannot unlink the only login method',
+          HttpStatus.BAD_REQUEST
+        )
+      }
+
+      // Can't unlink primary provider
+      if (user.primaryProvider === provider) {
+        throw new HttpException(
+          'Cannot unlink primary login method',
+          HttpStatus.BAD_REQUEST
+        )
+      }
+
+      // Find and remove the provider
+      const providerIndex = user.linkedProviders?.findIndex(
+        (lp) => lp.provider === provider
+      )
+      if (providerIndex === -1 || providerIndex === undefined) {
+        throw new HttpException('Provider not found', HttpStatus.NOT_FOUND)
+      }
+
+      // Try to unlink in Cognito
+      if (provider === AuthProvider.GOOGLE && user.googleId) {
+        try {
+          await this.client.send(
+            new AdminDisableProviderForUserCommand({
+              UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+              User: {
+                ProviderName: 'Google',
+                ProviderAttributeName: 'Cognito_Subject',
+                ProviderAttributeValue: user.googleId,
+              },
+            })
+          )
+        } catch (cognitoError) {
+          console.log('Could not unlink in Cognito:', cognitoError.message)
+        }
+      }
+
+      // Update MongoDB
+      user.linkedProviders.splice(providerIndex, 1)
+      if (provider === AuthProvider.GOOGLE) {
+        user.googleId = undefined
+      }
+      await user.save()
+
+      return true
+    } catch (error) {
+      if (error instanceof HttpException) throw error
+      throw new HttpException(
+        'Failed to unlink provider',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      )
+    }
+  }
+
+  /**
+   * Get all linked providers for a user
+   */
+  async getLinkedProviders(userId: string): Promise<LinkedProviderInfo[]> {
+    const user = await this.userModel.findById(userId)
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND)
+    }
+    return this.mapLinkedProviders(user)
+  }
+
+  /**
+   * Helper to map user's linked providers to response format
+   */
+  private mapLinkedProviders(user: UserDocument): LinkedProviderInfo[] {
+    const providers: LinkedProviderInfo[] = []
+
+    // Add primary provider (email/cognito)
+    if (user.email) {
+      providers.push({
+        provider: AuthProvider.COGNITO,
+        email: user.email,
+        linkedAt: new Date(user.createdAt * 1000),
+        isPrimary: user.primaryProvider === AuthProvider.COGNITO,
+      })
+    }
+
+    // Add linked providers
+    if (user.linkedProviders) {
+      for (const lp of user.linkedProviders) {
+        providers.push({
+          provider: lp.provider,
+          email: lp.email || user.email || '',
+          linkedAt: lp.linkedAt,
+          isPrimary: user.primaryProvider === lp.provider,
+        })
+      }
+    }
+
+    return providers
   }
 }
