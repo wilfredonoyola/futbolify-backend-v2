@@ -216,20 +216,47 @@ export class AuthService {
 
     return createdUser
   }
-  async validateGoogleToken(idToken: string): Promise<any> {
+  async validateGoogleToken(token: string): Promise<any> {
     try {
-      const ticket = await this.googleClient.verifyIdToken({
-        idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      })
+      let email: string | undefined
+      let name: string = ''
+      let userName: string = 'UsuarioGoogle'
+      let googleAvatarUrl: string = ''
+      let googleId: string | undefined
 
-      const payload = ticket.getPayload()
-
-      const email = payload?.email
-      const name = payload?.name || ''
-      let userName = payload?.name || 'UsuarioGoogle'
-      const googleAvatarUrl = payload?.picture || ''
-      const googleId = payload?.sub
+      // First, try to verify as id_token
+      try {
+        const ticket = await this.googleClient.verifyIdToken({
+          idToken: token,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        })
+        const payload = ticket.getPayload()
+        email = payload?.email
+        name = payload?.name || ''
+        userName = payload?.name || 'UsuarioGoogle'
+        googleAvatarUrl = payload?.picture || ''
+        googleId = payload?.sub
+      } catch (idTokenError) {
+        // If id_token verification fails, try as access_token
+        console.log('ID token verification failed, trying as access_token...')
+        try {
+          const response = await axios.get(
+            `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${token}`
+          )
+          const userInfo = response.data
+          email = userInfo.email
+          name = userInfo.name || ''
+          userName = userInfo.name || 'UsuarioGoogle'
+          googleAvatarUrl = userInfo.picture || ''
+          googleId = userInfo.sub
+        } catch (accessTokenError) {
+          console.error('Access token verification also failed:', accessTokenError)
+          throw new HttpException(
+            'Invalid Google token',
+            HttpStatus.UNAUTHORIZED
+          )
+        }
+      }
 
       if (!email || !googleId) {
         throw new HttpException(
