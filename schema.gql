@@ -1773,6 +1773,66 @@ type FhgHealthAlert {
   recommendation: String!
 }
 
+type FeedCardTeam {
+  id: ID!
+  name: String!
+  code: String!
+  flag: String!
+}
+
+type FeedCardMatch {
+  id: ID!
+  homeTeam: FeedCardTeam!
+  awayTeam: FeedCardTeam!
+  dateTimeUTC: String!
+  stage: String
+  group: String
+}
+
+type FeedCardWeeklyStats {
+  correct: Int!
+  total: Int!
+  rank: Int
+  rankChange: Int
+  percentage: Int!
+}
+
+type FeedContextualCard {
+  id: ID!
+  type: FeedCardType!
+  priority: Int!
+  position: Int!
+  match: FeedCardMatch
+  userPrediction: PredictionOutcome
+  actualResult: PredictionOutcome
+  pointsEarned: Int
+  isCorrect: Boolean
+  minutesUntil: Int
+  weeklyStats: FeedCardWeeklyStats
+  streakCount: Int
+}
+
+"""Type of contextual card in the feed"""
+enum FeedCardType {
+  PREDICTION
+  RESULT
+  REMINDER
+  WEEKLY
+  STREAK
+}
+
+"""Prediction outcome (home win, draw, away win)"""
+enum PredictionOutcome {
+  HOME
+  DRAW
+  AWAY
+}
+
+type FeedContextualCardsResponse {
+  cards: [FeedContextualCard!]!
+  totalCards: Int!
+}
+
 type Query {
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
@@ -1913,6 +1973,8 @@ type Query {
 
   """Get FHG logs with filters"""
   fhgLogs(filter: FhgLogFilterInput): [FhgLogEntryDto!]!
+  feedContextualCards(limit: Int = 5, cardInterval: Int = 5, locale: String = "es"): FeedContextualCardsResponse!
+  feedContextualCard(cardId: String!, locale: String = "es"): FeedContextualCard
 }
 
 input LateMatchOptionsDto {
