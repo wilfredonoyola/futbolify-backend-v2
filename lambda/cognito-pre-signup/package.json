@@ -1,0 +1,19 @@
+{
+  "name": "cognito-pre-signup-trigger",
+  "version": "1.0.0",
+  "description": "Lambda function for Cognito Pre-Signup trigger to link federated identities",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "package": "npm run build && cd dist && zip -r ../function.zip .",
+    "deploy": "aws lambda update-function-code --function-name cognito-pre-signup --zip-file fileb://function.zip"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.500.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.130",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}
