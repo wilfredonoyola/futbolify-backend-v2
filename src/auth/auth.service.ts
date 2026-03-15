@@ -11,11 +11,13 @@ import {
   ConfirmForgotPasswordCommand,
   ResendConfirmationCodeCommand,
   AdminDeleteUserCommand,
+  AdminLinkProviderForUserCommand,
+  ListUsersCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { User, UserDocument, UserRole, AuthProvider, LinkedProvider } from 'src/users/schemas/user.schema'
-import { ConfirmSignupInputDto, LinkedProviderInfo, LinkAccountResponse } from './dto'
+import { ConfirmSignupInputDto, LinkedProviderInfo, LinkAccountResponse, AddPasswordToAccountInput, CheckEmailResponse } from './dto'
 import { CurrentUserPayload } from './current-user-payload.interface'
 import axios from 'axios'
 import { OAuth2Client } from 'google-auth-library'
@@ -228,43 +230,86 @@ export class AuthService {
       let googleAvatarUrl: string = ''
       let googleId: string | undefined
 
-      // First, try to verify as id_token
-      try {
-        const ticket = await this.googleClient.verifyIdToken({
-          idToken: token,
-          audience: process.env.GOOGLE_CLIENT_ID,
-        })
-        const payload = ticket.getPayload()
-        email = payload?.email
-        name = payload?.name || ''
-        userName = payload?.name || 'UsuarioGoogle'
-        googleAvatarUrl = payload?.picture || ''
-        googleId = payload?.sub
-      } catch (idTokenError) {
-        // If id_token verification fails, try as access_token
-        console.log('ID token verification failed, trying as access_token...')
+      // Decode the token to check if it's a Cognito token
+      const decoded = jwt.decode(token) as any
+
+      if (!decoded) {
+        throw new HttpException(
+          'Invalid token format',
+          HttpStatus.UNAUTHORIZED
+        )
+      }
+
+      // Check if it's a Cognito token by looking at the issuer
+      const isCognitoToken = decoded.iss?.includes('cognito-idp')
+
+      if (isCognitoToken) {
+        // Handle Cognito token (from Amplify OAuth flow)
+
+        email = decoded.email
+        name = decoded.name || ''
+        userName = decoded.name || 'UsuarioGoogle'
+
+        // Get Google ID from identities array (for federated users)
+        if (decoded.identities && decoded.identities.length > 0) {
+          const googleIdentity = decoded.identities.find(
+            (id: any) => id.providerName === 'Google' || id.providerType === 'Google'
+          )
+          if (googleIdentity) {
+            googleId = googleIdentity.userId
+          }
+        }
+
+        // Fallback: use Cognito sub if no Google identity found
+        if (!googleId) {
+          googleId = decoded.sub
+        }
+
+        // Note: Cognito doesn't include Google avatar in the token
+        // We could fetch it separately if needed, but for now we skip it
+        googleAvatarUrl = ''
+
+        console.log('[Auth] Cognito token decoded:', { email, name, googleId })
+      } else {
+        // Handle direct Google token (legacy flow)
+        console.log('[Auth] Processing direct Google token')
         try {
-          const response = await axios.get(
-            `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${token}`
-          )
-          const userInfo = response.data
-          email = userInfo.email
-          name = userInfo.name || ''
-          userName = userInfo.name || 'UsuarioGoogle'
-          googleAvatarUrl = userInfo.picture || ''
-          googleId = userInfo.sub
-        } catch (accessTokenError) {
-          console.error('Access token verification also failed:', accessTokenError)
-          throw new HttpException(
-            'Invalid Google token',
-            HttpStatus.UNAUTHORIZED
-          )
+          const ticket = await this.googleClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+          })
+          const payload = ticket.getPayload()
+          email = payload?.email
+          name = payload?.name || ''
+          userName = payload?.name || 'UsuarioGoogle'
+          googleAvatarUrl = payload?.picture || ''
+          googleId = payload?.sub
+        } catch (idTokenError) {
+          // If id_token verification fails, try as access_token
+          console.log('ID token verification failed, trying as access_token...')
+          try {
+            const response = await axios.get(
+              `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${token}`
+            )
+            const userInfo = response.data
+            email = userInfo.email
+            name = userInfo.name || ''
+            userName = userInfo.name || 'UsuarioGoogle'
+            googleAvatarUrl = userInfo.picture || ''
+            googleId = userInfo.sub
+          } catch (accessTokenError) {
+            console.error('Access token verification also failed:', accessTokenError)
+            throw new HttpException(
+              'Invalid Google token',
+              HttpStatus.UNAUTHORIZED
+            )
+          }
         }
       }
 
       if (!email || !googleId) {
         throw new HttpException(
-          'Google token does not contain valid email or ID',
+          'Token does not contain valid email or ID',
           HttpStatus.UNAUTHORIZED
         )
       }
@@ -286,6 +331,21 @@ export class AuthService {
 
         if (!hasGoogleLinked) {
           // AUTO-LINK: User registered with email/password, now logging in with Google
+          console.log(`[Auth] Linking Google account to existing user: ${user.email}`)
+
+          // 1. Link Google in Cognito (if user has Cognito account)
+          const hasCognitoAccount = !user.authProvider || user.authProvider === AuthProvider.COGNITO
+          if (hasCognitoAccount) {
+            try {
+              await this.linkGoogleInCognito(user.email, googleId)
+              console.log(`[Auth] Successfully linked Google in Cognito for: ${user.email}`)
+            } catch (cognitoError) {
+              // Log but don't fail - Cognito linking is optional
+              console.error(`[Auth] Failed to link Google in Cognito:`, cognitoError.message)
+            }
+          }
+
+          // 2. Link Google in MongoDB
           const linkedProvider: LinkedProvider = {
             provider: AuthProvider.GOOGLE,
             providerId: googleId,
@@ -402,6 +462,97 @@ export class AuthService {
     return jwt.sign(payload, process.env.JWT_SECRET || 'futbolify-secret-key', {
       expiresIn: '7d',
     })
+  }
+
+  /**
+   * Link Google identity to existing Cognito user
+   * This allows users to sign in with Google through Cognito OAuth
+   *
+   * IMPORTANT: Requires Google to be configured as an Identity Provider in Cognito
+   */
+  private async linkGoogleInCognito(email: string, googleId: string): Promise<void> {
+    try {
+      // Find ALL Cognito users with this email
+      const listUsersCommand = new ListUsersCommand({
+        UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+        Filter: `email = "${email}"`,
+        Limit: 10,
+      })
+
+      const listUsersResponse = await this.client.send(listUsersCommand)
+      const users = listUsersResponse.Users || []
+
+      console.log(`[Auth] Found ${users.length} Cognito users with email: ${email}`)
+
+      // Separate native user from federated users
+      const federatedPrefixes = ['google_', 'Google_', 'facebook_', 'Facebook_', 'signinwithapple_', 'SignInWithApple_']
+
+      const nativeUser = users.find(user => {
+        const username = user.Username || ''
+        return !federatedPrefixes.some(prefix => username.toLowerCase().startsWith(prefix.toLowerCase()))
+      })
+
+      const federatedUsers = users.filter(user => {
+        const username = user.Username || ''
+        return federatedPrefixes.some(prefix => username.toLowerCase().startsWith(prefix.toLowerCase()))
+      })
+
+      if (!nativeUser || !nativeUser.Username) {
+        console.log(`[Auth] No native Cognito user found for email: ${email}`)
+        return
+      }
+
+      console.log(`[Auth] Native user found: ${nativeUser.Username}`)
+      console.log(`[Auth] Federated users found: ${federatedUsers.map(u => u.Username).join(', ')}`)
+
+      // IMPORTANT: First DELETE the federated users, then link
+      // Cognito cannot link a SourceUser that already exists ("Merging not supported")
+      // So we delete google_xxx first, then link Google to the native user
+
+      // Step 1: Delete the federated duplicate users (google_xxx)
+      for (const federatedUser of federatedUsers) {
+        try {
+          const deleteCommand = new AdminDeleteUserCommand({
+            UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+            Username: federatedUser.Username,
+          })
+          await this.client.send(deleteCommand)
+          console.log(`[Auth] Deleted federated duplicate user: ${federatedUser.Username}`)
+        } catch (deleteError: any) {
+          console.error(`[Auth] Failed to delete federated user ${federatedUser.Username}:`, deleteError.message)
+        }
+      }
+
+      // Step 2: Link Google to the native Cognito user
+      try {
+        const linkCommand = new AdminLinkProviderForUserCommand({
+          UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+          DestinationUser: {
+            ProviderName: 'Cognito',
+            ProviderAttributeValue: nativeUser.Username,
+          },
+          SourceUser: {
+            ProviderName: 'Google',
+            ProviderAttributeName: 'Cognito_Subject',
+            ProviderAttributeValue: googleId,
+          },
+        })
+
+        await this.client.send(linkCommand)
+        console.log(`[Auth] Linked Google (${googleId}) to native user: ${nativeUser.Username}`)
+      } catch (linkError: any) {
+        // If already linked, that's fine
+        if (linkError.message?.includes('already exists')) {
+          console.log(`[Auth] Google already linked to native user: ${nativeUser.Username}`)
+        } else {
+          console.error(`[Auth] Failed to link Google:`, linkError.message)
+          // Don't throw - we still want to continue with MongoDB linking
+        }
+      }
+    } catch (error) {
+      console.error(`[Auth] linkGoogleInCognito error:`, error.message || error)
+      throw error
+    }
   }
 
   /**
@@ -621,5 +772,209 @@ export class AuthService {
     }
 
     return providers
+  }
+
+  /**
+   * Check if an email exists and what providers are associated with it
+   * Used to detect if user should add password vs create new account
+   */
+  async checkEmailExists(email: string): Promise<CheckEmailResponse> {
+    const normalizedEmail = email.toLowerCase()
+
+    const user = await this.userModel.findOne({
+      email: { $regex: new RegExp(`^${normalizedEmail}$`, 'i') }
+    })
+
+    if (!user) {
+      return {
+        exists: false,
+        hasPassword: false,
+        hasGoogle: false,
+        primaryProvider: null,
+      }
+    }
+
+    // Check if user has Cognito (password) account
+    const hasCognitoProvider = user.linkedProviders?.some(
+      lp => lp.provider === AuthProvider.COGNITO
+    )
+    const hasPassword = user.primaryProvider === AuthProvider.COGNITO ||
+      user.authProvider === AuthProvider.COGNITO ||
+      (!user.authProvider && !user.primaryProvider) ||
+      hasCognitoProvider
+
+    // Check if user has Google account
+    const hasGoogle = !!user.googleId ||
+      user.authProvider === AuthProvider.GOOGLE ||
+      user.linkedProviders?.some(lp => lp.provider === AuthProvider.GOOGLE)
+
+    return {
+      exists: true,
+      hasPassword,
+      hasGoogle,
+      primaryProvider: user.primaryProvider || user.authProvider || AuthProvider.COGNITO,
+    }
+  }
+
+  /**
+   * Add a password (Cognito account) to a Google-only user
+   * This allows users who registered with Google to also login with email/password
+   */
+  async addPasswordToGoogleAccount(input: AddPasswordToAccountInput): Promise<LinkAccountResponse> {
+    try {
+      const { email, password, googleIdToken } = input
+      const normalizedEmail = email.toLowerCase()
+
+      // 1. Verify the Google token to ensure user owns this account
+      let verifiedGoogleId: string
+      let verifiedEmail: string
+
+      const decoded = require('jsonwebtoken').decode(googleIdToken) as any
+      const isCognitoToken = decoded?.iss?.includes('cognito-idp')
+
+      if (isCognitoToken) {
+        verifiedEmail = decoded.email?.toLowerCase()
+        // Get Google ID from identities array
+        if (decoded.identities && decoded.identities.length > 0) {
+          const googleIdentity = decoded.identities.find(
+            (id: any) => id.providerName === 'Google' || id.providerType === 'Google'
+          )
+          verifiedGoogleId = googleIdentity?.userId || decoded.sub
+        } else {
+          verifiedGoogleId = decoded.sub
+        }
+      } else {
+        // Direct Google token
+        const ticket = await this.googleClient.verifyIdToken({
+          idToken: googleIdToken,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        })
+        const payload = ticket.getPayload()
+        verifiedEmail = payload?.email?.toLowerCase()
+        verifiedGoogleId = payload?.sub
+      }
+
+      if (!verifiedEmail || !verifiedGoogleId) {
+        throw new HttpException('Invalid Google token', HttpStatus.UNAUTHORIZED)
+      }
+
+      // 2. Verify the email matches
+      if (verifiedEmail !== normalizedEmail) {
+        throw new HttpException(
+          'Email does not match Google account',
+          HttpStatus.BAD_REQUEST
+        )
+      }
+
+      // 3. Find the user
+      const user = await this.userModel.findOne({
+        email: { $regex: new RegExp(`^${normalizedEmail}$`, 'i') }
+      })
+
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND)
+      }
+
+      // 4. Verify user has Google account
+      const hasGoogle = !!user.googleId || user.authProvider === AuthProvider.GOOGLE
+      if (!hasGoogle) {
+        throw new HttpException(
+          'User does not have a Google account linked',
+          HttpStatus.BAD_REQUEST
+        )
+      }
+
+      // 5. Check if user already has password
+      const hasCognitoProvider = user.linkedProviders?.some(
+        lp => lp.provider === AuthProvider.COGNITO
+      )
+      if (hasCognitoProvider || (user.primaryProvider === AuthProvider.COGNITO && user.authProvider !== AuthProvider.GOOGLE)) {
+        throw new HttpException(
+          'User already has a password set',
+          HttpStatus.CONFLICT
+        )
+      }
+
+      // 6. Create Cognito user with password
+      try {
+        // First try to create the user
+        const createCommand = new AdminCreateUserCommand({
+          UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+          Username: normalizedEmail,
+          UserAttributes: [
+            { Name: 'email', Value: normalizedEmail },
+            { Name: 'email_verified', Value: 'true' },
+          ],
+          MessageAction: 'SUPPRESS', // Don't send welcome email
+        })
+        await this.client.send(createCommand)
+
+        // Set permanent password
+        const setPasswordCommand = new AdminSetUserPasswordCommand({
+          UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+          Username: normalizedEmail,
+          Password: password,
+          Permanent: true,
+        })
+        await this.client.send(setPasswordCommand)
+
+        console.log(`[Auth] Created Cognito account for Google user: ${normalizedEmail}`)
+      } catch (cognitoError: any) {
+        // If user already exists in Cognito (maybe from previous attempt), just set password
+        if (cognitoError.name === 'UsernameExistsException') {
+          console.log(`[Auth] Cognito user exists, setting password for: ${normalizedEmail}`)
+          const setPasswordCommand = new AdminSetUserPasswordCommand({
+            UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+            Username: normalizedEmail,
+            Password: password,
+            Permanent: true,
+          })
+          await this.client.send(setPasswordCommand)
+        } else {
+          console.error('[Auth] Failed to create Cognito user:', cognitoError.message)
+          throw new HttpException(
+            'Failed to create password account',
+            HttpStatus.INTERNAL_SERVER_ERROR
+          )
+        }
+      }
+
+      // 7. Link Google to the Cognito user (so both work)
+      try {
+        await this.linkGoogleInCognito(normalizedEmail, verifiedGoogleId)
+      } catch (linkError) {
+        console.error('[Auth] Failed to link Google in Cognito:', linkError.message)
+        // Continue anyway - the user can still login with password
+      }
+
+      // 8. Update MongoDB - add Cognito as linked provider
+      const cognitoLinkedProvider: LinkedProvider = {
+        provider: AuthProvider.COGNITO,
+        providerId: normalizedEmail, // Cognito uses email as identifier
+        email: normalizedEmail,
+        linkedAt: new Date(),
+      }
+
+      user.linkedProviders = [...(user.linkedProviders || []), cognitoLinkedProvider]
+
+      // Keep Google as primary if they registered with it first
+      // But now they can also use password
+      await user.save()
+
+      console.log(`[Auth] Added password to Google account: ${normalizedEmail}`)
+
+      return {
+        success: true,
+        message: 'Password added successfully. You can now login with email/password or Google.',
+        linkedProviders: this.mapLinkedProviders(user),
+      }
+    } catch (error) {
+      console.error('[Auth] addPasswordToGoogleAccount error:', error.message || error)
+      if (error instanceof HttpException) throw error
+      throw new HttpException(
+        'Failed to add password to account',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      )
+    }
   }
 }

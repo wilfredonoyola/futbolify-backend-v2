@@ -2,6 +2,8 @@
 
 import { Resolver, Query, Mutation, Args, Context, InputType, Field } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
+import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { GqlOptionalAuthGuard } from '../auth/gql-optional-auth.guard';
 import { QuinielaService } from './quiniela.service';
 import { QuinielaAIService } from './quiniela-ai.service';
 import { Quiniela, QuinielaMember } from './schemas/quiniela.schema';
@@ -65,6 +67,7 @@ export class QuinielaResolver {
   // ============ AUTHENTICATED QUERIES ============
 
   @Query(() => [Quiniela], { name: 'myQuinielas' })
+  @UseGuards(GqlAuthGuard)
   async getMyQuinielas(
     @Context() context: { req?: { user?: { userId?: string } } },
   ): Promise<Quiniela[]> {
@@ -76,6 +79,7 @@ export class QuinielaResolver {
   }
 
   @Query(() => Quiniela, { name: 'quiniela', nullable: true })
+  @UseGuards(GqlAuthGuard)
   async getQuiniela(
     @Args('id') id: string,
     @Context() context: { req?: { user?: { userId?: string } } },
@@ -88,6 +92,7 @@ export class QuinielaResolver {
   }
 
   @Query(() => [LeaderboardEntry], { name: 'quinielaLeaderboard' })
+  @UseGuards(GqlAuthGuard)
   async getLeaderboard(
     @Args('quinielaId') quinielaId: string,
     @Context() context: { req?: { user?: { userId?: string } } },
@@ -100,6 +105,7 @@ export class QuinielaResolver {
   }
 
   @Query(() => QuinielaMember, { name: 'myQuinielaPredictions', nullable: true })
+  @UseGuards(GqlAuthGuard)
   async getMyPredictions(
     @Args('quinielaId') quinielaId: string,
     @Context() context: { req?: { user?: { userId?: string } } },
@@ -114,6 +120,7 @@ export class QuinielaResolver {
   // ============ MUTATIONS ============
 
   @Mutation(() => QuinielaInvite, { name: 'createQuiniela' })
+  @UseGuards(GqlOptionalAuthGuard)
   async createQuiniela(
     @Args('input') input: CreateQuinielaInput,
     @Context() context: { req?: { user?: { userId?: string; username?: string } } },
@@ -153,6 +160,7 @@ export class QuinielaResolver {
   }
 
   @Mutation(() => QuinielaMember, { name: 'joinQuiniela' })
+  @UseGuards(GqlAuthGuard)
   async joinQuiniela(
     @Args('code') code: string,
     @Context() context: { req?: { user?: { userId?: string; name?: string; avatarUrl?: string } } },
@@ -169,6 +177,7 @@ export class QuinielaResolver {
   }
 
   @Mutation(() => Boolean, { name: 'leaveQuiniela' })
+  @UseGuards(GqlAuthGuard)
   async leaveQuiniela(
     @Args('quinielaId') quinielaId: string,
     @Context() context: { req?: { user?: { userId?: string } } },
@@ -181,6 +190,7 @@ export class QuinielaResolver {
   }
 
   @Mutation(() => QuinielaMember, { name: 'savePrediction' })
+  @UseGuards(GqlAuthGuard)
   async savePrediction(
     @Args('quinielaId') quinielaId: string,
     @Args('input') input: SavePredictionInput,
@@ -194,6 +204,7 @@ export class QuinielaResolver {
   }
 
   @Mutation(() => QuinielaMember, { name: 'savePredictions' })
+  @UseGuards(GqlAuthGuard)
   async savePredictions(
     @Args('quinielaId') quinielaId: string,
     @Args('input') input: SavePredictionsInput,
@@ -207,6 +218,7 @@ export class QuinielaResolver {
   }
 
   @Mutation(() => QuinielaMember, { name: 'saveChampionPick' })
+  @UseGuards(GqlAuthGuard)
   async saveChampionPick(
     @Args('quinielaId') quinielaId: string,
     @Args('teamId') teamId: string,
@@ -220,6 +232,7 @@ export class QuinielaResolver {
   }
 
   @Mutation(() => Quiniela, { name: 'updateQuiniela' })
+  @UseGuards(GqlAuthGuard)
   async updateQuiniela(
     @Args('quinielaId') quinielaId: string,
     @Args('input') input: UpdateQuinielaInput,
@@ -233,6 +246,7 @@ export class QuinielaResolver {
   }
 
   @Mutation(() => Boolean, { name: 'deleteQuiniela' })
+  @UseGuards(GqlAuthGuard)
   async deleteQuiniela(
     @Args('quinielaId') quinielaId: string,
     @Context() context: { req?: { user?: { userId?: string } } },
@@ -247,6 +261,7 @@ export class QuinielaResolver {
   // ============ ADMIN OPERATIONS ============
 
   @Mutation(() => Boolean, { name: 'removeMember' })
+  @UseGuards(GqlAuthGuard)
   async removeMember(
     @Args('quinielaId') quinielaId: string,
     @Args('memberId') memberId: string,
@@ -260,6 +275,7 @@ export class QuinielaResolver {
   }
 
   @Query(() => QuinielaMember, { name: 'memberPredictions', nullable: true })
+  @UseGuards(GqlAuthGuard)
   async getMemberPredictionsById(
     @Args('quinielaId') quinielaId: string,
     @Args('memberId') memberId: string,
@@ -273,6 +289,7 @@ export class QuinielaResolver {
   }
 
   @Query(() => Boolean, { name: 'isQuinielaOwner' })
+  @UseGuards(GqlAuthGuard)
   async isQuinielaOwner(
     @Args('quinielaId') quinielaId: string,
     @Context() context: { req?: { user?: { userId?: string } } },
@@ -348,6 +365,7 @@ export class QuinielaResolver {
   }
 
   @Query(() => AIScoreData, { name: 'myAIScore' })
+  @UseGuards(GqlAuthGuard)
   async getMyAIScore(
     @Args('quinielaId') quinielaId: string,
     @Context() context: { req?: { user?: { userId?: string } } },

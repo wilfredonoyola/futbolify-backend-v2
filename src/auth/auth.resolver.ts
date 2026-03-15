@@ -17,6 +17,8 @@ import {
   AddUserInputDto,
   LinkedProviderInfo,
   LinkAccountResponse,
+  AddPasswordToAccountInput,
+  CheckEmailResponse,
 } from './dto'
 import { UserOutputDto } from 'src/users/dto'
 import { CurrentUser } from './current-user.decorator'
@@ -210,5 +212,31 @@ export class AuthResolver {
     @CurrentUser() user: CurrentUserPayload
   ): Promise<LinkedProviderInfo[]> {
     return await this.authService.getLinkedProviders(user.userId)
+  }
+
+  // ============ PASSWORD ADDITION FOR GOOGLE USERS ============
+
+  /**
+   * Check if an email exists and what providers are associated
+   * This helps the frontend decide whether to show signup, signin, or "add password" flow
+   * No authentication required - used during signup/signin flow
+   */
+  @Query(() => CheckEmailResponse)
+  async checkEmailExists(
+    @Args('email') email: string
+  ): Promise<CheckEmailResponse> {
+    return await this.authService.checkEmailExists(email)
+  }
+
+  /**
+   * Add a password to a Google-only account
+   * This allows users who registered with Google to also login with email/password
+   * Requires a valid Google token to verify ownership
+   */
+  @Mutation(() => LinkAccountResponse)
+  async addPasswordToAccount(
+    @Args('input') input: AddPasswordToAccountInput
+  ): Promise<LinkAccountResponse> {
+    return await this.authService.addPasswordToGoogleAccount(input)
   }
 }

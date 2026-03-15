@@ -54,6 +54,13 @@ type SigninOutputDto {
   roles: [UserRole!]!
 }
 
+type CheckEmailResponse {
+  exists: Boolean!
+  hasPassword: Boolean
+  hasGoogle: Boolean
+  primaryProvider: String
+}
+
 type LinkedProviderInfo {
   provider: String!
   email: String!
@@ -1860,6 +1867,7 @@ type FeedContextualCardsResponse {
 
 type Query {
   getLinkedProviders: [LinkedProviderInfo!]!
+  checkEmailExists(email: String!): CheckEmailResponse!
   user(email: String!): UserOutputDto
   users: [UserOutputDto!]!
   me: UserOutputDto
@@ -2082,6 +2090,7 @@ type Mutation {
   completeProfile(updateProfileInput: UpdateProfileInputDto!): Boolean!
   linkGoogleAccount(idToken: String!): LinkAccountResponse!
   unlinkProvider(provider: String!): Boolean!
+  addPasswordToAccount(input: AddPasswordToAccountInput!): LinkAccountResponse!
   updateUser(id: String!, updateUserInput: UpdateUserInput!): UserOutputDto!
   removeUser(id: String!): Boolean!
   createTeam(input: CreateTeamInput!): Team!
@@ -2272,6 +2281,12 @@ input UpdateProfileInputDto {
   phone: String
   password: String!
   idToken: String!
+}
+
+input AddPasswordToAccountInput {
+  email: String!
+  password: String!
+  googleIdToken: String!
 }
 
 input UpdateUserInput {

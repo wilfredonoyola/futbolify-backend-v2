@@ -7,6 +7,33 @@ export class LinkGoogleAccountInput {
   idToken: string
 }
 
+@InputType()
+export class AddPasswordToAccountInput {
+  @Field()
+  email: string
+
+  @Field()
+  password: string
+
+  @Field()
+  googleIdToken: string // To verify ownership of the Google account
+}
+
+@ObjectType()
+export class CheckEmailResponse {
+  @Field()
+  exists: boolean
+
+  @Field({ nullable: true })
+  hasPassword?: boolean
+
+  @Field({ nullable: true })
+  hasGoogle?: boolean
+
+  @Field({ nullable: true })
+  primaryProvider?: string
+}
+
 @ObjectType()
 export class LinkedProviderInfo {
   @Field()
