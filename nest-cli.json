@@ -5,6 +5,7 @@
     "assets": [
       {
         "include": "worldcup/data/*.json",
+        "outDir": "dist/src",
         "watchAssets": true
       }
     ]
