@@ -265,36 +265,17 @@ export class AuthService {
           googleId = decoded.sub
         }
 
-        // Try to get avatar from: 1) provided by frontend, 2) Cognito token, 3) Google APIs
+        // Try to get avatar from: 1) provided by frontend, 2) Cognito token
         googleAvatarUrl = providedPicture || decoded.picture || ''
 
-        // If no picture yet and we have Google ID, try to fetch from Google
-        if (!googleAvatarUrl && googleId) {
-          try {
-            // Google's public profile picture URL (works for most accounts)
-            const googleProfileUrl = `https://lh3.googleusercontent.com/a/${googleId}`
-            // Verify the URL is accessible
-            const checkResponse = await axios.head(googleProfileUrl, { timeout: 3000 })
-            if (checkResponse.status === 200) {
-              googleAvatarUrl = googleProfileUrl
-            }
-          } catch {
-            // If that doesn't work, try the People API public endpoint
-            try {
-              const peopleResponse = await axios.get(
-                `https://people.googleapis.com/v1/people/${googleId}?personFields=photos`,
-                { timeout: 3000, headers: { 'Accept': 'application/json' } }
-              )
-              if (peopleResponse.data?.photos?.[0]?.url) {
-                googleAvatarUrl = peopleResponse.data.photos[0].url
-              }
-            } catch {
-              console.log('[Auth] Could not fetch Google avatar from public APIs')
-            }
-          }
-        }
-
-        console.log('[Auth] Cognito token decoded:', { email, name, googleId, hasAvatar: !!googleAvatarUrl })
+        console.log('[Auth] Cognito token decoded:', {
+          email,
+          name,
+          googleId,
+          providedPicture: providedPicture || 'none',
+          decodedPicture: decoded.picture || 'none',
+          hasAvatar: !!googleAvatarUrl
+        })
       } else {
         // Handle direct Google token (legacy flow)
         console.log('[Auth] Processing direct Google token')
