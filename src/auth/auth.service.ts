@@ -267,15 +267,6 @@ export class AuthService {
 
         // Try to get avatar from: 1) provided by frontend, 2) Cognito token
         googleAvatarUrl = providedPicture || decoded.picture || ''
-
-        console.log('[Auth] Cognito token decoded:', {
-          email,
-          name,
-          googleId,
-          providedPicture: providedPicture || 'none',
-          decodedPicture: decoded.picture || 'none',
-          hasAvatar: !!googleAvatarUrl
-        })
       } else {
         // Handle direct Google token (legacy flow)
         console.log('[Auth] Processing direct Google token')
