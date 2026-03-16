@@ -222,7 +222,7 @@ export class AuthService {
 
     return createdUser
   }
-  async validateGoogleToken(token: string): Promise<any> {
+  async validateGoogleToken(token: string, providedPicture?: string): Promise<any> {
     try {
       let email: string | undefined
       let name: string = ''
@@ -265,11 +265,36 @@ export class AuthService {
           googleId = decoded.sub
         }
 
-        // Note: Cognito doesn't include Google avatar in the token
-        // We could fetch it separately if needed, but for now we skip it
-        googleAvatarUrl = ''
+        // Try to get avatar from: 1) provided by frontend, 2) Cognito token, 3) Google APIs
+        googleAvatarUrl = providedPicture || decoded.picture || ''
 
-        console.log('[Auth] Cognito token decoded:', { email, name, googleId })
+        // If no picture yet and we have Google ID, try to fetch from Google
+        if (!googleAvatarUrl && googleId) {
+          try {
+            // Google's public profile picture URL (works for most accounts)
+            const googleProfileUrl = `https://lh3.googleusercontent.com/a/${googleId}`
+            // Verify the URL is accessible
+            const checkResponse = await axios.head(googleProfileUrl, { timeout: 3000 })
+            if (checkResponse.status === 200) {
+              googleAvatarUrl = googleProfileUrl
+            }
+          } catch {
+            // If that doesn't work, try the People API public endpoint
+            try {
+              const peopleResponse = await axios.get(
+                `https://people.googleapis.com/v1/people/${googleId}?personFields=photos`,
+                { timeout: 3000, headers: { 'Accept': 'application/json' } }
+              )
+              if (peopleResponse.data?.photos?.[0]?.url) {
+                googleAvatarUrl = peopleResponse.data.photos[0].url
+              }
+            } catch {
+              console.log('[Auth] Could not fetch Google avatar from public APIs')
+            }
+          }
+        }
+
+        console.log('[Auth] Cognito token decoded:', { email, name, googleId, hasAvatar: !!googleAvatarUrl })
       } else {
         // Handle direct Google token (legacy flow)
         console.log('[Auth] Processing direct Google token')

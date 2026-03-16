@@ -123,10 +123,11 @@ export class AuthResolver {
   }
   @Mutation(() => GoogleSigninResponse)
   async googleSignin(
-    @Args('idToken') idToken: string
+    @Args('idToken') idToken: string,
+    @Args('picture', { nullable: true }) picture?: string
   ): Promise<GoogleSigninResponse> {
     try {
-      const verifiedUser = await this.authService.validateGoogleToken(idToken)
+      const verifiedUser = await this.authService.validateGoogleToken(idToken, picture)
 
       // Generate JWT token for Google user
       const accessToken = this.authService.generateGoogleUserToken({

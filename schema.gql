@@ -2086,7 +2086,7 @@ type Mutation {
   confirmForgotPassword(userInput: ConfirmPasswordInputDto!): Boolean!
   resendVerificationCode(email: String!): Boolean!
   addUser(userInput: AddUserInputDto!): UserOutputDto!
-  googleSignin(idToken: String!): GoogleSigninResponse!
+  googleSignin(idToken: String!, picture: String): GoogleSigninResponse!
   completeProfile(updateProfileInput: UpdateProfileInputDto!): Boolean!
   linkGoogleAccount(idToken: String!): LinkAccountResponse!
   unlinkProvider(provider: String!): Boolean!
