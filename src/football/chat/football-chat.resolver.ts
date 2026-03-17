@@ -17,8 +17,11 @@ export class FootballChatResolver {
     @Args('input') input: FootballChatInputDto,
     @Context() context: any,
   ): Promise<FootballChatResponseDto> {
-    // Extract user ID from context if authenticated
-    const userId = context.req?.user?.id || null;
+    // Extract user ID from context (JWT) or from input (frontend session)
+    // Priority: JWT context > input.userId (frontend passes session.user.id)
+    const userId = context.req?.user?.id || input.userId || null;
+
+    console.log(`[CHAT] Resolver userId: context=${context.req?.user?.id}, input=${input.userId}, final=${userId}`);
 
     const chatInput: FootballChatInput = {
       messages: input.messages.map((m) => ({
