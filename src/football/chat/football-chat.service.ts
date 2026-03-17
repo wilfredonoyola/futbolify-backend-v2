@@ -205,6 +205,8 @@ export class FootballChatService {
       const currentMessageCount = this.checkAndResetMessageCount(session);
       const messageLimit = userId ? AUTHENTICATED_MESSAGE_LIMIT : ANONYMOUS_MESSAGE_LIMIT;
 
+      console.log(`[CHAT] userId: ${userId || 'anonymous'}, messageCount: ${currentMessageCount}, limit: ${messageLimit}`);
+
       if (currentMessageCount >= messageLimit) {
         const errorMessage = userId
           ? validLocale === 'es'

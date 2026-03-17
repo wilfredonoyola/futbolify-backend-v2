@@ -1,8 +1,10 @@
 // Constants for Football Chat
 
 // Message limits
+// Anonymous: Limited to encourage signup
+// Authenticated: Unlimited (high number)
 export const ANONYMOUS_MESSAGE_LIMIT = 5;
-export const AUTHENTICATED_MESSAGE_LIMIT = 50;
+export const AUTHENTICATED_MESSAGE_LIMIT = 999999; // Basically unlimited for logged-in users
 export const MESSAGE_LIMIT_RESET_HOURS = 24;
 
 // Cache TTL in milliseconds
