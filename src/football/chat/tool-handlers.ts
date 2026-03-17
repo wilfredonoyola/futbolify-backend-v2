@@ -152,14 +152,22 @@ async function handleGetTeamMatches(
     }
 
     if (matches.length === 0) {
+      // Check if it's a Liga MX or MLS team (Americas leagues need paid API)
+      const isAmericasLeague = leagueId === 'liga-mx' || leagueId === 'mls';
+      const americasMessage = locale === 'es'
+        ? `😅 ¡Ups! Parece que el admin de Futbolify aún no ha pagado la suscripción premium para ${leagueId === 'liga-mx' ? 'Liga MX' : 'MLS'}. Mientras tanto, ¿te ayudo con La Liga, Premier League o Champions? ¡Esas sí las tenemos! ⚽`
+        : `😅 Oops! Looks like the Futbolify admin hasn't paid for the ${leagueId === 'liga-mx' ? 'Liga MX' : 'MLS'} premium subscription yet. Meanwhile, can I help you with La Liga, Premier League or Champions? Those we have! ⚽`;
+
       return {
         success: true,
         data: {
-          message:
-            locale === 'es'
-              ? `No encontré partidos próximos para ${teamName}. Intenta buscar un equipo específico o pregunta por una liga.`
-              : `No upcoming matches found for ${teamName}. Try searching for a specific team or ask about a league.`,
+          message: isAmericasLeague
+            ? americasMessage
+            : locale === 'es'
+              ? `No encontré partidos próximos para ${teamName}. ¿Quieres que busque en otra liga?`
+              : `No upcoming matches found for ${teamName}. Want me to search in another league?`,
           matches: [],
+          needsUpgrade: isAmericasLeague,
         },
       };
     }
@@ -260,13 +268,32 @@ async function handleGetLeagueMatches(
 
     // Try Football-Data.org first for European leagues
     let matches = [];
+    const isAmericasLeague = leagueId === 'liga-mx' || leagueId === 'mls';
+
     if (adapters.footballData.supportsLeague(leagueId)) {
       console.log(`[TOOL] Using Football-Data.org for ${leagueId}`);
       matches = await adapters.footballData.getLeagueMatches(leagueId);
     } else {
-      // Fallback to API-Football
+      // Fallback to API-Football (might not work for current season on free plan)
       console.log(`[TOOL] Using API-Football for ${leagueId}`);
       matches = await adapters.apiFootball.getLeagueMatches(leagueId, date);
+    }
+
+    // Handle Americas leagues with no data (free plan limitation)
+    if (matches.length === 0 && isAmericasLeague) {
+      const leagueName = leagueId === 'liga-mx' ? 'Liga MX' : 'MLS';
+      return {
+        success: true,
+        data: {
+          league: leagueConfig.name[locale],
+          leagueId,
+          message: locale === 'es'
+            ? `🏟️ ¡${leagueName} viene pronto! El admin está juntando para la suscripción premium. Mientras tanto, tenemos datos fresquitos de La Liga, Premier League, Champions y más. ¿Te echo la mano con alguna de esas?`
+            : `🏟️ ${leagueName} coming soon! The admin is saving up for the premium subscription. Meanwhile, we have fresh data from La Liga, Premier League, Champions and more. Can I help with any of those?`,
+          matches: [],
+          needsUpgrade: true,
+        },
+      };
     }
 
     return {
@@ -337,12 +364,31 @@ async function handleGetStandings(
 
     // Try Football-Data.org first for European leagues
     let standings = [];
+    const isAmericasLeague = leagueId === 'liga-mx' || leagueId === 'mls';
+
     if (adapters.footballData.supportsLeague(leagueId)) {
       console.log(`[TOOL] Using Football-Data.org for standings: ${leagueId}`);
       standings = await adapters.footballData.getStandings(leagueId);
     } else {
       console.log(`[TOOL] Using API-Football for standings: ${leagueId}`);
       standings = await adapters.apiFootball.getStandings(leagueId);
+    }
+
+    // Handle Americas leagues with no data
+    if (standings.length === 0 && isAmericasLeague) {
+      const leagueName = leagueId === 'liga-mx' ? 'Liga MX' : 'MLS';
+      return {
+        success: true,
+        data: {
+          league: leagueConfig.name[locale],
+          leagueId,
+          message: locale === 'es'
+            ? `📊 La tabla de ${leagueName} está en modo "próximamente". ¡El admin promete que pronto! ¿Te muestro la tabla de La Liga o Premier mientras?`
+            : `📊 The ${leagueName} standings are in "coming soon" mode. The admin promises soon! Want me to show you La Liga or Premier standings instead?`,
+          standings: [],
+          needsUpgrade: true,
+        },
+      };
     }
 
     return {
