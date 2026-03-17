@@ -1,11 +1,12 @@
 // Constants for Football Chat
 
 // Message limits (balance user experience vs API costs - Claude + Football APIs)
-// Anonymous: Enough to try the feature, encourage signup
-// Authenticated: Generous daily limit, resets every 24h
+// Both reset every 24 hours
+// Anonymous: Enough to try the feature daily, encourage signup
+// Authenticated: Generous daily limit
 export const ANONYMOUS_MESSAGE_LIMIT = 10;
 export const AUTHENTICATED_MESSAGE_LIMIT = 30;
-export const MESSAGE_LIMIT_RESET_HOURS = 24;
+export const MESSAGE_LIMIT_RESET_HOURS = 24; // Applies to both anonymous and authenticated
 
 // Cache TTL in milliseconds
 export const CACHE_TTL = {
