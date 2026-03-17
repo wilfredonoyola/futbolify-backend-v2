@@ -98,6 +98,10 @@ async function handleGetTeamMatches(
 
         if (wcMatches.length > 0) {
           const now = new Date();
+          // Sort by date: soonest first
+          const sortedMatches = [...wcMatches].sort(
+            (a, b) => new Date(a.dateTimeUTC).getTime() - new Date(b.dateTimeUTC).getTime()
+          );
           return {
             success: true,
             data: {
@@ -106,7 +110,7 @@ async function handleGetTeamMatches(
               flag: team.flag,
               code: team.code,
               isWorldCup: true,
-              matches: wcMatches.slice(0, 10).map((m) => {
+              matches: sortedMatches.slice(0, 10).map((m) => {
                 const homeTeam = queriesService.getTeamById(m.homeTeamId);
                 const awayTeam = queriesService.getTeamById(m.awayTeamId);
                 const venue = queriesService.getVenueById(m.venueId);
@@ -173,8 +177,13 @@ async function handleGetTeamMatches(
     }
 
     const now = new Date();
-    const upcoming = matches.filter((m) => new Date(m.date) >= now);
-    const recent = matches.filter((m) => new Date(m.date) < now);
+    // Sort by date: soonest first for upcoming, most recent first for past
+    const upcoming = matches
+      .filter((m) => new Date(m.date) >= now)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const recent = matches
+      .filter((m) => new Date(m.date) < now)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return {
       success: true,
@@ -182,7 +191,7 @@ async function handleGetTeamMatches(
         team: teamName,
         upcoming: upcoming.slice(0, 5),
         recent: recent.slice(0, 3),
-        matches: upcoming.slice(0, 5),
+        matches: upcoming.slice(0, 5), // Already sorted soonest first
       },
     };
   } catch (error) {
@@ -223,10 +232,11 @@ async function handleGetLeagueMatches(
       if (date) {
         wcMatches = wcMatches.filter((m) => m.dateTimeUTC.startsWith(date));
       } else {
-        // Default: upcoming matches
+        // Default: upcoming matches, sorted by date (soonest first)
         const now = new Date();
         wcMatches = wcMatches
           .filter((m) => new Date(m.dateTimeUTC) >= now)
+          .sort((a, b) => new Date(a.dateTimeUTC).getTime() - new Date(b.dateTimeUTC).getTime())
           .slice(0, 15);
       }
 
@@ -296,12 +306,17 @@ async function handleGetLeagueMatches(
       };
     }
 
+    // Sort by date (soonest first) before returning
+    const sortedMatches = matches.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
     return {
       success: true,
       data: {
         league: leagueConfig.name[locale],
         leagueId,
-        matches: matches.slice(0, 10),
+        matches: sortedMatches.slice(0, 10),
         total: matches.length,
       },
     };
