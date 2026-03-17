@@ -2742,6 +2742,7 @@ input FootballChatInputDto {
   matchId: String
   favoriteTeams: [String!]
   sessionId: String
+  userId: String
   anonymousCreatorId: String
 }
 

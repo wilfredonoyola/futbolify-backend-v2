@@ -40,6 +40,9 @@ export class FootballChatInputDto {
   sessionId?: string;
 
   @Field({ nullable: true })
+  userId?: string;
+
+  @Field({ nullable: true })
   anonymousCreatorId?: string;
 }
 
