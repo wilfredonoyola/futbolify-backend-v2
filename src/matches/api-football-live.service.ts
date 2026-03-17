@@ -39,6 +39,19 @@ const REVERSE_LEAGUE_MAP: Record<number, string> = Object.entries(LEAGUE_MAP).re
   {} as Record<number, string>
 )
 
+/**
+ * Allowed leagues for live matches display
+ * Only matches from these leagues will be shown
+ */
+const ALLOWED_LEAGUE_IDS: number[] = [
+  2,    // Champions League
+  39,   // Premier League
+  140,  // La Liga
+  262,  // Liga MX
+  253,  // MLS
+  1,    // World Cup
+]
+
 export interface LiveMatchData {
   id: number
   homeTeam: string
@@ -120,9 +133,16 @@ export class ApiFootballLiveService {
       }
 
       const data = await response.json()
-      const fixtures = data.response || []
+      const allFixtures = data.response || []
 
-      this.logger.log(`✅ Fetched ${fixtures.length} live matches from API-Football`)
+      // Filter to only allowed leagues
+      const fixtures = allFixtures.filter(
+        (fixture: any) => ALLOWED_LEAGUE_IDS.includes(fixture.league?.id)
+      )
+
+      this.logger.log(
+        `✅ Fetched ${fixtures.length} live matches from allowed leagues (${allFixtures.length} total)`
+      )
 
       const matches: LiveMatchData[] = fixtures.map((fixture: any) =>
         this.transformFixture(fixture)
@@ -296,11 +316,13 @@ export class ApiFootballLiveService {
       const data = await response.json()
       const fixtures = data.response || []
 
-      // Filter to matches finished in the last 2 hours
+      // Filter to matches finished in the last 2 hours AND from allowed leagues
       const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000
       const recentMatches = fixtures.filter((f: any) => {
         const matchEnd = new Date(f.fixture.date).getTime() + 2 * 60 * 60 * 1000
-        return matchEnd > twoHoursAgo
+        const isRecent = matchEnd > twoHoursAgo
+        const isAllowedLeague = ALLOWED_LEAGUE_IDS.includes(f.league?.id)
+        return isRecent && isAllowedLeague
       })
 
       const matches: LiveMatchData[] = recentMatches.map((fixture: any) =>
