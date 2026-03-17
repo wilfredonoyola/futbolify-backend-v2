@@ -9,6 +9,7 @@ const CACHE_TTL = {
   LIVE_MATCHES: 60, // 1 minute - partidos en vivo
   LIVE_MATCH_DETAILS: 30, // 30 seconds - detalles de partido
   FINISHED_MATCHES: 300, // 5 minutes - partidos terminados
+  STANDINGS: 3600, // 1 hour - standings change less frequently
 }
 
 /**
@@ -104,6 +105,38 @@ export interface MatchStatistics {
   shotsOnTarget?: { home: number; away: number }
   corners?: { home: number; away: number }
   fouls?: { home: number; away: number }
+}
+
+export interface TeamStanding {
+  rank: number
+  teamId: number | null
+  teamName: string
+  teamLogo: string | null
+  points: number
+  played: number
+  won: number
+  drawn: number
+  lost: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDiff: number
+  form: string | null
+  description: string | null // "Champions League", "Relegation", "Playoff", etc.
+}
+
+export interface StandingsGroup {
+  name: string // "Group A", "La Liga", etc.
+  teams: TeamStanding[]
+}
+
+export interface LeagueStandings {
+  leagueId: string
+  leagueName: string
+  leagueLogo: string | null
+  country: string
+  season: number
+  type: 'league' | 'groups' // Single table vs multiple groups
+  groups: StandingsGroup[]
 }
 
 @Injectable()
@@ -496,6 +529,130 @@ export class ApiFootballLiveService {
         away: findStat(awayStats, 'Fouls'),
       },
     }
+  }
+
+  /**
+   * Get standings for any league
+   * Works for both single-table leagues (La Liga) and group-based (World Cup, Champions)
+   */
+  async getStandings(leagueId: string, season?: number): Promise<LeagueStandings | null> {
+    const leagueInfo = LEAGUE_MAP[leagueId]
+    if (!leagueInfo) {
+      this.logger.warn(`Unknown league: ${leagueId}`)
+      return null
+    }
+
+    // Determine season - use current year or provided
+    const currentYear = new Date().getFullYear()
+    const targetSeason = season || currentYear
+
+    const cacheKey = `api-football:standings:${leagueId}:${targetSeason}`
+
+    // Check cache
+    const cached = await this.redisCache.get<LeagueStandings>(cacheKey)
+    if (cached) {
+      this.logger.debug(`♻️ Cache hit for standings ${leagueId}`)
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return null
+    }
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/standings?league=${leagueInfo.apiId}&season=${targetSeason}`,
+        {
+          headers: { 'x-apisports-key': this.apiKey },
+        }
+      )
+
+      if (!response.ok) {
+        this.logger.error(`Standings API error: ${response.status}`)
+        return null
+      }
+
+      const data = await response.json()
+      const leagueData = data.response?.[0]?.league
+
+      if (!leagueData) {
+        this.logger.warn(`No standings found for ${leagueId} season ${targetSeason}`)
+        return null
+      }
+
+      // Transform standings
+      const standings = leagueData.standings || []
+      const isGroupBased = Array.isArray(standings[0]) && standings.length > 1
+
+      const groups: StandingsGroup[] = isGroupBased
+        ? standings.map((group: any[]) => ({
+            name: group[0]?.group || 'Group',
+            teams: group
+              .filter((t: any) => !t.group?.includes('third-placed')) // Exclude third-placed ranking
+              .map((t: any) => this.transformStanding(t)),
+          }))
+        : [
+            {
+              name: leagueInfo.name,
+              teams: (standings[0] || []).map((t: any) => this.transformStanding(t)),
+            },
+          ]
+
+      const result: LeagueStandings = {
+        leagueId,
+        leagueName: leagueData.name,
+        leagueLogo: leagueData.logo,
+        country: leagueData.country,
+        season: targetSeason,
+        type: isGroupBased ? 'groups' : 'league',
+        groups,
+      }
+
+      // Cache for 1 hour
+      await this.redisCache.set(cacheKey, result, CACHE_TTL.STANDINGS)
+
+      this.logger.log(
+        `✅ Fetched standings for ${leagueId}: ${groups.length} group(s), ${groups.reduce((acc, g) => acc + g.teams.length, 0)} teams`
+      )
+
+      return result
+    } catch (error) {
+      this.logger.error(`Error fetching standings: ${error.message}`)
+      return null
+    }
+  }
+
+  /**
+   * Transform API standing to our format
+   */
+  private transformStanding(standing: any): TeamStanding {
+    return {
+      rank: standing.rank,
+      teamId: standing.team?.id || null,
+      teamName: standing.team?.name || 'TBD',
+      teamLogo: standing.team?.logo || null,
+      points: standing.points || 0,
+      played: standing.all?.played || 0,
+      won: standing.all?.win || 0,
+      drawn: standing.all?.draw || 0,
+      lost: standing.all?.lose || 0,
+      goalsFor: standing.all?.goals?.for || 0,
+      goalsAgainst: standing.all?.goals?.against || 0,
+      goalDiff: standing.goalsDiff || 0,
+      form: standing.form || null,
+      description: standing.description || null,
+    }
+  }
+
+  /**
+   * Get list of available leagues
+   */
+  getAvailableLeagues(): Array<{ id: string; name: string; apiId: number }> {
+    return Object.entries(LEAGUE_MAP).map(([id, info]) => ({
+      id,
+      name: info.name,
+      apiId: info.apiId,
+    }))
   }
 
   /**

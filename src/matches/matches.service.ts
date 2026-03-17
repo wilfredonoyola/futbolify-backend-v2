@@ -3,6 +3,8 @@ import {
   LiveMatchOutputDto,
   LateMatchOptionsDto,
   MatchState,
+  LeagueStandingsDto,
+  AvailableLeagueDto,
 } from './dto'
 import { ApiFootballLiveService, LiveMatchData } from './api-football-live.service'
 import { OpenAiAnalysisService } from './openai-analysis.service'
@@ -291,5 +293,29 @@ export class MatchesService {
       this.logger.error(`Error getting match ${id}: ${error.message}`)
       return null
     }
+  }
+
+  /**
+   * Get standings for a league (dynamic - works for any league)
+   */
+  async getStandings(leagueId: string, season?: number): Promise<LeagueStandingsDto | null> {
+    try {
+      const standings = await this.apiFootballService.getStandings(leagueId, season)
+      if (!standings) {
+        this.logger.warn(`No standings found for ${leagueId}`)
+        return null
+      }
+      return standings as LeagueStandingsDto
+    } catch (error) {
+      this.logger.error(`Error getting standings: ${error.message}`)
+      return null
+    }
+  }
+
+  /**
+   * Get list of available leagues
+   */
+  getAvailableLeagues(): AvailableLeagueDto[] {
+    return this.apiFootballService.getAvailableLeagues()
   }
 }

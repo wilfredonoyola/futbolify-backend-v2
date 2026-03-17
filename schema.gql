@@ -170,6 +170,44 @@ enum MatchState {
   HighLateValue
 }
 
+type TeamStandingDto {
+  rank: Int!
+  teamId: Int
+  teamName: String!
+  teamLogo: String
+  points: Int!
+  played: Int!
+  won: Int!
+  drawn: Int!
+  lost: Int!
+  goalsFor: Int!
+  goalsAgainst: Int!
+  goalDiff: Int!
+  form: String
+  description: String
+}
+
+type StandingsGroupDto {
+  name: String!
+  teams: [TeamStandingDto!]!
+}
+
+type LeagueStandingsDto {
+  leagueId: String!
+  leagueName: String!
+  leagueLogo: String
+  country: String!
+  season: Int!
+  type: String!
+  groups: [StandingsGroupDto!]!
+}
+
+type AvailableLeagueDto {
+  id: String!
+  name: String!
+  apiId: Int!
+}
+
 type Team {
   id: ID!
   name: String!
@@ -1929,6 +1967,8 @@ type Query {
   lateMatches(options: LateMatchOptionsDto): [LiveMatchOutputDto!]!
   upcomingMatches: [LiveMatchOutputDto!]!
   matchById(id: Float!): LiveMatchOutputDto
+  standings(leagueId: String!, season: String, conference: String): StandingsDto
+  availableLeagues: [AvailableLeagueDto!]!
   myTeams: [Team!]!
   team(id: ID!): TeamWithMembers!
   teamByCode(code: String!): Team!
@@ -2062,7 +2102,6 @@ type Query {
   fhgLogs(filter: FhgLogFilterInput): [FhgLogEntryDto!]!
   feedContextualCards(limit: Int = 5, cardInterval: Int = 5, locale: String = "es"): FeedContextualCardsResponse!
   feedContextualCard(cardId: String!, locale: String = "es"): FeedContextualCard
-  standings(leagueId: String!, season: String, conference: String): StandingsDto
   mlsStandings(season: String): [StandingsDto!]!
 }
 
