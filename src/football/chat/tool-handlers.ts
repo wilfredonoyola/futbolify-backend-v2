@@ -1,8 +1,9 @@
 // Tool handlers for Football Chat
 // Executes tool calls made by Claude and returns structured data
-// Supports Mundial 2026 (via QueriesService) and other leagues (via ApiFootball)
+// Priority: Mundial 2026 (static) > Football-Data.org (free) > API-Football (paid)
 
 import { ApiFootballAdapter } from './adapters/api-football.adapter';
+import { FootballDataAdapter } from './adapters/football-data.adapter';
 import { QueriesService } from '../../worldcup/queries/queries.service';
 import { Locale, FOOTBALL_LEAGUE_IDS, isStaticLeague } from './types';
 
@@ -12,37 +13,42 @@ export interface ToolResult {
   error?: string;
 }
 
+export interface Adapters {
+  apiFootball: ApiFootballAdapter;
+  footballData: FootballDataAdapter;
+}
+
 export async function executeTool(
   toolName: string,
   input: Record<string, unknown>,
-  adapter: ApiFootballAdapter,
+  adapters: Adapters,
   queriesService: QueriesService,
   locale: Locale,
 ): Promise<ToolResult> {
   switch (toolName) {
     case 'get_team_matches':
-      return handleGetTeamMatches(input, adapter, queriesService, locale);
+      return handleGetTeamMatches(input, adapters, queriesService, locale);
 
     case 'get_league_matches':
-      return handleGetLeagueMatches(input, adapter, queriesService, locale);
+      return handleGetLeagueMatches(input, adapters, queriesService, locale);
 
     case 'get_standings':
-      return handleGetStandings(input, adapter, queriesService, locale);
+      return handleGetStandings(input, adapters, queriesService, locale);
 
     case 'get_live_scores':
-      return handleGetLiveScores(input, adapter, locale);
+      return handleGetLiveScores(input, adapters, locale);
 
     case 'search_team':
-      return handleSearchTeam(input, adapter, queriesService, locale);
+      return handleSearchTeam(input, adapters, queriesService, locale);
 
     case 'get_head_to_head':
-      return handleGetHeadToHead(input, adapter, locale);
+      return handleGetHeadToHead(input, adapters, locale);
 
     case 'get_match_info':
-      return handleGetMatchInfo(input, adapter, queriesService, locale);
+      return handleGetMatchInfo(input, adapters, queriesService, locale);
 
     case 'get_top_scorers':
-      return handleGetTopScorers(input, adapter, locale);
+      return handleGetTopScorers(input, adapters, locale);
 
     // Mundial 2026 specific tools
     case 'get_group_info':
@@ -64,7 +70,7 @@ export async function executeTool(
 
 async function handleGetTeamMatches(
   input: Record<string, unknown>,
-  adapter: ApiFootballAdapter,
+  adapters: Adapters,
   queriesService: QueriesService,
   locale: Locale,
 ): Promise<ToolResult> {
@@ -132,10 +138,18 @@ async function handleGetTeamMatches(
       }
     }
 
-    // Use API-Football for club teams or when World Cup has no matches
-    console.log(`[TOOL] Fetching from API-Football for ${teamName}...`);
-    const matches = await adapter.getTeamMatches(teamName, leagueId);
-    console.log(`[TOOL] API-Football returned ${matches.length} matches for ${teamName}`);
+    // Try Football-Data.org first (FREE for European leagues)
+    console.log(`[TOOL] Trying Football-Data.org for ${teamName}...`);
+    let matches = await adapters.footballData.getTeamMatches(teamName, leagueId);
+
+    if (matches.length > 0) {
+      console.log(`[TOOL] Football-Data.org returned ${matches.length} matches for ${teamName}`);
+    } else {
+      // Fallback to API-Football for other leagues (Liga MX, MLS, etc.)
+      console.log(`[TOOL] Fallback to API-Football for ${teamName}...`);
+      matches = await adapters.apiFootball.getTeamMatches(teamName, leagueId);
+      console.log(`[TOOL] API-Football returned ${matches.length} matches for ${teamName}`);
+    }
 
     if (matches.length === 0) {
       return {
@@ -173,7 +187,7 @@ async function handleGetTeamMatches(
 
 async function handleGetLeagueMatches(
   input: Record<string, unknown>,
-  adapter: ApiFootballAdapter,
+  adapters: Adapters,
   queriesService: QueriesService,
   locale: Locale,
 ): Promise<ToolResult> {
@@ -244,8 +258,16 @@ async function handleGetLeagueMatches(
       };
     }
 
-    // Other leagues - use API-Football
-    const matches = await adapter.getLeagueMatches(leagueId, date);
+    // Try Football-Data.org first for European leagues
+    let matches = [];
+    if (adapters.footballData.supportsLeague(leagueId)) {
+      console.log(`[TOOL] Using Football-Data.org for ${leagueId}`);
+      matches = await adapters.footballData.getLeagueMatches(leagueId);
+    } else {
+      // Fallback to API-Football
+      console.log(`[TOOL] Using API-Football for ${leagueId}`);
+      matches = await adapters.apiFootball.getLeagueMatches(leagueId, date);
+    }
 
     return {
       success: true,
@@ -266,7 +288,7 @@ async function handleGetLeagueMatches(
 
 async function handleGetStandings(
   input: Record<string, unknown>,
-  adapter: ApiFootballAdapter,
+  adapters: Adapters,
   queriesService: QueriesService,
   locale: Locale,
 ): Promise<ToolResult> {
@@ -313,8 +335,15 @@ async function handleGetStandings(
       };
     }
 
-    // Other leagues - use API-Football
-    const standings = await adapter.getStandings(leagueId);
+    // Try Football-Data.org first for European leagues
+    let standings = [];
+    if (adapters.footballData.supportsLeague(leagueId)) {
+      console.log(`[TOOL] Using Football-Data.org for standings: ${leagueId}`);
+      standings = await adapters.footballData.getStandings(leagueId);
+    } else {
+      console.log(`[TOOL] Using API-Football for standings: ${leagueId}`);
+      standings = await adapters.apiFootball.getStandings(leagueId);
+    }
 
     return {
       success: true,
@@ -334,13 +363,14 @@ async function handleGetStandings(
 
 async function handleGetLiveScores(
   input: Record<string, unknown>,
-  adapter: ApiFootballAdapter,
+  adapters: Adapters,
   locale: Locale,
 ): Promise<ToolResult> {
   const leagueId = input.leagueId as string | undefined;
 
   try {
-    const liveMatches = await adapter.getLiveScores(leagueId);
+    // Live scores only available via API-Football
+    const liveMatches = await adapters.apiFootball.getLiveScores(leagueId);
 
     if (liveMatches.length === 0) {
       return {
@@ -372,7 +402,7 @@ async function handleGetLiveScores(
 
 async function handleSearchTeam(
   input: Record<string, unknown>,
-  adapter: ApiFootballAdapter,
+  adapters: Adapters,
   queriesService: QueriesService,
   locale: Locale,
 ): Promise<ToolResult> {
@@ -402,8 +432,13 @@ async function handleSearchTeam(
       };
     }
 
-    // Otherwise search via API
-    const teamId = await adapter.searchTeam(query);
+    // Try Football-Data.org first
+    let teamId = await adapters.footballData.searchTeam(query);
+
+    // Fallback to API-Football
+    if (!teamId) {
+      teamId = await adapters.apiFootball.searchTeam(query);
+    }
 
     if (!teamId) {
       return {
@@ -433,7 +468,7 @@ async function handleSearchTeam(
 
 async function handleGetHeadToHead(
   input: Record<string, unknown>,
-  adapter: ApiFootballAdapter,
+  adapters: Adapters,
   locale: Locale,
 ): Promise<ToolResult> {
   const team1 = input.team1 as string;
@@ -444,7 +479,8 @@ async function handleGetHeadToHead(
   }
 
   try {
-    const h2h = await adapter.getHeadToHead(team1, team2);
+    // H2H only available via API-Football
+    const h2h = await adapters.apiFootball.getHeadToHead(team1, team2);
 
     if (!h2h) {
       return {
@@ -472,7 +508,7 @@ async function handleGetHeadToHead(
 
 async function handleGetMatchInfo(
   input: Record<string, unknown>,
-  adapter: ApiFootballAdapter,
+  adapters: Adapters,
   queriesService: QueriesService,
   locale: Locale,
 ): Promise<ToolResult> {
@@ -567,8 +603,11 @@ async function handleGetMatchInfo(
       };
     }
 
-    // Try API-Football
-    const matches = await adapter.getTeamMatches(homeTeam);
+    // Try Football-Data.org first, then API-Football
+    let matches = await adapters.footballData.getTeamMatches(homeTeam);
+    if (matches.length === 0) {
+      matches = await adapters.apiFootball.getTeamMatches(homeTeam);
+    }
     const match = matches.find(
       (m) =>
         m.awayTeam.name.toLowerCase().includes(awayTeam.toLowerCase()) ||
@@ -594,7 +633,7 @@ async function handleGetMatchInfo(
 
 async function handleGetTopScorers(
   input: Record<string, unknown>,
-  adapter: ApiFootballAdapter,
+  adapters: Adapters,
   locale: Locale,
 ): Promise<ToolResult> {
   const leagueId = input.leagueId as string;
@@ -624,7 +663,13 @@ async function handleGetTopScorers(
   }
 
   try {
-    const scorers = await adapter.getTopScorers(leagueId, limit);
+    // Try Football-Data.org first
+    let scorers = [];
+    if (adapters.footballData.supportsLeague(leagueId)) {
+      scorers = await adapters.footballData.getTopScorers(leagueId, limit);
+    } else {
+      scorers = await adapters.apiFootball.getTopScorers(leagueId, limit);
+    }
 
     return {
       success: true,
@@ -634,7 +679,7 @@ async function handleGetTopScorers(
         scorers,
       },
     };
-  } catch (error) {
+  } catch (error: any) {
     return {
       success: false,
       error: `Error fetching top scorers: ${error.message}`,

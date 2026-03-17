@@ -9,6 +9,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { v4 as uuidv4 } from 'uuid';
 
 import { ApiFootballAdapter } from './adapters/api-football.adapter';
+import { FootballDataAdapter } from './adapters/football-data.adapter';
 import { QueriesService } from '../../worldcup/queries/queries.service';
 import { QuinielaService } from '../../quiniela/quiniela.service';
 import { ChatSession, ChatSessionDocument, StoredMessage } from '../../worldcup/schemas/chat-session.schema';
@@ -63,6 +64,7 @@ export class FootballChatService {
     @InjectModel(ChatSession.name)
     private chatSessionModel: Model<ChatSessionDocument>,
     private readonly apiFootballAdapter: ApiFootballAdapter,
+    private readonly footballDataAdapter: FootballDataAdapter, // FREE API for European leagues
     private readonly queriesService: QueriesService, // For Mundial 2026 static data
     private readonly quinielaService: QuinielaService, // For quiniela creation
     private readonly configService: ConfigService,
@@ -306,11 +308,14 @@ export class FootballChatService {
             };
           }
         } else {
-          // Execute query tool - uses QueriesService for Mundial 2026, ApiFootball for other leagues
+          // Execute query tool - uses QueriesService for Mundial 2026, Football-Data.org for Europe, API-Football for rest
           toolResult = await executeTool(
             toolUseBlock.name,
             toolUseBlock.input as Record<string, unknown>,
-            this.apiFootballAdapter,
+            {
+              apiFootball: this.apiFootballAdapter,
+              footballData: this.footballDataAdapter,
+            },
             this.queriesService,
             validLocale,
           );

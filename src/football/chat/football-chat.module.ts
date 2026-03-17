@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { FootballChatService } from './football-chat.service';
 import { FootballChatResolver } from './football-chat.resolver';
 import { ApiFootballAdapter } from './adapters/api-football.adapter';
+import { FootballDataAdapter } from './adapters/football-data.adapter';
 import { ChatSession, ChatSessionSchema } from '../../worldcup/schemas/chat-session.schema';
 import { WorldcupModule } from '../../worldcup/worldcup.module';
 import { QuinielaModule } from '../../quiniela/quiniela.module';
@@ -25,6 +26,7 @@ import { QuinielaModule } from '../../quiniela/quiniela.module';
     FootballChatService,
     FootballChatResolver,
     ApiFootballAdapter,
+    FootballDataAdapter, // FREE API for European leagues
   ],
   exports: [FootballChatService],
 })
