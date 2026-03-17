@@ -1899,6 +1899,21 @@ type StandingsDto {
   lastUpdated: String
 }
 
+type FootballChatResponseDto {
+  success: Boolean!
+  message: String!
+  data: ChatDataPayload
+  action: ActionResult
+  suggestions: [String!]
+  sessionId: String
+  messageCount: Int
+  messageLimit: Int
+  messagesRemaining: Int
+  isAtLimit: Boolean
+  warning: ChatWarning
+  error: String
+}
+
 type Query {
   getLinkedProviders: [LinkedProviderInfo!]!
   checkEmailExists(email: String!): CheckEmailResponse!
@@ -2276,6 +2291,7 @@ type Mutation {
 
   """Full data refresh: matches + odds for all active leagues"""
   fhgFullRefresh(date: String, daysAhead: Int = 7): RefreshResultDto!
+  footballChat(input: FootballChatInputDto!): FootballChatResponseDto!
 }
 
 input SigninInputDto {
@@ -2715,6 +2731,18 @@ input FhgPipelineOptionsInput {
   leagueCode: String
   dryRun: Boolean
   forceRegenerate: Boolean
+}
+
+input FootballChatInputDto {
+  messages: [ChatMessageInput!]!
+  locale: String!
+  timezone: String!
+  leagueId: String
+  teamId: String
+  matchId: String
+  favoriteTeams: [String!]
+  sessionId: String
+  anonymousCreatorId: String
 }
 
 type Subscription {

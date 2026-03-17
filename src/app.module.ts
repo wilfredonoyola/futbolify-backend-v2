@@ -25,6 +25,7 @@ import { TelegramModule } from './telegram/telegram.module'
 import { FeedModule } from './feed/feed.module'
 import { CommonModule } from './common/common.module'
 import { StandingsModule } from './standings/standings.module'
+import { FootballChatModule } from './football/chat/football-chat.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -90,6 +91,7 @@ import { AppService } from './app.service'
     TelegramModule,
     FeedModule,
     StandingsModule,
+    FootballChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
