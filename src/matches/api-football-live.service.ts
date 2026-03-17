@@ -16,16 +16,25 @@ const CACHE_TTL = {
  * Maps our frontend league IDs to API-Football league IDs
  */
 const LEAGUE_MAP: Record<string, { apiId: number; name: string }> = {
+  // Top European Leagues
   'premier-league': { apiId: 39, name: 'Premier League' },
   'la-liga': { apiId: 140, name: 'La Liga' },
-  'liga-mx': { apiId: 262, name: 'Liga MX' },
-  'champions-league': { apiId: 2, name: 'UEFA Champions League' },
-  'mls': { apiId: 253, name: 'MLS' },
-  'mundial-2026': { apiId: 1, name: 'World Cup' },
-  'bundesliga': { apiId: 78, name: 'Bundesliga' },
   'serie-a': { apiId: 135, name: 'Serie A' },
+  'bundesliga': { apiId: 78, name: 'Bundesliga' },
   'ligue-1': { apiId: 61, name: 'Ligue 1' },
   'eredivisie': { apiId: 88, name: 'Eredivisie' },
+  'primeira-liga': { apiId: 94, name: 'Primeira Liga' },
+  // UEFA Competitions
+  'champions-league': { apiId: 2, name: 'UEFA Champions League' },
+  'europa-league': { apiId: 3, name: 'UEFA Europa League' },
+  'conference-league': { apiId: 848, name: 'UEFA Conference League' },
+  // Americas
+  'liga-mx': { apiId: 262, name: 'Liga MX' },
+  'mls': { apiId: 253, name: 'MLS' },
+  'copa-libertadores': { apiId: 13, name: 'Copa Libertadores' },
+  'copa-america': { apiId: 11, name: 'Copa America' },
+  // World
+  'mundial-2026': { apiId: 1, name: 'World Cup' },
 }
 
 /**
@@ -44,11 +53,24 @@ const REVERSE_LEAGUE_MAP: Record<number, string> = Object.entries(LEAGUE_MAP).re
  * Only matches from these leagues will be shown
  */
 const ALLOWED_LEAGUE_IDS: number[] = [
+  // Top European Leagues
+  39,   // Premier League (England)
+  140,  // La Liga (Spain)
+  135,  // Serie A (Italy)
+  78,   // Bundesliga (Germany)
+  61,   // Ligue 1 (France)
+  88,   // Eredivisie (Netherlands)
+  94,   // Primeira Liga (Portugal)
+  // UEFA Competitions
   2,    // Champions League
-  39,   // Premier League
-  140,  // La Liga
-  262,  // Liga MX
-  253,  // MLS
+  3,    // Europa League
+  848,  // Conference League
+  // Americas
+  262,  // Liga MX (Mexico)
+  253,  // MLS (USA)
+  13,   // Copa Libertadores
+  11,   // Copa America
+  // World
   1,    // World Cup
 ]
 
