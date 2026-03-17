@@ -29,8 +29,8 @@ export class MatchesResolver {
     return matches.find((match) => match.id === id) || null
   }
 
-  @Query(() => LeagueStandingsDto, { nullable: true })
-  async standings(
+  @Query(() => LeagueStandingsDto, { name: 'leagueStandings', nullable: true })
+  async leagueStandings(
     @Args('leagueId') leagueId: string,
     @Args('season', { type: () => Int, nullable: true }) season?: number
   ) {
