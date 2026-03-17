@@ -23,6 +23,15 @@ export class LiveMatchOutputDto {
   @Field()
   awayTeam: string
 
+  @Field(() => String, { nullable: true })
+  leagueId?: string
+
+  @Field(() => String, { nullable: true })
+  leagueName?: string
+
+  @Field(() => String, { nullable: true })
+  leagueLogo?: string
+
   @Field(() => Int, { nullable: true })
   minute?: number
 

@@ -18,6 +18,10 @@ export const CACHE_TTL = {
   TEAM: 86400, // 24 hours
   NEWS: 3600, // 1 hour
   BROADCASTS: 86400, // 24 hours
+  // Live matches (API-Football)
+  LIVE_MATCHES: 60, // 1 minute
+  LIVE_MATCH_DETAILS: 30, // 30 seconds
+  RECENTLY_FINISHED: 300, // 5 minutes
 };
 
 @Injectable()

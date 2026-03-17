@@ -123,6 +123,9 @@ type LiveMatchOutputDto {
   id: Int!
   homeTeam: String!
   awayTeam: String!
+  leagueId: String
+  leagueName: String
+  leagueLogo: String
   minute: Int
   scoreHome: Int!
   scoreAway: Int!
