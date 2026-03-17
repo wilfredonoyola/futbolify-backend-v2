@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import * as admin from 'firebase-admin'
 import {
   MatchEvent,
   MatchEventType,
@@ -42,17 +43,55 @@ const TEAM_SUBSCRIPTIONS_KEY = 'team-subscriptions:'
 const SUBSCRIPTION_TTL = 86400 * 7 // 7 days
 
 @Injectable()
-export class NotificationService {
+export class NotificationService implements OnModuleInit {
   private readonly logger = new Logger(NotificationService.name)
-  private readonly fcmServerKey: string
+  private firebaseInitialized = false
 
   constructor(
     private readonly configService: ConfigService,
     private readonly redis: RedisCacheService
-  ) {
-    this.fcmServerKey = this.configService.get<string>('FCM_SERVER_KEY') || ''
-    if (!this.fcmServerKey) {
-      this.logger.warn('⚠️ FCM_SERVER_KEY not configured - push notifications disabled')
+  ) {}
+
+  onModuleInit() {
+    this.initializeFirebase()
+  }
+
+  /**
+   * Initialize Firebase Admin SDK
+   */
+  private initializeFirebase(): void {
+    // Check if already initialized
+    if (admin.apps.length > 0) {
+      this.firebaseInitialized = true
+      this.logger.log('✅ Firebase Admin SDK already initialized')
+      return
+    }
+
+    // Try to initialize from environment variables
+    const projectId = this.configService.get<string>('FIREBASE_PROJECT_ID')
+    const clientEmail = this.configService.get<string>('FIREBASE_CLIENT_EMAIL')
+    const privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY')
+
+    if (projectId && clientEmail && privateKey) {
+      try {
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId,
+            clientEmail,
+            // Replace escaped newlines with actual newlines
+            privateKey: privateKey.replace(/\\n/g, '\n'),
+          }),
+        })
+        this.firebaseInitialized = true
+        this.logger.log('✅ Firebase Admin SDK initialized successfully')
+      } catch (error) {
+        this.logger.error(`❌ Failed to initialize Firebase: ${error.message}`)
+      }
+    } else {
+      this.logger.warn(
+        '⚠️ Firebase credentials not configured - push notifications disabled. ' +
+        'Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY'
+      )
     }
   }
 
@@ -170,46 +209,55 @@ export class NotificationService {
   }
 
   /**
-   * Send push notification via FCM
+   * Send push notification via FCM (Firebase Admin SDK v1)
    */
   private async sendPushNotification(
     token: string,
     notification: { title: string; body: string; data?: Record<string, string> }
   ): Promise<boolean> {
-    if (!this.fcmServerKey) {
-      this.logger.debug('FCM not configured, skipping push')
+    if (!this.firebaseInitialized) {
+      this.logger.debug('Firebase not initialized, skipping push')
       return false
     }
 
     try {
-      const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-        method: 'POST',
-        headers: {
-          Authorization: `key=${this.fcmServerKey}`,
-          'Content-Type': 'application/json',
+      const message: admin.messaging.Message = {
+        token,
+        notification: {
+          title: notification.title,
+          body: notification.body,
         },
-        body: JSON.stringify({
-          to: token,
-          notification: {
-            title: notification.title,
-            body: notification.body,
-            sound: 'default',
-            badge: 1,
-          },
-          data: notification.data,
+        data: notification.data,
+        android: {
           priority: 'high',
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.text()
-        this.logger.error(`FCM error: ${error}`)
-        return false
+          notification: {
+            sound: 'default',
+            channelId: 'match-events',
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+            },
+          },
+        },
       }
 
+      const response = await admin.messaging().send(message)
+      this.logger.debug(`Push sent successfully: ${response}`)
       return true
     } catch (error) {
-      this.logger.error(`Failed to send push: ${error.message}`)
+      // Handle invalid tokens
+      if (
+        error.code === 'messaging/invalid-registration-token' ||
+        error.code === 'messaging/registration-token-not-registered'
+      ) {
+        this.logger.warn(`Invalid FCM token, should be removed: ${token.substring(0, 20)}...`)
+      } else {
+        this.logger.error(`Failed to send push: ${error.message}`)
+      }
       return false
     }
   }
