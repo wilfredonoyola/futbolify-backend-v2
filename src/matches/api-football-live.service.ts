@@ -79,6 +79,8 @@ export interface LiveMatchData {
   id: number
   homeTeam: string
   awayTeam: string
+  homeTeamLogo: string | null
+  awayTeamLogo: string | null
   leagueId: string | null
   leagueName: string | null
   leagueLogo: string | null
@@ -87,6 +89,7 @@ export interface LiveMatchData {
   minute: number
   status: string
   elapsed: number | null
+  kickoffTime: string | null // ISO date string
   events?: MatchEvent[]
   statistics?: MatchStatistics
 }
@@ -477,6 +480,8 @@ export class ApiFootballLiveService {
       id: fixture.fixture.id,
       homeTeam: fixture.teams.home.name,
       awayTeam: fixture.teams.away.name,
+      homeTeamLogo: fixture.teams.home.logo || null,
+      awayTeamLogo: fixture.teams.away.logo || null,
       leagueId,
       leagueName: fixture.league?.name || null,
       leagueLogo: fixture.league?.logo || null,
@@ -485,6 +490,7 @@ export class ApiFootballLiveService {
       minute: fixture.fixture.status.elapsed || 0,
       status: fixture.fixture.status.short,
       elapsed: fixture.fixture.status.elapsed,
+      kickoffTime: fixture.fixture.date || null,
     }
   }
 
