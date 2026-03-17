@@ -50,7 +50,10 @@
       "WebFetch(domain:www.football-data.org)",
       "Bash(cat:*)",
       "Bash(yarn:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm install:*)",
+      "Bash(timeout 5 npm run start:prod:*)"
     ]
   }
 }

@@ -35,7 +35,9 @@ export class FootballDataAdapter {
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('FOOTBALL_DATA_KEY') || '';
     if (!this.apiKey) {
-      this.logger.warn('No FOOTBALL_DATA_KEY configured - using API-Football fallback');
+      this.logger.warn('⚠️ No FOOTBALL_DATA_KEY configured - using API-Football fallback');
+    } else {
+      this.logger.log('✅ Football-Data.org API configured (FREE tier for European leagues)');
     }
   }
 
