@@ -185,13 +185,35 @@ async function handleGetTeamMatches(
       .filter((m) => new Date(m.date) < now)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+    // Group upcoming by league to show variety (e.g., La Liga + Champions)
+    const byLeague: Record<string, typeof upcoming> = {};
+    for (const match of upcoming) {
+      const leagueKey = match.league?.id || 'unknown';
+      if (!byLeague[leagueKey]) {
+        byLeague[leagueKey] = [];
+      }
+      byLeague[leagueKey].push(match);
+    }
+
+    // Get next 2 matches from each league, then sort by date
+    const competitions = Object.keys(byLeague);
+    const diverseMatches: typeof upcoming = [];
+    for (const leagueKey of competitions) {
+      diverseMatches.push(...byLeague[leagueKey].slice(0, 2));
+    }
+    diverseMatches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Log what competitions we found
+    console.log(`[TOOL] Team ${teamName} has matches in: ${competitions.join(', ')}`);
+
     return {
       success: true,
       data: {
         team: teamName,
-        upcoming: upcoming.slice(0, 5),
+        competitions, // List of leagues the team plays in
+        upcoming: diverseMatches.slice(0, 6), // Up to 6 diverse matches
         recent: recent.slice(0, 3),
-        matches: upcoming.slice(0, 5), // Already sorted soonest first
+        matches: diverseMatches.slice(0, 6), // Smart selection from all leagues
       },
     };
   } catch (error) {

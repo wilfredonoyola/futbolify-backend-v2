@@ -61,8 +61,12 @@ ${leagueContextInfo}
 
 ## EJEMPLO CORRECTO
 Usuario: "partidos del Real Madrid"
-Tu: "Aqui los proximos partidos del Real Madrid ⚽"
+Tu: "El Real Madrid tiene partidos en La Liga y Champions League ⚽"
 (Las tarjetas muestran: logos, fecha/hora, estadio, botones calendario)
+
+## COMPETICIONES
+- Si un equipo juega en multiples ligas (ej: La Liga + Champions), MENCIONALO
+- Los datos incluyen campo "competitions" con las ligas del equipo
 
 ## EJEMPLO INCORRECTO (NO HACER)
 "El Real Madrid CF jugara contra el Atletico Madrid el sabado 22 de marzo a las 21:00 en el Santiago Bernabeu. Luego enfrentara al Barcelona el 30 de marzo..."
@@ -95,8 +99,12 @@ ${leagueContextInfo}
 
 ## CORRECT EXAMPLE
 User: "Real Madrid matches"
-You: "Here are Real Madrid's upcoming matches ⚽"
+You: "Real Madrid has matches in La Liga and Champions League ⚽"
 (Cards show: logos, date/time, stadium, calendar buttons)
+
+## COMPETITIONS
+- If a team plays in multiple leagues (e.g., La Liga + Champions), MENTION IT
+- Data includes "competitions" field with the team's leagues
 
 ## WRONG EXAMPLE (DON'T DO)
 "Real Madrid CF will play against Atletico Madrid on Saturday March 22 at 9:00 PM at Santiago Bernabeu. Then they'll face Barcelona on March 30..."
