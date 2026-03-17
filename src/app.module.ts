@@ -23,6 +23,8 @@ import { QuinielaModule } from './quiniela/quiniela.module'
 import { EmailModule } from './email/email.module'
 import { TelegramModule } from './telegram/telegram.module'
 import { FeedModule } from './feed/feed.module'
+import { CommonModule } from './common/common.module'
+import { StandingsModule } from './standings/standings.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -68,6 +70,9 @@ import { AppService } from './app.service'
       },
     }),
 
+    // ✅ Common module (global - Redis cache)
+    CommonModule,
+
     // ✅ Tus módulos propios
     AuthModule,
     UsersModule,
@@ -84,6 +89,7 @@ import { AppService } from './app.service'
     EmailModule,
     TelegramModule,
     FeedModule,
+    StandingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
