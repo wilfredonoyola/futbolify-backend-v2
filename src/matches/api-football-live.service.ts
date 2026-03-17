@@ -304,6 +304,79 @@ export class ApiFootballLiveService {
   }
 
   /**
+   * Get upcoming matches for today and tomorrow from allowed leagues
+   */
+  async getUpcomingMatches(): Promise<LiveMatchData[]> {
+    const cacheKey = 'api-football:upcoming-matches'
+
+    const cached = await this.redisCache.get<LiveMatchData[]>(cacheKey)
+    if (cached) {
+      this.logger.debug(`♻️ Cache hit for upcoming matches (${cached.length} matches)`)
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return []
+    }
+
+    try {
+      // Get today and tomorrow's dates
+      const today = new Date()
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const todayStr = today.toISOString().split('T')[0]
+      const tomorrowStr = tomorrow.toISOString().split('T')[0]
+
+      // Fetch matches for both days in parallel
+      const [todayRes, tomorrowRes] = await Promise.all([
+        fetch(`${this.baseUrl}/fixtures?date=${todayStr}`, {
+          headers: { 'x-apisports-key': this.apiKey },
+        }),
+        fetch(`${this.baseUrl}/fixtures?date=${tomorrowStr}`, {
+          headers: { 'x-apisports-key': this.apiKey },
+        }),
+      ])
+
+      const [todayData, tomorrowData] = await Promise.all([
+        todayRes.json(),
+        tomorrowRes.json(),
+      ])
+
+      const allFixtures = [
+        ...(todayData.response || []),
+        ...(tomorrowData.response || []),
+      ]
+
+      // Filter: only allowed leagues and not started matches
+      const upcomingFixtures = allFixtures.filter((fixture: any) => {
+        const isAllowedLeague = ALLOWED_LEAGUE_IDS.includes(fixture.league?.id)
+        const isNotStarted = fixture.fixture.status.short === 'NS'
+        return isAllowedLeague && isNotStarted
+      })
+
+      this.logger.log(
+        `✅ Found ${upcomingFixtures.length} upcoming matches from allowed leagues`
+      )
+
+      const matches: LiveMatchData[] = upcomingFixtures.map((fixture: any) =>
+        this.transformFixture(fixture)
+      )
+
+      // Sort by date
+      matches.sort((a, b) => a.minute - b.minute)
+
+      // Cache for 5 minutes
+      await this.redisCache.set(cacheKey, matches, 300)
+
+      return matches
+    } catch (error) {
+      this.logger.error(`Error fetching upcoming matches: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
    * Get recently finished matches (last 2 hours)
    */
   async getRecentlyFinishedMatches(): Promise<LiveMatchData[]> {

@@ -259,6 +259,27 @@ export class MatchesService {
   }
 
   /**
+   * Get upcoming matches (today and tomorrow)
+   */
+  async getUpcomingMatches(): Promise<LiveMatchOutputDto[]> {
+    try {
+      const upcomingMatches = await this.apiFootballService.getUpcomingMatches()
+
+      if (!upcomingMatches.length) {
+        this.logger.log('❌ No hay partidos próximos.')
+        return []
+      }
+
+      this.logger.log(`✅ ${upcomingMatches.length} partidos próximos encontrados.`)
+
+      return upcomingMatches.map((match) => this.transformToDto(match))
+    } catch (error) {
+      this.logger.error(`❌ Error trayendo partidos próximos: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
    * Get match by ID
    */
   async getMatchById(id: number): Promise<LiveMatchOutputDto | null> {

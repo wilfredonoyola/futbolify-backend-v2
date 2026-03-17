@@ -18,6 +18,11 @@ export class MatchesResolver {
     return this.matchesService.getLateMatches(options || {})
   }
 
+  @Query(() => [LiveMatchOutputDto])
+  async upcomingMatches() {
+    return this.matchesService.getUpcomingMatches()
+  }
+
   @Query(() => LiveMatchOutputDto, { nullable: true })
   async matchById(@Args('id') id: number) {
     const matches = await this.matchesService.getLiveMatchesSimple()

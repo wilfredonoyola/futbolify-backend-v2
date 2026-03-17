@@ -1927,6 +1927,7 @@ type Query {
   isUserNameAvailable(userName: String!): Boolean!
   liveMatches: [LiveMatchOutputDto!]!
   lateMatches(options: LateMatchOptionsDto): [LiveMatchOutputDto!]!
+  upcomingMatches: [LiveMatchOutputDto!]!
   matchById(id: Float!): LiveMatchOutputDto
   myTeams: [Team!]!
   team(id: ID!): TeamWithMembers!
