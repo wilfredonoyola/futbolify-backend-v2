@@ -7,18 +7,20 @@ import {
   FootballChatInputDto,
   FootballChatResponseDto,
 } from './dto/football-chat.dto';
+import { GqlOptionalAuthGuard } from '../../auth/gql-optional-auth.guard';
 
 @Resolver()
 export class FootballChatResolver {
   constructor(private readonly footballChatService: FootballChatService) {}
 
   @Mutation(() => FootballChatResponseDto)
+  @UseGuards(GqlOptionalAuthGuard) // Tries to authenticate, but allows anonymous users
   async footballChat(
     @Args('input') input: FootballChatInputDto,
     @Context() context: any,
   ): Promise<FootballChatResponseDto> {
-    // Extract user ID from context (JWT) or from input (frontend session)
-    // Priority: JWT context > input.userId (frontend passes session.user.id)
+    // Get user ID from JWT context (populated by GqlOptionalAuthGuard)
+    // Fallback to input.userId for cases where guard doesn't populate context
     const userId = context.req?.user?.id || input.userId || null;
 
     console.log(`[CHAT] Resolver userId: context=${context.req?.user?.id}, input=${input.userId}, final=${userId}`);
