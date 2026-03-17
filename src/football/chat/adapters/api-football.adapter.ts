@@ -97,15 +97,20 @@ export class ApiFootballAdapter {
    * Get matches for a specific team
    */
   async getTeamMatches(teamName: string, leagueId?: string): Promise<MatchData[]> {
+    this.logger.log(`Getting matches for team: ${teamName}, league: ${leagueId || 'all'}`);
+
     const teamId = await this.searchTeam(teamName);
     if (!teamId) {
-      this.logger.warn(`Team not found: ${teamName}`);
+      this.logger.warn(`Team not found in API-Football: ${teamName}`);
       return [];
     }
 
     const cacheKey = `team-matches:${teamId}:${leagueId || 'all'}`;
     return this.fetchWithCache(cacheKey, CACHE_TTL.FIXTURES, async () => {
-      if (!this.apiKey) return [];
+      if (!this.apiKey) {
+        this.logger.warn('No API_FOOTBALL_KEY - cannot fetch matches');
+        return [];
+      }
 
       try {
         const today = new Date();
@@ -118,6 +123,8 @@ export class ApiFootballAdapter {
           url += `&league=${FOOTBALL_LEAGUE_IDS[leagueId].apiId}`;
         }
 
+        this.logger.log(`Fetching fixtures: ${url}`);
+
         const response = await fetch(url, {
           headers: { 'x-apisports-key': this.apiKey },
         });
@@ -128,6 +135,8 @@ export class ApiFootballAdapter {
 
         const data = await response.json();
         const fixtures = data.response || [];
+
+        this.logger.log(`Found ${fixtures.length} fixtures for team ${teamName} (ID: ${teamId})`);
 
         return fixtures.map((fixture: any) =>
           this.normalizeMatch(fixture, leagueId || this.inferLeagueId(fixture.league.id))
@@ -216,15 +225,20 @@ export class ApiFootballAdapter {
    * Search for a team by name
    */
   async searchTeam(query: string): Promise<number | null> {
-    if (!this.apiKey) return null;
+    if (!this.apiKey) {
+      this.logger.warn('No API_FOOTBALL_KEY - cannot search team');
+      return null;
+    }
 
     const cacheKey = `team-search:${query.toLowerCase()}`;
     return this.fetchWithCache(cacheKey, CACHE_TTL.TEAM_INFO, async () => {
       try {
-        const response = await fetch(
-          `${this.baseUrl}/teams?search=${encodeURIComponent(query)}`,
-          { headers: { 'x-apisports-key': this.apiKey } },
-        );
+        const url = `${this.baseUrl}/teams?search=${encodeURIComponent(query)}`;
+        this.logger.log(`Searching team: ${url}`);
+
+        const response = await fetch(url, {
+          headers: { 'x-apisports-key': this.apiKey },
+        });
 
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
@@ -233,7 +247,10 @@ export class ApiFootballAdapter {
         const data = await response.json();
         const teams = data.response || [];
 
+        this.logger.log(`Team search "${query}" found ${teams.length} results`);
+
         if (teams.length > 0) {
+          this.logger.log(`Best match: ${teams[0].team.name} (ID: ${teams[0].team.id})`);
           return teams[0].team.id;
         }
 

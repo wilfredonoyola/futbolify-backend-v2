@@ -75,14 +75,20 @@ async function handleGetTeamMatches(
     return { success: false, error: 'teamName is required' };
   }
 
+  console.log(`[TOOL] get_team_matches: team=${teamName}, league=${leagueId || 'auto'}`);
+
   try {
-    // Check if Mundial 2026 - use QueriesService
-    if (leagueId === 'mundial-2026' || !leagueId) {
-      // Try to find team in World Cup data first
-      const teams = queriesService.searchTeams(teamName);
-      if (teams.length > 0) {
-        const team = teams[0];
+    // Check if this is a national team that might be in World Cup
+    const wcTeams = queriesService.searchTeams(teamName);
+    const isNationalTeam = wcTeams.length > 0;
+
+    // If Mundial 2026 explicitly OR national team without specific league
+    if (leagueId === 'mundial-2026' || (isNationalTeam && !leagueId)) {
+      // Try to find team in World Cup data
+      if (wcTeams.length > 0) {
+        const team = wcTeams[0];
         const wcMatches = queriesService.getMatchesByTeam(team.id);
+        console.log(`[TOOL] Found ${wcMatches.length} World Cup matches for ${team.name.es}`);
 
         if (wcMatches.length > 0) {
           const now = new Date();
@@ -126,8 +132,10 @@ async function handleGetTeamMatches(
       }
     }
 
-    // Otherwise use API-Football
+    // Use API-Football for club teams or when World Cup has no matches
+    console.log(`[TOOL] Fetching from API-Football for ${teamName}...`);
     const matches = await adapter.getTeamMatches(teamName, leagueId);
+    console.log(`[TOOL] API-Football returned ${matches.length} matches for ${teamName}`);
 
     if (matches.length === 0) {
       return {
@@ -135,8 +143,8 @@ async function handleGetTeamMatches(
         data: {
           message:
             locale === 'es'
-              ? `No encontre partidos proximos para ${teamName}`
-              : `No upcoming matches found for ${teamName}`,
+              ? `No encontré partidos próximos para ${teamName}. Intenta buscar un equipo específico o pregunta por una liga.`
+              : `No upcoming matches found for ${teamName}. Try searching for a specific team or ask about a league.`,
           matches: [],
         },
       };
