@@ -344,6 +344,7 @@ async function handleCreateQuiniela(
     const result = await quinielaService.createQuiniela(
       {
         name,
+        leagueId: leagueId || 'la-liga', // Default to La Liga for football chat
         isPrivate,
         anonymousCreatorId,
         ownerName,

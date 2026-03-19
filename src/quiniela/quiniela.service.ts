@@ -76,6 +76,7 @@ export class QuinielaService {
     const quiniela = new this.quinielaModel({
       name: input.name,
       code,
+      leagueId: input.leagueId,
       ownerId: userId ? new Types.ObjectId(userId) : undefined,
       ownerName,
       anonymousCreatorId: isAnonymous ? input.anonymousCreatorId : undefined,
@@ -103,6 +104,7 @@ export class QuinielaService {
       inviteUrl: `https://futbolify.com/q/${quiniela.code}`,
       memberCount: quiniela.memberCount,
       isPrivate: quiniela.isPrivate,
+      leagueId: quiniela.leagueId,
       isAnonymous,
       anonymousCreatorId: isAnonymous ? input.anonymousCreatorId : undefined,
     };
@@ -164,6 +166,7 @@ export class QuinielaService {
       inviteUrl: `https://futbolify.com/q/${quiniela.code}`,
       memberCount: quiniela.memberCount,
       isPrivate: quiniela.isPrivate,
+      leagueId: quiniela.leagueId,
       isAnonymous: false,
     };
   }
@@ -190,6 +193,7 @@ export class QuinielaService {
       ownerName: quiniela.ownerName,
       memberCount: quiniela.memberCount,
       isPrivate: quiniela.isPrivate,
+      leagueId: quiniela.leagueId,
       status: quiniela.status,
       predictionMode: quiniela.predictionMode || PredictionMode.SIMPLE,
       description: quiniela.description,

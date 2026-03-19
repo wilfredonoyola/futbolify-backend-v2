@@ -9,6 +9,10 @@ export class CreateQuinielaInput {
   @Field()
   name: string;
 
+  // League ID from API-Football (e.g., 'la-liga', 'premier-league', 'world-cup')
+  @Field()
+  leagueId: string;
+
   @Field({ nullable: true })
   description?: string;
 
@@ -106,6 +110,10 @@ export class QuinielaInvite {
   @Field()
   isPrivate: boolean;
 
+  // League ID (e.g., 'la-liga', 'premier-league')
+  @Field()
+  leagueId: string;
+
   // True if created without an account - client should prompt for signup
   @Field()
   isAnonymous: boolean;
@@ -135,6 +143,10 @@ export class QuinielaPublicInfo {
 
   @Field()
   isPrivate: boolean;
+
+  // League ID (e.g., 'la-liga', 'premier-league')
+  @Field()
+  leagueId: string;
 
   @Field(() => QuinielaStatus)
   status: QuinielaStatus;

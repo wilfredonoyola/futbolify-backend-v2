@@ -127,6 +127,11 @@ export class Quiniela {
   @Field()
   code: string; // Invite code
 
+  // League ID from API-Football (e.g., 'la-liga', 'premier-league', 'world-cup')
+  @Prop({ required: true })
+  @Field()
+  leagueId: string;
+
   // Owner can be null for anonymous quinielas
   @Prop({ type: Types.ObjectId, ref: 'User', required: false })
   @Field(() => ID, { nullable: true })
