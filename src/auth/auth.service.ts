@@ -462,6 +462,177 @@ export class AuthService {
   }
 
   /**
+   * Generate a JWT token for Apple-authenticated users
+   */
+  generateAppleUserToken(user: { id: string; email: string; roles: UserRole[] }): string {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      roles: user.roles,
+      iss: 'futbolify-apple-auth',
+    }
+
+    return jwt.sign(payload, process.env.JWT_SECRET || 'futbolify-secret-key', {
+      expiresIn: '7d',
+    })
+  }
+
+  /**
+   * Validate Apple Sign In token from Cognito
+   * Apple tokens come through Cognito OAuth flow (SignInWithApple identity provider)
+   */
+  async validateAppleToken(token: string): Promise<any> {
+    try {
+      let email: string | undefined
+      let name: string = ''
+      let userName: string = 'UsuarioApple'
+      let appleId: string | undefined
+
+      // Decode the token
+      const decoded = jwt.decode(token) as any
+
+      if (!decoded) {
+        throw new HttpException(
+          'Invalid token format',
+          HttpStatus.UNAUTHORIZED
+        )
+      }
+
+      // Check if it's a Cognito token
+      const isCognitoToken = decoded.iss?.includes('cognito-idp')
+
+      if (!isCognitoToken) {
+        throw new HttpException(
+          'Apple Sign In must use Cognito OAuth flow',
+          HttpStatus.UNAUTHORIZED
+        )
+      }
+
+      // Handle Cognito token from Apple OAuth flow
+      email = decoded.email
+      name = decoded.name || ''
+      userName = decoded.name || 'UsuarioApple'
+
+      // Get Apple ID from identities array (for federated users)
+      if (decoded.identities && decoded.identities.length > 0) {
+        const appleIdentity = decoded.identities.find(
+          (id: any) => id.providerName === 'SignInWithApple' || id.providerType === 'SignInWithApple'
+        )
+        if (appleIdentity) {
+          appleId = appleIdentity.userId
+        }
+      }
+
+      // Fallback: use Cognito sub if no Apple identity found
+      if (!appleId) {
+        appleId = decoded.sub
+      }
+
+      if (!email || !appleId) {
+        throw new HttpException(
+          'Token does not contain valid email or ID',
+          HttpStatus.UNAUTHORIZED
+        )
+      }
+
+      userName = userName.replace(/\s+/g, '_').toLowerCase()
+
+      // Normalize email to lowercase
+      const normalizedEmail = email.toLowerCase()
+
+      // Check if user already exists
+      let user = await this.userModel.findOne({
+        email: { $regex: new RegExp(`^${normalizedEmail}$`, 'i') }
+      })
+
+      if (user) {
+        // User EXISTS - check if Apple is already linked
+        const hasAppleLinked = user.appleId === appleId ||
+          user.linkedProviders?.some(lp => lp.provider === AuthProvider.APPLE && lp.providerId === appleId)
+
+        if (!hasAppleLinked) {
+          // AUTO-LINK: User registered with other provider, now logging in with Apple
+          console.log(`[Auth] Linking Apple account to existing user: ${user.email}`)
+
+          // Link Apple in MongoDB
+          const linkedProvider: LinkedProvider = {
+            provider: AuthProvider.APPLE,
+            providerId: appleId,
+            email: normalizedEmail,
+            linkedAt: new Date(),
+          }
+
+          user.appleId = appleId
+          user.linkedProviders = [...(user.linkedProviders || []), linkedProvider]
+
+          // Update name from Apple if user doesn't have one
+          if (!user.name && name) {
+            user.name = name
+          }
+
+          user.isProfileCompleted = true
+          await user.save()
+        }
+
+        return {
+          id: user._id.toString(),
+          email: user.email,
+          userName: user.userName,
+          name: user.name || name,
+          avatarUrl: user.avatarUrl || '',
+          isProfileCompleted: true,
+          roles: user.roles || [UserRole.USER],
+        }
+      }
+
+      // User does NOT exist - create new user with Apple as primary
+      const existingUserName = await this.userModel.findOne({ userName })
+      if (existingUserName) {
+        userName = `${userName}_${Math.floor(Math.random() * 10000)}`
+      }
+
+      // Create user with Apple as primary provider
+      const linkedProvider: LinkedProvider = {
+        provider: AuthProvider.APPLE,
+        providerId: appleId,
+        email: normalizedEmail,
+        linkedAt: new Date(),
+      }
+
+      user = new this.userModel({
+        email: normalizedEmail,
+        userName,
+        name,
+        appleId,
+        authProvider: AuthProvider.APPLE,
+        primaryProvider: AuthProvider.APPLE,
+        linkedProviders: [linkedProvider],
+        isProfileCompleted: true,
+        roles: [UserRole.USER],
+      })
+
+      await user.save()
+
+      return {
+        id: user._id.toString(),
+        email: normalizedEmail,
+        userName,
+        name,
+        avatarUrl: '',
+        isProfileCompleted: true,
+        roles: user.roles || [UserRole.USER],
+      }
+    } catch (error) {
+      console.error('Apple validation error:', error)
+      if (error instanceof HttpException) throw error
+      throw new HttpException(
+        'Invalid token or error processing user',
+        HttpStatus.UNAUTHORIZED
+      )
+    }
+  }
+
+  /**
    * Link Google identity to existing Cognito user
    * This allows users to sign in with Google through Cognito OAuth
    *

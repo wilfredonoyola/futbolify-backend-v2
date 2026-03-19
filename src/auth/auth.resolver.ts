@@ -151,6 +151,35 @@ export class AuthResolver {
     }
   }
 
+  @Mutation(() => GoogleSigninResponse)
+  async appleSignin(
+    @Args('idToken') idToken: string
+  ): Promise<GoogleSigninResponse> {
+    try {
+      const verifiedUser = await this.authService.validateAppleToken(idToken)
+
+      // Generate JWT token for Apple user
+      const accessToken = this.authService.generateAppleUserToken({
+        id: verifiedUser.id,
+        email: verifiedUser.email,
+        roles: verifiedUser.roles,
+      })
+
+      return {
+        id: verifiedUser.id,
+        email: verifiedUser.email,
+        userName: verifiedUser.userName,
+        name: verifiedUser.name,
+        avatarUrl: verifiedUser.avatarUrl,
+        isProfileCompleted: verifiedUser.isProfileCompleted,
+        access_token: accessToken,
+        roles: verifiedUser.roles,
+      }
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.UNAUTHORIZED)
+    }
+  }
+
   @Mutation(() => Boolean)
   async completeProfile(
     @Args('updateProfileInput') updateProfileInput: UpdateProfileInputDto

@@ -15,6 +15,7 @@ export enum UserRole {
 export enum AuthProvider {
   COGNITO = 'cognito',
   GOOGLE = 'google',
+  APPLE = 'apple',
 }
 
 // Subdocument for linked providers
@@ -108,9 +109,13 @@ export class User extends Document {
   @Field({ nullable: true })
   avatarUrl?: string
 
-  @Prop({ required: false, unique: true })
+  @Prop({ required: false, unique: true, sparse: true })
   @Field({ nullable: true })
   googleId?: string
+
+  @Prop({ required: false, unique: true, sparse: true })
+  @Field({ nullable: true })
+  appleId?: string
 
   @Prop({ required: false })
   @Field({ nullable: true })

@@ -28,6 +28,7 @@ type User {
   name: String
   avatarUrl: String
   googleId: String
+  appleId: String
   authProvider: String
   linkedProviders: [LinkedProvider!]!
   primaryProvider: String!
@@ -123,6 +124,9 @@ type LiveMatchOutputDto {
   id: Int!
   homeTeam: String!
   awayTeam: String!
+  homeTeamLogo: String
+  awayTeamLogo: String
+  kickoffTime: String
   leagueId: String
   leagueName: String
   leagueLogo: String
@@ -2182,6 +2186,7 @@ type Mutation {
   resendVerificationCode(email: String!): Boolean!
   addUser(userInput: AddUserInputDto!): UserOutputDto!
   googleSignin(idToken: String!, picture: String): GoogleSigninResponse!
+  appleSignin(idToken: String!): GoogleSigninResponse!
   completeProfile(updateProfileInput: UpdateProfileInputDto!): Boolean!
   linkGoogleAccount(idToken: String!): LinkAccountResponse!
   unlinkProvider(provider: String!): Boolean!
