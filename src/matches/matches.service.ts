@@ -318,4 +318,50 @@ export class MatchesService {
   getAvailableLeagues(): AvailableLeagueDto[] {
     return this.apiFootballService.getAvailableLeagues()
   }
+
+  /**
+   * Get matches by league ID (combines live and upcoming)
+   * @param leagueId - Frontend league ID (e.g., 'laliga', 'premier-league')
+   * @param status - Optional filter: 'live', 'upcoming', 'all' (default: 'all')
+   */
+  async getMatchesByLeague(
+    leagueId: string,
+    status: string = 'all'
+  ): Promise<LiveMatchOutputDto[]> {
+    try {
+      const matches: LiveMatchOutputDto[] = []
+
+      // Get live matches for the league
+      if (status === 'all' || status === 'live') {
+        const liveMatches = await this.apiFootballService.getLiveMatchesByLeague(leagueId)
+        if (liveMatches.length > 0) {
+          this.logger.log(`✅ ${liveMatches.length} live matches for ${leagueId}`)
+          matches.push(...liveMatches.map((m) => this.transformToDto(m)))
+        }
+      }
+
+      // Get upcoming matches for the league
+      if (status === 'all' || status === 'upcoming') {
+        const upcomingMatches = await this.apiFootballService.getUpcomingMatchesByLeague(leagueId)
+        if (upcomingMatches.length > 0) {
+          this.logger.log(`✅ ${upcomingMatches.length} upcoming matches for ${leagueId}`)
+          matches.push(...upcomingMatches.map((m) => this.transformToDto(m)))
+        }
+      }
+
+      // Sort by date/time (upcoming first, then live)
+      matches.sort((a, b) => {
+        // Live matches (state != NotStarted) come after upcoming
+        if (a.state === MatchState.NotStarted && b.state !== MatchState.NotStarted) return -1
+        if (a.state !== MatchState.NotStarted && b.state === MatchState.NotStarted) return 1
+        return 0
+      })
+
+      this.logger.log(`📊 Total ${matches.length} matches for ${leagueId} (status: ${status})`)
+      return matches
+    } catch (error) {
+      this.logger.error(`❌ Error getting matches for ${leagueId}: ${error.message}`)
+      return []
+    }
+  }
 }

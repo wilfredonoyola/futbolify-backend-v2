@@ -340,6 +340,80 @@ export class ApiFootballLiveService {
   }
 
   /**
+   * Get upcoming matches for a specific league (today and next 7 days)
+   */
+  async getUpcomingMatchesByLeague(leagueId: string): Promise<LiveMatchData[]> {
+    const leagueInfo = LEAGUE_MAP[leagueId]
+    if (!leagueInfo) {
+      this.logger.warn(`Unknown league: ${leagueId}`)
+      return []
+    }
+
+    const cacheKey = `api-football:upcoming-matches:${leagueId}`
+
+    const cached = await this.redisCache.get<LiveMatchData[]>(cacheKey)
+    if (cached) {
+      this.logger.debug(`♻️ Cache hit for upcoming matches ${leagueId} (${cached.length})`)
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return []
+    }
+
+    try {
+      // Get today and next 7 days
+      const today = new Date()
+      const nextWeek = new Date(today)
+      nextWeek.setDate(nextWeek.getDate() + 7)
+
+      const fromDate = today.toISOString().split('T')[0]
+      const toDate = nextWeek.toISOString().split('T')[0]
+
+      const response = await fetch(
+        `${this.baseUrl}/fixtures?league=${leagueInfo.apiId}&season=2024&from=${fromDate}&to=${toDate}`,
+        {
+          headers: { 'x-apisports-key': this.apiKey },
+        }
+      )
+
+      if (!response.ok) {
+        this.logger.error(`API error: ${response.status}`)
+        return []
+      }
+
+      const data = await response.json()
+      const fixtures = data.response || []
+
+      // Filter only not started matches
+      const upcomingFixtures = fixtures.filter(
+        (f: any) => f.fixture.status.short === 'NS'
+      )
+
+      this.logger.log(
+        `✅ Found ${upcomingFixtures.length} upcoming matches for ${leagueId}`
+      )
+
+      const matches: LiveMatchData[] = upcomingFixtures.map((fixture: any) =>
+        this.transformFixture(fixture)
+      )
+
+      // Sort by kickoff time
+      matches.sort(
+        (a, b) => new Date(a.kickoffTime || 0).getTime() - new Date(b.kickoffTime || 0).getTime()
+      )
+
+      // Cache for 5 minutes
+      await this.redisCache.set(cacheKey, matches, 300)
+
+      return matches
+    } catch (error) {
+      this.logger.error(`Error fetching upcoming for ${leagueId}: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
    * Get upcoming matches for today and tomorrow from allowed leagues
    */
   async getUpcomingMatches(): Promise<LiveMatchData[]> {

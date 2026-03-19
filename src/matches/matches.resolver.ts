@@ -41,4 +41,12 @@ export class MatchesResolver {
   availableLeagues() {
     return this.matchesService.getAvailableLeagues()
   }
+
+  @Query(() => [LiveMatchOutputDto])
+  async matchesByLeague(
+    @Args('leagueId') leagueId: string,
+    @Args('status', { nullable: true, defaultValue: 'all' }) status?: string
+  ) {
+    return this.matchesService.getMatchesByLeague(leagueId, status)
+  }
 }
