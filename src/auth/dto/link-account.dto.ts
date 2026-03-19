@@ -16,7 +16,10 @@ export class AddPasswordToAccountInput {
   password: string
 
   @Field()
-  googleIdToken: string // To verify ownership of the Google account
+  idToken: string // OAuth token (Google or Apple) to verify ownership
+
+  @Field({ nullable: true, deprecationReason: 'Use idToken instead' })
+  googleIdToken?: string // Deprecated - kept for backwards compatibility
 }
 
 @ObjectType()
@@ -29,6 +32,9 @@ export class CheckEmailResponse {
 
   @Field({ nullable: true })
   hasGoogle?: boolean
+
+  @Field({ nullable: true })
+  hasApple?: boolean
 
   @Field({ nullable: true })
   primaryProvider?: string
