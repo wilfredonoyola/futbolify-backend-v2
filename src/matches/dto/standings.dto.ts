@@ -88,4 +88,16 @@ export class AvailableLeagueDto {
 
   @Field(() => Int)
   apiId: number
+
+  @Field({ nullable: true })
+  country: string | null
+
+  @Field()
+  logoUrl: string
+
+  @Field(() => Int)
+  order: number
+
+  @Field()
+  isActive: boolean
 }

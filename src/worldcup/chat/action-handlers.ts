@@ -310,7 +310,7 @@ export async function handleCreateQuiniela(
     const result = await quinielaService.createQuiniela(
       {
         name,
-        leagueId: 'world-cup', // Default to World Cup for chat-created quinielas
+        leagueId: 'mundial-2026', // Default to World Cup for chat-created quinielas
         isPrivate,
         anonymousCreatorId,
         ownerName,

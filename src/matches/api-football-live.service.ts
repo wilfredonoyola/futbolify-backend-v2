@@ -13,29 +13,38 @@ const CACHE_TTL = {
 }
 
 /**
- * League ID mapping for API-Football
- * Maps our frontend league IDs to API-Football league IDs
+ * League configuration for API-Football
+ * Maps our frontend league IDs to API-Football league IDs with full metadata
  */
-const LEAGUE_MAP: Record<string, { apiId: number; name: string }> = {
-  // Top European Leagues
-  'premier-league': { apiId: 39, name: 'Premier League' },
-  'la-liga': { apiId: 140, name: 'La Liga' },
-  'serie-a': { apiId: 135, name: 'Serie A' },
-  'bundesliga': { apiId: 78, name: 'Bundesliga' },
-  'ligue-1': { apiId: 61, name: 'Ligue 1' },
-  'eredivisie': { apiId: 88, name: 'Eredivisie' },
-  'primeira-liga': { apiId: 94, name: 'Primeira Liga' },
+interface LeagueConfig {
+  apiId: number
+  name: string
+  country: string | null // null for international competitions
+  order: number // Display order (lower = higher priority)
+  isActive: boolean
+}
+
+const LEAGUE_MAP: Record<string, LeagueConfig> = {
+  // World Cup - Top priority
+  'mundial-2026': { apiId: 1, name: 'Mundial 2026', country: null, order: 0, isActive: true },
   // UEFA Competitions
-  'champions-league': { apiId: 2, name: 'UEFA Champions League' },
-  'europa-league': { apiId: 3, name: 'UEFA Europa League' },
-  'conference-league': { apiId: 848, name: 'UEFA Conference League' },
+  'champions-league': { apiId: 2, name: 'Champions League', country: null, order: 1, isActive: true },
+  'europa-league': { apiId: 3, name: 'Europa League', country: null, order: 2, isActive: true },
+  // Top European Leagues
+  'la-liga': { apiId: 140, name: 'La Liga', country: 'España', order: 10, isActive: true },
+  'premier-league': { apiId: 39, name: 'Premier League', country: 'Inglaterra', order: 11, isActive: true },
+  'serie-a': { apiId: 135, name: 'Serie A', country: 'Italia', order: 12, isActive: true },
+  'bundesliga': { apiId: 78, name: 'Bundesliga', country: 'Alemania', order: 13, isActive: true },
+  'ligue-1': { apiId: 61, name: 'Ligue 1', country: 'Francia', order: 14, isActive: true },
   // Americas
-  'liga-mx': { apiId: 262, name: 'Liga MX' },
-  'mls': { apiId: 253, name: 'MLS' },
-  'copa-libertadores': { apiId: 13, name: 'Copa Libertadores' },
-  'copa-america': { apiId: 11, name: 'Copa America' },
-  // World
-  'mundial-2026': { apiId: 1, name: 'World Cup' },
+  'liga-mx': { apiId: 262, name: 'Liga MX', country: 'México', order: 20, isActive: true },
+  'mls': { apiId: 253, name: 'MLS', country: 'USA', order: 21, isActive: true },
+  'copa-libertadores': { apiId: 13, name: 'Copa Libertadores', country: null, order: 22, isActive: true },
+  'copa-america': { apiId: 11, name: 'Copa América', country: null, order: 23, isActive: false }, // Not active yet
+  // Other European
+  'eredivisie': { apiId: 88, name: 'Eredivisie', country: 'Países Bajos', order: 30, isActive: false },
+  'primeira-liga': { apiId: 94, name: 'Primeira Liga', country: 'Portugal', order: 31, isActive: false },
+  'conference-league': { apiId: 848, name: 'Conference League', country: null, order: 32, isActive: false },
 }
 
 /**
@@ -725,14 +734,30 @@ export class ApiFootballLiveService {
   }
 
   /**
-   * Get list of available leagues
+   * Get list of available leagues with full metadata
+   * Returns only active leagues, sorted by display order
    */
-  getAvailableLeagues(): Array<{ id: string; name: string; apiId: number }> {
-    return Object.entries(LEAGUE_MAP).map(([id, info]) => ({
-      id,
-      name: info.name,
-      apiId: info.apiId,
-    }))
+  getAvailableLeagues(): Array<{
+    id: string
+    name: string
+    apiId: number
+    country: string | null
+    logoUrl: string
+    order: number
+    isActive: boolean
+  }> {
+    return Object.entries(LEAGUE_MAP)
+      .filter(([_, info]) => info.isActive) // Only return active leagues
+      .map(([id, info]) => ({
+        id,
+        name: info.name,
+        apiId: info.apiId,
+        country: info.country,
+        logoUrl: `https://media.api-sports.io/football/leagues/${info.apiId}.png`,
+        order: info.order,
+        isActive: info.isActive,
+      }))
+      .sort((a, b) => a.order - b.order) // Sort by display order
   }
 
   /**
