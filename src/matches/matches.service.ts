@@ -29,6 +29,9 @@ export class MatchesService {
     dto.id = match.id
     dto.homeTeam = match.homeTeam
     dto.awayTeam = match.awayTeam
+    dto.homeTeamLogo = match.homeTeamLogo
+    dto.awayTeamLogo = match.awayTeamLogo
+    dto.kickoffTime = match.kickoffTime
     dto.leagueId = match.leagueId
     dto.leagueName = match.leagueName
     dto.leagueLogo = match.leagueLogo
