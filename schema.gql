@@ -59,6 +59,7 @@ type CheckEmailResponse {
   exists: Boolean!
   hasPassword: Boolean
   hasGoogle: Boolean
+  hasApple: Boolean
   primaryProvider: String
 }
 
@@ -2387,7 +2388,8 @@ input UpdateProfileInputDto {
 input AddPasswordToAccountInput {
   email: String!
   password: String!
-  googleIdToken: String!
+  idToken: String!
+  googleIdToken: String
 }
 
 input UpdateUserInput {
