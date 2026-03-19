@@ -1015,6 +1015,7 @@ export class AuthService {
    */
   private mapLinkedProviders(user: UserDocument): LinkedProviderInfo[] {
     const providers: LinkedProviderInfo[] = []
+    const addedProviders = new Set<string>()
 
     // Add Cognito provider only if user registered with email/password
     // (primaryProvider is 'cognito' or authProvider is not set/cognito)
@@ -1028,9 +1029,10 @@ export class AuthService {
         linkedAt: new Date(user.createdAt * 1000),
         isPrimary: user.primaryProvider === AuthProvider.COGNITO,
       })
+      addedProviders.add(AuthProvider.COGNITO)
     }
 
-    // Add linked providers (e.g., Google)
+    // Add linked providers from array
     if (user.linkedProviders) {
       for (const lp of user.linkedProviders) {
         providers.push({
@@ -1039,7 +1041,28 @@ export class AuthService {
           linkedAt: lp.linkedAt,
           isPrimary: user.primaryProvider === lp.provider,
         })
+        addedProviders.add(lp.provider)
       }
+    }
+
+    // Add Google if user has googleId but it's not in linkedProviders
+    if (user.googleId && !addedProviders.has(AuthProvider.GOOGLE)) {
+      providers.push({
+        provider: AuthProvider.GOOGLE,
+        email: user.email || '',
+        linkedAt: new Date(user.createdAt * 1000),
+        isPrimary: user.primaryProvider === AuthProvider.GOOGLE || user.authProvider === AuthProvider.GOOGLE,
+      })
+    }
+
+    // Add Apple if user has appleId but it's not in linkedProviders
+    if (user.appleId && !addedProviders.has(AuthProvider.APPLE)) {
+      providers.push({
+        provider: AuthProvider.APPLE,
+        email: user.email || '',
+        linkedAt: new Date(user.createdAt * 1000),
+        isPrimary: user.primaryProvider === AuthProvider.APPLE || user.authProvider === AuthProvider.APPLE,
+      })
     }
 
     return providers
