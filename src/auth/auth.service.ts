@@ -554,7 +554,19 @@ export class AuthService {
           // AUTO-LINK: User registered with other provider, now logging in with Apple
           console.log(`[Auth] Linking Apple account to existing user: ${user.email}`)
 
-          // Link Apple in MongoDB
+          // 1. Link Apple in Cognito (if user has Cognito account)
+          const hasCognitoAccount = !user.authProvider || user.authProvider === AuthProvider.COGNITO
+          if (hasCognitoAccount) {
+            try {
+              await this.linkAppleInCognito(user.email, appleId)
+              console.log(`[Auth] Successfully linked Apple in Cognito for: ${user.email}`)
+            } catch (cognitoError) {
+              // Log but don't fail - Cognito linking is optional
+              console.error(`[Auth] Failed to link Apple in Cognito:`, cognitoError.message)
+            }
+          }
+
+          // 2. Link Apple in MongoDB
           const linkedProvider: LinkedProvider = {
             provider: AuthProvider.APPLE,
             providerId: appleId,
@@ -719,6 +731,97 @@ export class AuthService {
       }
     } catch (error) {
       console.error(`[Auth] linkGoogleInCognito error:`, error.message || error)
+      throw error
+    }
+  }
+
+  /**
+   * Link Apple identity to existing Cognito user
+   * This allows users to sign in with Apple through Cognito OAuth
+   *
+   * IMPORTANT: Requires Apple to be configured as an Identity Provider in Cognito
+   */
+  private async linkAppleInCognito(email: string, appleId: string): Promise<void> {
+    try {
+      // Find ALL Cognito users with this email
+      const listUsersCommand = new ListUsersCommand({
+        UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+        Filter: `email = "${email}"`,
+        Limit: 10,
+      })
+
+      const listUsersResponse = await this.client.send(listUsersCommand)
+      const users = listUsersResponse.Users || []
+
+      console.log(`[Auth] Found ${users.length} Cognito users with email: ${email}`)
+
+      // Separate native user from federated users
+      const federatedPrefixes = ['google_', 'Google_', 'facebook_', 'Facebook_', 'signinwithapple_', 'SignInWithApple_']
+
+      const nativeUser = users.find(user => {
+        const username = user.Username || ''
+        return !federatedPrefixes.some(prefix => username.toLowerCase().startsWith(prefix.toLowerCase()))
+      })
+
+      // Only get Apple federated users for deletion
+      const appleFederatedUsers = users.filter(user => {
+        const username = user.Username || ''
+        return username.toLowerCase().startsWith('signinwithapple_')
+      })
+
+      if (!nativeUser || !nativeUser.Username) {
+        console.log(`[Auth] No native Cognito user found for email: ${email}`)
+        return
+      }
+
+      console.log(`[Auth] Native user found: ${nativeUser.Username}`)
+      console.log(`[Auth] Apple federated users found: ${appleFederatedUsers.map(u => u.Username).join(', ')}`)
+
+      // IMPORTANT: First DELETE the Apple federated users, then link
+      // Cognito cannot link a SourceUser that already exists ("Merging not supported")
+
+      // Step 1: Delete the Apple federated duplicate users (signinwithapple_xxx)
+      for (const federatedUser of appleFederatedUsers) {
+        try {
+          const deleteCommand = new AdminDeleteUserCommand({
+            UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+            Username: federatedUser.Username,
+          })
+          await this.client.send(deleteCommand)
+          console.log(`[Auth] Deleted Apple federated duplicate user: ${federatedUser.Username}`)
+        } catch (deleteError: any) {
+          console.error(`[Auth] Failed to delete Apple federated user ${federatedUser.Username}:`, deleteError.message)
+        }
+      }
+
+      // Step 2: Link Apple to the native Cognito user
+      try {
+        const linkCommand = new AdminLinkProviderForUserCommand({
+          UserPoolId: process.env.AWS_COGNITO_USER_POOL_ID,
+          DestinationUser: {
+            ProviderName: 'Cognito',
+            ProviderAttributeValue: nativeUser.Username,
+          },
+          SourceUser: {
+            ProviderName: 'SignInWithApple',
+            ProviderAttributeName: 'Cognito_Subject',
+            ProviderAttributeValue: appleId,
+          },
+        })
+
+        await this.client.send(linkCommand)
+        console.log(`[Auth] Linked Apple (${appleId}) to native user: ${nativeUser.Username}`)
+      } catch (linkError: any) {
+        // If already linked, that's fine
+        if (linkError.message?.includes('already exists')) {
+          console.log(`[Auth] Apple already linked to native user: ${nativeUser.Username}`)
+        } else {
+          console.error(`[Auth] Failed to link Apple:`, linkError.message)
+          // Don't throw - we still want to continue with MongoDB linking
+        }
+      }
+    } catch (error) {
+      console.error(`[Auth] linkAppleInCognito error:`, error.message || error)
       throw error
     }
   }
