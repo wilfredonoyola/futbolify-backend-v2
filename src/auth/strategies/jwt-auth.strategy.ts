@@ -43,13 +43,16 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
         exp: decodedToken?.exp,
       });
 
-      // Check token issuer - accept both Cognito and Google-auth tokens
+      // Check token issuer - accept Cognito, Google-auth, and Apple-auth tokens
       const cognitoIssuer = `https://cognito-idp.${process.env.AWS_COGNITO_REGION}.amazonaws.com/${process.env.AWS_COGNITO_USER_POOL_ID}`;
       const googleAuthIssuer = 'futbolify-google-auth';
+      const appleAuthIssuer = 'futbolify-apple-auth';
 
-      console.log('[JWT-Auth] Expected issuers:', { cognitoIssuer, googleAuthIssuer });
+      console.log('[JWT-Auth] Expected issuers:', { cognitoIssuer, googleAuthIssuer, appleAuthIssuer });
 
-      const isValidIssuer = decodedToken.iss === cognitoIssuer || decodedToken.iss === googleAuthIssuer;
+      const isValidIssuer = decodedToken.iss === cognitoIssuer ||
+        decodedToken.iss === googleAuthIssuer ||
+        decodedToken.iss === appleAuthIssuer;
 
       if (!isValidIssuer) {
         console.log('[JWT-Auth] Invalid issuer:', decodedToken.iss);
@@ -59,16 +62,18 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
         );
       }
 
-      console.log('[JWT-Auth] Issuer valid, type:', decodedToken.iss === googleAuthIssuer ? 'google-auth' : 'cognito');
+      const tokenType = decodedToken.iss === googleAuthIssuer ? 'google-auth' :
+        decodedToken.iss === appleAuthIssuer ? 'apple-auth' : 'cognito';
+      console.log('[JWT-Auth] Issuer valid, type:', tokenType);
 
-      // For Google-auth tokens, verify the signature
-      if (decodedToken.iss === googleAuthIssuer) {
-        console.log('[JWT-Auth] Verifying Google-auth token signature...');
+      // For Google-auth and Apple-auth tokens, verify the signature
+      if (decodedToken.iss === googleAuthIssuer || decodedToken.iss === appleAuthIssuer) {
+        console.log(`[JWT-Auth] Verifying ${tokenType} token signature...`);
         try {
           jwt.verify(token, process.env.JWT_SECRET || 'futbolify-secret-key');
-          console.log('[JWT-Auth] Google-auth token signature valid');
+          console.log(`[JWT-Auth] ${tokenType} token signature valid`);
         } catch (verifyError) {
-          console.log('[JWT-Auth] Google-auth token signature INVALID:', verifyError.message);
+          console.log(`[JWT-Auth] ${tokenType} token signature INVALID:`, verifyError.message);
           return this.fail(
             new UnauthorizedException('Invalid token signature'),
             401,
