@@ -379,8 +379,13 @@ export class ApiFootballLiveService {
       const fromDate = today.toISOString().split('T')[0]
       const toDate = nextWeek.toISOString().split('T')[0]
 
+      // European leagues run Aug-May, so Jan-Jul = previous year's season
+      const currentMonth = today.getMonth() + 1
+      const currentYear = today.getFullYear()
+      const season = currentMonth <= 7 ? currentYear - 1 : currentYear
+
       const response = await fetch(
-        `${this.baseUrl}/fixtures?league=${leagueInfo.apiId}&season=2024&from=${fromDate}&to=${toDate}`,
+        `${this.baseUrl}/fixtures?league=${leagueInfo.apiId}&season=${season}&from=${fromDate}&to=${toDate}`,
         {
           headers: { 'x-apisports-key': this.apiKey },
         }
@@ -632,8 +637,13 @@ export class ApiFootballLiveService {
     }
 
     // Determine season - use current year or provided
-    const currentYear = new Date().getFullYear()
-    const targetSeason = season || currentYear
+    // European leagues run Aug-May, so Jan-Jul = previous year's season
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1 // 1-12
+    // If we're in Jan-Jul, we're in the second half of season (started previous year)
+    const defaultSeason = currentMonth <= 7 ? currentYear - 1 : currentYear
+    const targetSeason = season || defaultSeason
 
     const cacheKey = `api-football:standings:${leagueId}:${targetSeason}`
 
