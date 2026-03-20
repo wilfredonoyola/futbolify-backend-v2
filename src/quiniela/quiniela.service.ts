@@ -29,6 +29,7 @@ import {
   VerifyAdminEmailResult,
   ValidateAdminTokenInput,
   ValidateAdminTokenResult,
+  PaginatedPublicPools,
 } from './dto/quiniela.dto';
 import { EmailService } from '../email/email.service';
 import * as crypto from 'crypto';
@@ -798,5 +799,59 @@ export class QuinielaService {
     }
 
     return mergedCount;
+  }
+
+  // ============ DISCOVER PUBLIC POOLS ============
+
+  // Discover public pools for exploration (public, no auth required)
+  async discoverPublicPools(options: {
+    leagueId?: string;
+    search?: string;
+    status?: QuinielaStatus;
+    limit?: number;
+    offset?: number;
+    sortBy?: 'createdAt' | 'memberCount';
+  }): Promise<PaginatedPublicPools> {
+    const { leagueId, search, status, limit = 20, offset = 0, sortBy = 'createdAt' } = options;
+
+    // Build query filter - only public pools
+    const filter: any = { isPrivate: false };
+    if (leagueId) filter.leagueId = leagueId;
+    if (status) filter.status = status;
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    // Build sort - both should be descending (newest or most popular first)
+    const sort: any = {};
+    sort[sortBy] = -1;
+
+    // Execute query
+    const [pools, total] = await Promise.all([
+      this.quinielaModel.find(filter).sort(sort).skip(offset).limit(limit),
+      this.quinielaModel.countDocuments(filter),
+    ]);
+
+    return {
+      pools: pools.map(q => ({
+        id: q._id.toString(),
+        name: q.name,
+        ownerId: q.ownerId?.toString(),
+        ownerName: q.ownerName,
+        memberCount: q.memberCount,
+        isPrivate: q.isPrivate,
+        leagueId: q.leagueId,
+        status: q.status,
+        predictionMode: q.predictionMode || PredictionMode.SIMPLE,
+        description: q.description,
+        imageUrl: q.imageUrl,
+        createdAt: q.createdAt,
+      })),
+      total,
+      hasMore: offset + pools.length < total,
+    };
   }
 }

@@ -226,3 +226,8 @@ QuinielaSchema.index({ ownerId: 1 });
 QuinielaSchema.index({ 'members.userId': 1 });
 QuinielaSchema.index({ status: 1 });
 QuinielaSchema.index({ createdAt: -1 });
+
+// Indexes for discovering public pools
+QuinielaSchema.index({ isPrivate: 1, createdAt: -1 });
+QuinielaSchema.index({ isPrivate: 1, memberCount: -1 });
+QuinielaSchema.index({ isPrivate: 1, leagueId: 1 });

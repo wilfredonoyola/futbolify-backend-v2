@@ -24,7 +24,9 @@ import {
   ValidateAdminTokenResult,
   AIPrediction,
   AIScoreData,
+  PaginatedPublicPools,
 } from './dto/quiniela.dto';
+import { QuinielaStatus } from './schemas/quiniela.schema';
 
 // Input for AI predictions batch request
 @InputType()
@@ -62,6 +64,26 @@ export class QuinielaResolver {
     @Args('code') code: string,
   ): Promise<QuinielaPublicInfo | null> {
     return this.quinielaService.getByCode(code);
+  }
+
+  // Discover public pools for exploration (public, no auth required)
+  @Query(() => PaginatedPublicPools, { name: 'discoverPublicPools' })
+  async discoverPublicPools(
+    @Args('leagueId', { nullable: true }) leagueId?: string,
+    @Args('search', { nullable: true }) search?: string,
+    @Args('status', { nullable: true, type: () => QuinielaStatus }) status?: QuinielaStatus,
+    @Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
+    @Args('offset', { nullable: true, defaultValue: 0 }) offset?: number,
+    @Args('sortBy', { nullable: true, defaultValue: 'createdAt' }) sortBy?: string,
+  ): Promise<PaginatedPublicPools> {
+    return this.quinielaService.discoverPublicPools({
+      leagueId,
+      search,
+      status,
+      limit,
+      offset,
+      sortBy: sortBy as 'createdAt' | 'memberCount',
+    });
   }
 
   // ============ AUTHENTICATED QUERIES ============

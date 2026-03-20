@@ -382,3 +382,18 @@ export class AIScoreData {
   @Field(() => AIScoreStreak)
   streak: AIScoreStreak;
 }
+
+// ============ DISCOVER PUBLIC POOLS ============
+
+// Output: Paginated public pools for discovery
+@ObjectType()
+export class PaginatedPublicPools {
+  @Field(() => [QuinielaPublicInfo])
+  pools: QuinielaPublicInfo[];
+
+  @Field()
+  total: number;
+
+  @Field()
+  hasMore: boolean;
+}
