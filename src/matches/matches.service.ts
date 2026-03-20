@@ -39,6 +39,7 @@ export class MatchesService {
     dto.scoreHome = match.scoreHome
     dto.scoreAway = match.scoreAway
     dto.state = this.calculateState(match.status, match.minute)
+    dto.round = match.round
 
     // Statistics from detailed match data
     if (match.statistics) {

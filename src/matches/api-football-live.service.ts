@@ -99,6 +99,7 @@ export interface LiveMatchData {
   status: string
   elapsed: number | null
   kickoffTime: string | null // ISO date string
+  round: string | null // "Round of 16", "Quarter-finals", "Regular Season - 25", etc.
   events?: MatchEvent[]
   statistics?: MatchStatistics
 }
@@ -594,6 +595,7 @@ export class ApiFootballLiveService {
       status: fixture.fixture.status.short,
       elapsed: fixture.fixture.status.elapsed,
       kickoffTime: fixture.fixture.date || null,
+      round: fixture.league?.round || null,
     }
   }
 
@@ -689,6 +691,8 @@ export class ApiFootballLiveService {
       const data = await response.json()
       const leagueData = data.response?.[0]?.league
 
+      this.logger.log(`📊 Standings response for ${leagueId}: ${JSON.stringify(data.response?.length || 0)} entries`)
+
       if (!leagueData) {
         this.logger.warn(`No standings found for ${leagueId} season ${targetSeason}`)
         return null
@@ -696,6 +700,10 @@ export class ApiFootballLiveService {
 
       // Transform standings
       const standings = leagueData.standings || []
+      this.logger.log(`📊 Standings format: ${standings.length} groups, first item is array: ${Array.isArray(standings[0])}`)
+
+      // Champions League new format (2024+) has a single league table
+      // Traditional cups have groups (arrays of arrays)
       const isGroupBased = Array.isArray(standings[0]) && standings.length > 1
 
       const groups: StandingsGroup[] = isGroupBased

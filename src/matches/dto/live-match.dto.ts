@@ -110,6 +110,9 @@ export class LiveMatchOutputDto {
   @Field(() => MatchState, { nullable: true })
   state?: MatchState
 
+  @Field(() => String, { nullable: true })
+  round?: string
+
   @Field(() => Int, { nullable: true })
   yellowCards?: number
 
