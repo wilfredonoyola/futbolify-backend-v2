@@ -349,7 +349,9 @@ export class ApiFootballLiveService {
   }
 
   /**
-   * Get upcoming matches for a specific league (today and next 7 days)
+   * Get upcoming matches for a specific league
+   * For cups/tournaments: looks up to 60 days ahead (knockout matches are spread out)
+   * For domestic leagues: looks 14 days ahead
    */
   async getUpcomingMatchesByLeague(leagueId: string): Promise<LiveMatchData[]> {
     const leagueInfo = LEAGUE_MAP[leagueId]
@@ -371,18 +373,31 @@ export class ApiFootballLiveService {
     }
 
     try {
-      // Get today and next 7 days
       const today = new Date()
-      const nextWeek = new Date(today)
-      nextWeek.setDate(nextWeek.getDate() + 7)
+      const futureDate = new Date(today)
+
+      // Cup competitions (Champions League, Europa League, World Cup, Copa America, etc.)
+      // have matches spread over longer periods - look further ahead
+      const isCupCompetition = !leagueInfo.country ||
+        ['champions-league', 'europa-league', 'mundial-2026', 'copa-america', 'euro'].includes(leagueId)
+
+      if (isCupCompetition) {
+        // Look 60 days ahead for cups (knockout rounds are spread out)
+        futureDate.setDate(futureDate.getDate() + 60)
+      } else {
+        // Look 14 days ahead for domestic leagues
+        futureDate.setDate(futureDate.getDate() + 14)
+      }
 
       const fromDate = today.toISOString().split('T')[0]
-      const toDate = nextWeek.toISOString().split('T')[0]
+      const toDate = futureDate.toISOString().split('T')[0]
 
       // European leagues run Aug-May, so Jan-Jul = previous year's season
       const currentMonth = today.getMonth() + 1
       const currentYear = today.getFullYear()
       const season = currentMonth <= 7 ? currentYear - 1 : currentYear
+
+      this.logger.log(`🔍 Fetching matches for ${leagueId} (cup: ${isCupCompetition}) from ${fromDate} to ${toDate}, season ${season}`)
 
       const response = await fetch(
         `${this.baseUrl}/fixtures?league=${leagueInfo.apiId}&season=${season}&from=${fromDate}&to=${toDate}`,
