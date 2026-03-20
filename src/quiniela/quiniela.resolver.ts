@@ -66,9 +66,11 @@ export class QuinielaResolver {
     return this.quinielaService.getByCode(code);
   }
 
-  // Discover public pools for exploration (public, no auth required)
+  // Discover public pools for exploration (optional auth to exclude user's pools)
   @Query(() => PaginatedPublicPools, { name: 'discoverPublicPools' })
+  @UseGuards(GqlOptionalAuthGuard)
   async discoverPublicPools(
+    @Context() context: { req?: { user?: { userId?: string } } },
     @Args('leagueId', { nullable: true }) leagueId?: string,
     @Args('search', { nullable: true }) search?: string,
     @Args('status', { nullable: true, type: () => QuinielaStatus }) status?: QuinielaStatus,
@@ -76,6 +78,7 @@ export class QuinielaResolver {
     @Args('offset', { nullable: true, defaultValue: 0 }) offset?: number,
     @Args('sortBy', { nullable: true, defaultValue: 'createdAt' }) sortBy?: string,
   ): Promise<PaginatedPublicPools> {
+    const userId = context.req?.user?.userId;
     return this.quinielaService.discoverPublicPools({
       leagueId,
       search,
@@ -83,6 +86,7 @@ export class QuinielaResolver {
       limit,
       offset,
       sortBy: sortBy as 'createdAt' | 'memberCount',
+      excludeUserId: userId, // Exclude pools where user is owner or member
     });
   }
 

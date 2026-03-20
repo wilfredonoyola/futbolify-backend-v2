@@ -803,7 +803,7 @@ export class QuinielaService {
 
   // ============ DISCOVER PUBLIC POOLS ============
 
-  // Discover public pools for exploration (public, no auth required)
+  // Discover public pools for exploration (excludes user's own pools)
   async discoverPublicPools(options: {
     leagueId?: string;
     search?: string;
@@ -811,8 +811,9 @@ export class QuinielaService {
     limit?: number;
     offset?: number;
     sortBy?: 'createdAt' | 'memberCount';
+    excludeUserId?: string; // Exclude pools where user is owner or member
   }): Promise<PaginatedPublicPools> {
-    const { leagueId, search, status, limit = 20, offset = 0, sortBy = 'createdAt' } = options;
+    const { leagueId, search, status, limit = 20, offset = 0, sortBy = 'createdAt', excludeUserId } = options;
 
     // Build query filter - only public pools
     const filter: any = { isPrivate: false };
@@ -823,6 +824,12 @@ export class QuinielaService {
         { name: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
       ];
+    }
+
+    // Exclude pools where user is owner or member
+    if (excludeUserId) {
+      filter.ownerId = { $ne: new Types.ObjectId(excludeUserId) };
+      filter['members.userId'] = { $ne: new Types.ObjectId(excludeUserId) };
     }
 
     // Build sort - both should be descending (newest or most popular first)
@@ -839,12 +846,12 @@ export class QuinielaService {
       pools: pools.map(q => ({
         id: q._id.toString(),
         name: q.name,
-        ownerId: q.ownerId?.toString(),
-        ownerName: q.ownerName,
-        memberCount: q.memberCount,
+        ownerId: q.ownerId?.toString() || null,
+        ownerName: q.ownerName || 'Anonymous',
+        memberCount: q.memberCount || 0,
         isPrivate: q.isPrivate,
         leagueId: q.leagueId,
-        status: q.status,
+        status: q.status || QuinielaStatus.OPEN,
         predictionMode: q.predictionMode || PredictionMode.SIMPLE,
         description: q.description,
         imageUrl: q.imageUrl,
