@@ -433,6 +433,11 @@ export class ApiFootballLiveService {
         (a, b) => new Date(a.kickoffTime || 0).getTime() - new Date(b.kickoffTime || 0).getTime()
       )
 
+      // For cup competitions, detect and add leg info (1st Leg / 2nd Leg)
+      if (isCupCompetition) {
+        this.addLegInfoToMatches(matches)
+      }
+
       // Cache for 5 minutes
       await this.redisCache.set(cacheKey, matches, 300)
 
@@ -597,6 +602,94 @@ export class ApiFootballLiveService {
       kickoffTime: fixture.fixture.date || null,
       round: fixture.league?.round || null,
     }
+  }
+
+  /**
+   * Add leg info (1st Leg / 2nd Leg) to knockout matches based on dates
+   * Modifies matches in place
+   */
+  private addLegInfoToMatches(matches: LiveMatchData[]): void {
+    // Check if round already contains leg info
+    const hasLegInfo = matches.some(m =>
+      m.round?.toLowerCase().includes('leg') ||
+      m.round?.toLowerCase().includes('ida') ||
+      m.round?.toLowerCase().includes('vuelta')
+    )
+
+    if (hasLegInfo) {
+      return // API already provides leg info
+    }
+
+    // Group matches by base round (e.g., "Quarter-finals")
+    const byRound: Record<string, LiveMatchData[]> = {}
+
+    for (const match of matches) {
+      if (!match.round || !this.isKnockoutRound(match.round)) {
+        continue
+      }
+
+      const baseRound = match.round
+      if (!byRound[baseRound]) {
+        byRound[baseRound] = []
+      }
+      byRound[baseRound].push(match)
+    }
+
+    // For each round, detect 1st/2nd leg by date
+    for (const round of Object.keys(byRound)) {
+      const roundMatches = byRound[round]
+
+      // Get unique dates
+      const dateToMatches: Record<string, LiveMatchData[]> = {}
+
+      for (const match of roundMatches) {
+        const dateStr = match.kickoffTime?.split('T')[0] || ''
+        if (!dateToMatches[dateStr]) {
+          dateToMatches[dateStr] = []
+        }
+        dateToMatches[dateStr].push(match)
+      }
+
+      // Sort dates
+      const sortedDates = Object.keys(dateToMatches).sort()
+
+      // If we have exactly 2 date groups, it's 1st leg and 2nd leg
+      if (sortedDates.length >= 2) {
+        // First date(s) = 1st Leg
+        const firstLegDates = sortedDates.slice(0, Math.ceil(sortedDates.length / 2))
+        // Second date(s) = 2nd Leg
+        const secondLegDates = sortedDates.slice(Math.ceil(sortedDates.length / 2))
+
+        for (const date of firstLegDates) {
+          for (const match of dateToMatches[date]) {
+            match.round = `${round} - 1st Leg`
+          }
+        }
+
+        for (const date of secondLegDates) {
+          for (const match of dateToMatches[date]) {
+            match.round = `${round} - 2nd Leg`
+          }
+        }
+
+        this.logger.log(`📌 Added leg info to ${round}: ${firstLegDates.join(',')} = 1st Leg, ${secondLegDates.join(',')} = 2nd Leg`)
+      }
+    }
+  }
+
+  /**
+   * Check if a round name indicates a knockout phase
+   */
+  private isKnockoutRound(round: string): boolean {
+    const lower = round.toLowerCase()
+    return (
+      lower.includes('quarter') ||
+      lower.includes('semi') ||
+      lower.includes('final') ||
+      lower.includes('round of 16') ||
+      lower.includes('8th') ||
+      lower.includes('knockout')
+    )
   }
 
   /**
