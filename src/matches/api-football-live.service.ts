@@ -686,9 +686,11 @@ export class ApiFootballLiveService {
       lower.includes('quarter') ||
       lower.includes('semi') ||
       lower.includes('final') ||
+      lower.includes('round of 32') ||
       lower.includes('round of 16') ||
       lower.includes('8th') ||
-      lower.includes('knockout')
+      lower.includes('knockout') ||
+      lower.includes('play-off')
     )
   }
 
