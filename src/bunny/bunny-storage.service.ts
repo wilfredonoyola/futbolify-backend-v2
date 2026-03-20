@@ -423,4 +423,58 @@ export class BunnyStorageService {
   getApiKey(): string {
     return this.accessKey;
   }
+
+  /**
+   * Uploads a quiniela image/logo to Bunny Storage
+   * @param file - File buffer
+   * @param filename - Original filename
+   * @param quinielaId - Quiniela ID for organizing files
+   * @returns Upload result with URLs
+   */
+  async uploadQuinielaImage(
+    file: Buffer,
+    filename: string,
+    quinielaId: string,
+  ): Promise<UploadResult> {
+    this.checkConfiguration();
+
+    try {
+      // Generate unique filename with timestamp
+      const timestamp = Date.now();
+      const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `quinielas/${quinielaId}/${timestamp}.${ext}`;
+
+      // Upload to Bunny Storage
+      const storageUrl = `https://${this.region}.bunnycdn.com/${this.storageZoneName}/${path}`;
+
+      const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+
+      const response = await axios.put(storageUrl, file, {
+        headers: {
+          'AccessKey': this.accessKey,
+          'Content-Type': contentType,
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      });
+
+      if (response.status !== 201 && response.status !== 200) {
+        throw new InternalServerErrorException('Failed to upload quiniela image to Bunny Storage');
+      }
+
+      // Generate CDN URL with cache-busting timestamp
+      const cdnUrl = `https://${this.cdnHostname}/${path}?v=${timestamp}`;
+
+      return {
+        url: `https://${this.cdnHostname}/${path}`,
+        cdnUrl,
+        path,
+      };
+    } catch (error) {
+      console.error('Bunny Storage quiniela image upload error:', error.response?.data || error.message);
+      throw new InternalServerErrorException(
+        `Failed to upload quiniela image: ${error.response?.data?.Message || error.message}`,
+      );
+    }
+  }
 }

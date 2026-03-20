@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UploadsController } from './uploads.controller';
@@ -6,6 +6,7 @@ import { DirectUploadController } from './direct-upload.controller';
 import { TeamsModule } from '../teams/teams.module';
 import { BunnyModule } from '../bunny/bunny.module';
 import { UsersModule } from '../users/users.module';
+import { QuinielaModule } from '../quiniela/quiniela.module';
 import { Media, MediaSchema } from '../teams/schemas/media.schema';
 
 @Module({
@@ -19,6 +20,7 @@ import { Media, MediaSchema } from '../teams/schemas/media.schema';
     TeamsModule,
     BunnyModule,
     UsersModule,
+    forwardRef(() => QuinielaModule),
   ],
   controllers: [UploadsController, DirectUploadController],
 })

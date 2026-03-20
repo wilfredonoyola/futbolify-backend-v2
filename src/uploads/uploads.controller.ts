@@ -14,6 +14,7 @@ import { MediaService } from '../teams/media.service';
 import { MediaCategory } from '../teams/schemas/media.schema';
 import { BunnyStorageService } from '../bunny/bunny-storage.service';
 import { UsersService } from '../users/users.service';
+import { QuinielaService } from '../quiniela/quiniela.service';
 
 @Controller('uploads')
 export class UploadsController {
@@ -21,6 +22,7 @@ export class UploadsController {
     private readonly mediaService: MediaService,
     private readonly bunnyStorageService: BunnyStorageService,
     private readonly usersService: UsersService,
+    private readonly quinielaService: QuinielaService,
   ) {}
 
   /**
@@ -159,6 +161,60 @@ export class UploadsController {
       userId,
       { avatarUrl: result.cdnUrl },
       req.user,
+    );
+
+    return {
+      success: true,
+      data: {
+        url: result.cdnUrl,
+        path: result.path,
+      },
+    };
+  }
+
+  /**
+   * Upload quiniela image/logo
+   * POST /uploads/quiniela-image
+   */
+  @Post('quiniela-image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadQuinielaImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('quinielaId') quinielaId: string,
+    @Request() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    if (!quinielaId) {
+      throw new BadRequestException('quinielaId is required');
+    }
+
+    // Validate file type
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('Only image files are allowed');
+    }
+
+    // Validate file size (max 2MB)
+    const maxSize = 2 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size must be less than 2MB');
+    }
+
+    // Upload to Bunny Storage
+    const result = await this.bunnyStorageService.uploadQuinielaImage(
+      file.buffer,
+      file.originalname,
+      quinielaId,
+    );
+
+    // Update quiniela's imageUrl in database
+    await this.quinielaService.updateQuiniela(
+      quinielaId,
+      req.user.userId,
+      { imageUrl: result.cdnUrl },
     );
 
     return {
