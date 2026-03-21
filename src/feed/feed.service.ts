@@ -449,15 +449,22 @@ export class FeedService {
 
   /**
    * Get posts by a specific user
+   * Supports searching by userId OR username for backwards compatibility
+   * with legacy backend that uses different user IDs
    */
   async getUserPosts(
-    targetUserId: string,
+    targetUserIdOrUsername: string,
     currentUserId?: string,
     limit = 20,
     offset = 0,
   ): Promise<UserPostsResponse> {
+    // Support both userId and username for backwards compatibility
+    // The frontend may pass either the Cognito userId or the legacy backend userId/username
     const query = {
-      'author.userId': targetUserId,
+      $or: [
+        { 'author.userId': targetUserIdOrUsername },
+        { 'author.username': targetUserIdOrUsername },
+      ],
       isDeleted: false,
       isVisible: true,
     };

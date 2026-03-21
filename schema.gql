@@ -2299,6 +2299,72 @@ type FootballChatResponseDto {
   error: String
 }
 
+type ReportReasonOutput {
+  id: ID!
+  value: String!
+  title: String!
+  description: String!
+}
+
+type GenerateReportData {
+  success: Boolean!
+  reportId: String
+}
+
+type GenerateReportResponse {
+  data: GenerateReportData
+  errors: [String!]
+  message: String
+}
+
+type ReportOutput {
+  id: ID!
+  reportType: ReportType!
+  referenceId: String!
+  reason: ReportReason!
+  additionalInfo: String
+  reporterId: String!
+  status: ReportStatus!
+  createdAt: DateTime!
+}
+
+"""Type of content being reported"""
+enum ReportType {
+  COMMENT
+  POST
+  USER
+  QUINIELA
+  MESSAGE
+}
+
+"""Reason for reporting"""
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE_SPEECH
+  VIOLENCE
+  NUDITY
+  FALSE_INFORMATION
+  SCAM
+  INAPPROPRIATE
+  COPYRIGHT
+  OTHER
+}
+
+"""Status of the report"""
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+type ReportsListResponse {
+  reports: [ReportOutput!]!
+  total: Int!
+  hasMore: Boolean!
+}
+
 type Query {
   getLinkedProviders: [LinkedProviderInfo!]!
   checkEmailExists(email: String!): CheckEmailResponse!
@@ -2459,6 +2525,8 @@ type Query {
   commentReplies(commentId: ID!, limit: Int = 10, offset: Int = 0): CommentsResponse!
   standings(leagueId: String!, season: String, conference: String): StandingsDto
   mlsStandings(season: String): [StandingsDto!]!
+  getReportReasons: [ReportReasonOutput!]!
+  adminGetReports(status: ReportStatus, reportType: ReportType, limit: Int! = 20, offset: Int! = 0): ReportsListResponse!
 }
 
 input LateMatchOptionsDto {
@@ -2711,6 +2779,9 @@ type Mutation {
   recordPostView(postId: ID!): RecordViewResult!
   sharePost(postId: ID!, platform: String): SharePostResult!
   footballChat(input: FootballChatInputDto!): FootballChatResponseDto!
+  createReport(input: GenerateReportInput!): GenerateReportResponse!
+  generateReport(GenerateReportInput: LegacyGenerateReportInput!): GenerateReportResponse!
+  adminUpdateReportStatus(reportId: String!, status: ReportStatus!, resolution: String): ReportOutput!
 }
 
 input SigninInputDto {
@@ -3262,6 +3333,19 @@ input FootballChatInputDto {
   sessionId: String
   userId: String
   anonymousCreatorId: String
+}
+
+input GenerateReportInput {
+  reportType: ReportType!
+  referenceId: String!
+  reason: ReportReason!
+  additionalInfo: String
+}
+
+input LegacyGenerateReportInput {
+  reportType: String!
+  referenceId: String!
+  reasonId: String!
 }
 
 type Subscription {
