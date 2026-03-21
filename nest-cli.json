@@ -7,6 +7,11 @@
         "include": "worldcup/data/*.json",
         "outDir": "dist/src",
         "watchAssets": true
+      },
+      {
+        "include": "standings/data/*.json",
+        "outDir": "dist/src",
+        "watchAssets": true
       }
     ]
   }

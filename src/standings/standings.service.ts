@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RedisCacheService, CACHE_TTL } from '../common/redis-cache.service';
 import { StandingsDto, StandingEntryDto, TeamInfoDto } from './dto/standing.dto';
+import { resolveTeamLogoUrl } from './resolve-team-logo';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -174,7 +175,11 @@ export class StandingsService {
           nameEn: entry.team.nameEn,
           code: entry.team.code,
           flag: entry.team.flag,
-          logo: entry.team.logo,
+          logo: resolveTeamLogoUrl(
+            data.leagueId,
+            entry.team.id,
+            entry.team.logo,
+          ),
         } as TeamInfoDto,
         played: entry.played,
         won: entry.won,
