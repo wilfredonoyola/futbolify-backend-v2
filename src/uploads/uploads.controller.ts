@@ -223,14 +223,8 @@ export class UploadsController {
 
   /**
    * Upload video for a feed post (no matchId required)
-   * Uses Bunny Stream for transcoding and HLS streaming
+   * Uses Bunny Storage (same as images) for direct CDN access
    * POST /uploads/post-video
-   *
-   * Video processing flow:
-   * 1. Video is uploaded and returns immediately with status='processing'
-   * 2. Bunny Stream transcodes the video in the background
-   * 3. Frontend can poll GET /uploads/video-status/:videoId to check when ready
-   * 4. When status='finished', the video can be played
    */
   @Post('post-video')
   @UseGuards(JwtAuthGuard)
@@ -248,30 +242,30 @@ export class UploadsController {
       throw new BadRequestException('Only video files are allowed');
     }
 
-    // Validate file size (max 500MB for post videos)
-    const maxSize = 500 * 1024 * 1024;
+    // Validate file size (max 100MB for post videos)
+    const maxSize = 100 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('File size must be less than 500MB');
+      throw new BadRequestException('File size must be less than 100MB');
     }
 
     const userId = req.user.userId;
     const timestamp = Date.now();
-    const title = `Feed Post - ${userId} - ${timestamp}`;
+    const ext = file.originalname.split('.').pop() || 'mp4';
+    const filename = `${timestamp}.${ext}`;
 
-    // Upload to Bunny Stream (transcoding service)
-    const result = await this.bunnyStreamService.uploadVideo(
+    // Upload to Bunny Storage (same as images) - direct CDN URL, no auth needed
+    const result = await this.bunnyStorageService.uploadFile(
       file.buffer,
-      file.originalname,
-      `feed_${userId}`, // Use as collection/category identifier
+      `feed/posts/${userId}/videos/${filename}`,
+      file.mimetype,
     );
 
     return {
       success: true,
-      videoId: result.videoId,
-      videoUrl: result.url, // HLS playlist URL
-      thumbnailUrl: result.thumbnailUrl,
-      embedUrl: result.embedUrl,
-      status: result.status, // 'processing' initially
+      videoUrl: result.cdnUrl,
+      url: result.cdnUrl,
+      path: result.path,
+      status: 'finished', // No processing needed, ready immediately
     };
   }
 
