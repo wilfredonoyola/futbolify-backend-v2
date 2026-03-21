@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as FormData from 'form-data';
 import { Readable } from 'stream';
+import * as crypto from 'crypto';
 
 export interface VideoUploadResult {
   videoId: string;
@@ -26,15 +27,64 @@ export class BunnyStreamService {
   private readonly libraryId: string;
   private readonly apiKey: string;
   private readonly cdnHostname: string;
+  private readonly tokenAuthKey: string;
 
   constructor(private configService: ConfigService) {
     this.libraryId = this.configService.get<string>('BUNNY_STREAM_LIBRARY_ID') || '';
     this.apiKey = this.configService.get<string>('BUNNY_STREAM_API_KEY') || '';
     this.cdnHostname = this.configService.get<string>('BUNNY_STREAM_HOSTNAME') || '';
+    this.tokenAuthKey = this.configService.get<string>('BUNNY_STREAM_TOKEN_AUTH_KEY') || '';
 
     if (!this.libraryId || !this.apiKey || !this.cdnHostname) {
       console.warn('⚠️  Bunny Stream not configured. Video uploads will not work until configured.');
     }
+
+    if (!this.tokenAuthKey) {
+      console.warn('⚠️  BUNNY_STREAM_TOKEN_AUTH_KEY not set. Videos may not play if Token Auth is enabled.');
+    }
+  }
+
+  /**
+   * Signs a URL for Bunny Stream Token Authentication
+   * @param url - The URL to sign
+   * @param expirationTime - Token expiration in seconds (default 24 hours)
+   */
+  private signUrl(url: string, expirationTime: number = 86400): string {
+    if (!this.tokenAuthKey) {
+      // No token auth key, return unsigned URL
+      return url;
+    }
+
+    const expires = Math.floor(Date.now() / 1000) + expirationTime;
+    const parsedUrl = new URL(url);
+    const signaturePath = parsedUrl.pathname;
+
+    // Create signature: SHA256(securityKey + signaturePath + expires)
+    const hashableBase = `${this.tokenAuthKey}${signaturePath}${expires}`;
+    const token = crypto
+      .createHash('sha256')
+      .update(hashableBase)
+      .digest('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+
+    // Append token and expires to URL
+    const separator = parsedUrl.search ? '&' : '?';
+    return `${url}${separator}token=${token}&expires=${expires}`;
+  }
+
+  /**
+   * Generates signed URLs for a video
+   */
+  generateSignedUrls(videoId: string): { playUrl: string; thumbnailUrl: string } {
+    const playUrl = `https://${this.cdnHostname}/${videoId}/playlist.m3u8`;
+    const thumbnailUrl = `https://${this.cdnHostname}/${videoId}/thumbnail.jpg`;
+
+    return {
+      playUrl: this.signUrl(playUrl),
+      thumbnailUrl: this.signUrl(thumbnailUrl),
+    };
   }
 
   private checkConfiguration() {
@@ -112,15 +162,14 @@ export class BunnyStreamService {
         throw new InternalServerErrorException('Failed to upload video to Bunny Stream');
       }
 
-      // Generate URLs
+      // Generate signed URLs (if token auth is enabled)
+      const signedUrls = this.generateSignedUrls(videoId);
       const embedUrl = `https://iframe.mediadelivery.net/embed/${this.libraryId}/${videoId}`;
-      const thumbnailUrl = `https://${this.cdnHostname}/${videoId}/thumbnail.jpg`;
-      const playUrl = `https://${this.cdnHostname}/${videoId}/playlist.m3u8`;
 
       return {
         videoId,
-        url: playUrl,
-        thumbnailUrl,
+        url: signedUrls.playUrl,
+        thumbnailUrl: signedUrls.thumbnailUrl,
         embedUrl,
         status: 'processing',
       };
@@ -148,15 +197,15 @@ export class BunnyStreamService {
       );
 
       const video = response.data;
+      const signedUrls = this.generateSignedUrls(videoId);
       const embedUrl = `https://iframe.mediadelivery.net/embed/${this.libraryId}/${videoId}`;
-      const thumbnailUrl = `https://${this.cdnHostname}/${videoId}/thumbnail.jpg`;
 
       return {
         videoId: video.guid,
         status: this.mapStatus(video.status),
         title: video.title,
         duration: video.length,
-        thumbnailUrl,
+        thumbnailUrl: signedUrls.thumbnailUrl,
         embedUrl,
       };
     } catch (error) {
