@@ -26,6 +26,7 @@ import { FeedModule } from './feed/feed.module'
 import { CommonModule } from './common/common.module'
 import { StandingsModule } from './standings/standings.module'
 import { FootballChatModule } from './football/chat/football-chat.module'
+import { ReportsModule } from './reports/reports.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -92,6 +93,7 @@ import { AppService } from './app.service'
     FeedModule,
     StandingsModule,
     FootballChatModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
