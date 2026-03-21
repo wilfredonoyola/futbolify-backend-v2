@@ -108,6 +108,28 @@ type TimelineEventDto {
   importance: Float
 }
 
+type LineupPlayerDto {
+  id: Int!
+  name: String!
+  number: Int
+  pos: String
+  grid: String
+}
+
+type TeamLineupDto {
+  teamName: String!
+  teamLogo: String
+  formation: String
+  coachName: String
+  startXI: [LineupPlayerDto!]!
+  substitutes: [LineupPlayerDto!]!
+}
+
+type MatchLineupsDto {
+  home: TeamLineupDto
+  away: TeamLineupDto
+}
+
 type BettingAnalysisDto {
   recommendedBet: String!
   confidence: Int!
@@ -142,6 +164,10 @@ type LiveMatchOutputDto {
   recentActivityScore: Float
   hasRecentActivity: Boolean
   possession: PossessionDto
+  shotsSplit: PossessionDto
+  shotsOnTargetSplit: PossessionDto
+  cornersSplit: PossessionDto
+  foulsSplit: PossessionDto
   xG: Float
   attacks: PossessionDto
   bigChances: PossessionDto
@@ -159,6 +185,7 @@ type LiveMatchOutputDto {
   redCards: Int
   offsides: Int
   shotsOffTarget: Int
+  lineups: MatchLineupsDto
 }
 
 enum MatchState {

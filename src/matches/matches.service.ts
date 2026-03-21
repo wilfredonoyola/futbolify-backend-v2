@@ -9,8 +9,17 @@ import {
   FootballSearchResultDto,
   PlayerProfileDto,
   PlayerSeasonStatDto,
+  MatchLineupsDto,
+  TeamLineupDto,
+  LineupPlayerDto,
 } from './dto'
-import { ApiFootballLiveService, LiveMatchData } from './api-football-live.service'
+import {
+  ApiFootballLiveService,
+  LiveMatchData,
+  MatchLineupsRaw,
+  TeamLineupRaw,
+  LineupPlayerRaw,
+} from './api-football-live.service'
 import { OpenAiAnalysisService } from './openai-analysis.service'
 import { shouldAnalyzeWithGPT } from './utils/match-relevance.util'
 import { ConfigService } from '@nestjs/config'
@@ -48,6 +57,10 @@ export class MatchesService {
     // Statistics from detailed match data
     if (match.statistics) {
       dto.possession = match.statistics.possession
+      dto.shotsSplit = match.statistics.shots
+      dto.shotsOnTargetSplit = match.statistics.shotsOnTarget
+      dto.cornersSplit = match.statistics.corners
+      dto.foulsSplit = match.statistics.fouls
       dto.shots = (match.statistics.shots?.home ?? 0) + (match.statistics.shots?.away ?? 0)
       dto.shotsOnTarget =
         (match.statistics.shotsOnTarget?.home ?? 0) +
@@ -73,8 +86,44 @@ export class MatchesService {
       dto.lastEventType = match.events[match.events.length - 1]?.type || null
     }
 
+    if (match.lineups) {
+      dto.lineups = this.mapLineupsToDto(match.lineups)
+    }
+
     dto.marketAvailable = true
     return dto
+  }
+
+  private mapLineupsToDto(raw: MatchLineupsRaw): MatchLineupsDto {
+    const dto = new MatchLineupsDto()
+    if (raw.home) {
+      dto.home = this.mapTeamLineupToDto(raw.home)
+    }
+    if (raw.away) {
+      dto.away = this.mapTeamLineupToDto(raw.away)
+    }
+    return dto
+  }
+
+  private mapTeamLineupToDto(t: TeamLineupRaw): TeamLineupDto {
+    const d = new TeamLineupDto()
+    d.teamName = t.teamName
+    d.teamLogo = t.teamLogo ?? undefined
+    d.formation = t.formation ?? undefined
+    d.coachName = t.coachName ?? undefined
+    d.startXI = t.startXI.map((p) => this.mapLineupPlayerToDto(p))
+    d.substitutes = t.substitutes.map((p) => this.mapLineupPlayerToDto(p))
+    return d
+  }
+
+  private mapLineupPlayerToDto(p: LineupPlayerRaw): LineupPlayerDto {
+    const x = new LineupPlayerDto()
+    x.id = p.id
+    x.name = p.name
+    x.number = p.number ?? undefined
+    x.pos = p.pos ?? undefined
+    x.grid = p.grid ?? undefined
+    return x
   }
 
   /**

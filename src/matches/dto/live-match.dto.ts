@@ -1,5 +1,6 @@
 import { ObjectType, Field, Int, Float, InputType } from '@nestjs/graphql'
 import { TimelineEventDto } from './timeline-event.dto'
+import { MatchLineupsDto } from './lineup.dto'
 import { MatchState } from '../enums/match-state.enum'
 import { BettingAnalysisDto } from './betting-analysis.dto'
 
@@ -74,6 +75,19 @@ export class LiveMatchOutputDto {
   @Field(() => PossessionDto, { nullable: true })
   possession?: { home: number; away: number }
 
+  /** Tiros totales por equipo (API-Football). */
+  @Field(() => PossessionDto, { nullable: true })
+  shotsSplit?: { home: number; away: number }
+
+  @Field(() => PossessionDto, { nullable: true })
+  shotsOnTargetSplit?: { home: number; away: number }
+
+  @Field(() => PossessionDto, { nullable: true })
+  cornersSplit?: { home: number; away: number }
+
+  @Field(() => PossessionDto, { nullable: true })
+  foulsSplit?: { home: number; away: number }
+
   @Field(() => Float, { nullable: true })
   xG?: number
 
@@ -124,6 +138,9 @@ export class LiveMatchOutputDto {
 
   @Field(() => Int, { nullable: true })
   shotsOffTarget?: number
+
+  @Field(() => MatchLineupsDto, { nullable: true })
+  lineups?: MatchLineupsDto
 }
 
 @InputType()

@@ -102,6 +102,30 @@ export interface LiveMatchData {
   round: string | null // "Round of 16", "Quarter-finals", "Regular Season - 25", etc.
   events?: MatchEvent[]
   statistics?: MatchStatistics
+  lineups?: MatchLineupsRaw
+}
+
+/** Alineaciones crudas antes de mapear a DTO GraphQL. */
+export interface LineupPlayerRaw {
+  id: number
+  name: string
+  number: number | null
+  pos: string | null
+  grid: string | null
+}
+
+export interface TeamLineupRaw {
+  teamName: string
+  teamLogo: string | null
+  formation: string | null
+  coachName: string | null
+  startXI: LineupPlayerRaw[]
+  substitutes: LineupPlayerRaw[]
+}
+
+export interface MatchLineupsRaw {
+  home: TeamLineupRaw | null
+  away: TeamLineupRaw | null
 }
 
 export interface MatchEvent {
@@ -295,8 +319,8 @@ export class ApiFootballLiveService {
     }
 
     try {
-      // Fetch fixture, events, and statistics in parallel
-      const [fixtureRes, eventsRes, statsRes] = await Promise.all([
+      // Fixture, eventos, estadísticas y alineaciones en paralelo (mismo cache Redis).
+      const [fixtureRes, eventsRes, statsRes, lineupsRes] = await Promise.all([
         fetch(`${this.baseUrl}/fixtures?id=${fixtureId}`, {
           headers: { 'x-apisports-key': this.apiKey },
         }),
@@ -306,12 +330,16 @@ export class ApiFootballLiveService {
         fetch(`${this.baseUrl}/fixtures/statistics?fixture=${fixtureId}`, {
           headers: { 'x-apisports-key': this.apiKey },
         }),
+        fetch(`${this.baseUrl}/fixtures/lineups?fixture=${fixtureId}`, {
+          headers: { 'x-apisports-key': this.apiKey },
+        }),
       ])
 
-      const [fixtureData, eventsData, statsData] = await Promise.all([
+      const [fixtureData, eventsData, statsData, lineupsData] = await Promise.all([
         fixtureRes.json(),
         eventsRes.json(),
         statsRes.json(),
+        lineupsRes.ok ? lineupsRes.json() : Promise.resolve({ response: [] }),
       ])
 
       const fixture = fixtureData.response?.[0]
@@ -335,6 +363,8 @@ export class ApiFootballLiveService {
       if (stats.length >= 2) {
         match.statistics = this.parseStatistics(stats)
       }
+
+      match.lineups = this.parseLineups(lineupsData.response || [], fixture)
 
       // Cache based on match status
       const isFinished = fixture.fixture.status.short === 'FT'
@@ -771,6 +801,70 @@ export class ApiFootballLiveService {
       lower.includes('knockout') ||
       lower.includes('play-off')
     )
+  }
+
+  /**
+   * Alineaciones por equipo local / visitante (ids del fixture).
+   */
+  private parseLineups(lineupsRows: any[], fixture: any): MatchLineupsRaw | null {
+    if (!lineupsRows?.length || !fixture?.teams) {
+      return null
+    }
+
+    const homeId = fixture.teams.home?.id
+    const awayId = fixture.teams.away?.id
+    let home: TeamLineupRaw | null = null
+    let away: TeamLineupRaw | null = null
+
+    for (const row of lineupsRows) {
+      const tid = row.team?.id
+      const mapped = this.mapTeamLineupRow(row)
+      if (tid === homeId) {
+        home = mapped
+      } else if (tid === awayId) {
+        away = mapped
+      }
+    }
+
+    if (!home && !away) {
+      return null
+    }
+
+    return { home, away }
+  }
+
+  private mapTeamLineupRow(row: any): TeamLineupRaw {
+    const startXI = (row.startXI || [])
+      .map((e: any) => this.mapLineupPlayerEntry(e))
+      .filter((p: LineupPlayerRaw | null): p is LineupPlayerRaw => p !== null)
+
+    const substitutes = (row.substitutes || [])
+      .map((e: any) => this.mapLineupPlayerEntry(e))
+      .filter((p: LineupPlayerRaw | null): p is LineupPlayerRaw => p !== null)
+
+    return {
+      teamName: row.team?.name || '',
+      teamLogo: row.team?.logo || null,
+      formation: row.formation || null,
+      coachName: row.coach?.name || null,
+      startXI,
+      substitutes,
+    }
+  }
+
+  private mapLineupPlayerEntry(entry: any): LineupPlayerRaw | null {
+    const p = entry?.player ?? entry
+    if (!p?.id && !p?.name) {
+      return null
+    }
+
+    return {
+      id: typeof p.id === 'number' ? p.id : Number(p.id) || 0,
+      name: p.name || '',
+      number: p.number != null ? Number(p.number) : null,
+      pos: p.pos || null,
+      grid: p.grid || null,
+    }
   }
 
   /**
