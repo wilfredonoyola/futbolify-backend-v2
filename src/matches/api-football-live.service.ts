@@ -802,12 +802,15 @@ export class ApiFootballLiveService {
       const isGroupBased = Array.isArray(standings[0]) && standings.length > 1
 
       const groups: StandingsGroup[] = isGroupBased
-        ? standings.map((group: any[]) => ({
-            name: group[0]?.group || 'Group',
-            teams: group
-              .filter((t: any) => !t.group?.includes('third-placed')) // Exclude third-placed ranking
-              .map((t: any) => this.transformStanding(t)),
-          }))
+        ? standings
+            .map((group: any[]) => ({
+              name: group[0]?.group || 'Group',
+              teams: group
+                .filter((t: any) => !t.group?.includes('third-placed')) // Exclude third-placed ranking
+                .map((t: any) => this.transformStanding(t)),
+            }))
+            // Filter out empty groups (like "Ranking of third-placed teams" after team filtering)
+            .filter((g: StandingsGroup) => g.teams.length > 0 && !g.name.toLowerCase().includes('third-placed'))
         : [
             {
               name: leagueInfo.name,
