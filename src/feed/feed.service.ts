@@ -79,6 +79,7 @@ export class FeedService {
       sharedQuiniela: input.sharedQuiniela,
       sharedPrediction: input.sharedPrediction,
       sharedRank: input.sharedRank,
+      overlayPosition: input.overlayPosition,
     });
 
     const saved = await post.save();
@@ -532,6 +533,7 @@ export class FeedService {
       sharedQuiniela: post.sharedQuiniela,
       sharedPrediction: post.sharedPrediction,
       sharedRank: post.sharedRank,
+      overlayPosition: post.overlayPosition,
       likesCount: post.likesCount || 0,
       commentsCount: post.commentsCount || 0,
       sharesCount: post.sharesCount || 0,

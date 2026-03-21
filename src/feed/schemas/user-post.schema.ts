@@ -18,6 +18,26 @@ registerEnumType(UserPostContentType, {
   description: 'Type of content in a user post',
 });
 
+// Overlay position data (for canvas-based positioning)
+@ObjectType()
+export class OverlayPosition {
+  @Field(() => Number, { nullable: true })
+  @Prop({ default: 0.5 })
+  x?: number; // 0-1 (percentage from left)
+
+  @Field(() => Number, { nullable: true })
+  @Prop({ default: 0.8 })
+  y?: number; // 0-1 (percentage from top)
+
+  @Field(() => Number, { nullable: true })
+  @Prop({ default: 1.0 })
+  scale?: number; // Scale multiplier
+
+  @Field(() => Number, { nullable: true })
+  @Prop({ default: 0 })
+  rotation?: number; // Degrees
+}
+
 // Shared match data embedded in posts
 @ObjectType()
 export class SharedMatchData {
@@ -311,6 +331,11 @@ export class UserPost {
   @Field(() => SharedRankData, { nullable: true })
   @Prop({ type: SharedRankData })
   sharedRank?: SharedRankData;
+
+  // Overlay position (for canvas-based positioning of shared content)
+  @Field(() => OverlayPosition, { nullable: true })
+  @Prop({ type: OverlayPosition })
+  overlayPosition?: OverlayPosition;
 
   // Engagement metrics
   @Field(() => Int)

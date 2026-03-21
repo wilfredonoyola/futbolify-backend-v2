@@ -9,6 +9,7 @@ import {
   MaxLength,
   IsUrl,
   ValidateNested,
+  IsNumber,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
@@ -18,6 +19,7 @@ import {
   SharedPredictionData,
   SharedRankData,
   PostAuthor,
+  OverlayPosition,
 } from '../schemas/user-post.schema';
 
 // ============================================================================
@@ -225,6 +227,29 @@ export class SharedPredictionInput {
 }
 
 @InputType()
+export class OverlayPositionInput {
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  x?: number; // 0-1 (percentage from left)
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  y?: number; // 0-1 (percentage from top)
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  scale?: number; // Scale multiplier
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  rotation?: number; // Degrees
+}
+
+@InputType()
 export class SharedRankInput {
   @Field(() => ID)
   @IsNotEmpty()
@@ -324,6 +349,13 @@ export class CreateUserPostInput {
   @ValidateNested()
   @Type(() => SharedRankInput)
   sharedRank?: SharedRankInput;
+
+  // Overlay position (for canvas-based positioning)
+  @Field(() => OverlayPositionInput, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OverlayPositionInput)
+  overlayPosition?: OverlayPositionInput;
 }
 
 @InputType()
@@ -406,6 +438,9 @@ export class UserPostOutput {
 
   @Field(() => SharedRankData, { nullable: true })
   sharedRank?: SharedRankData;
+
+  @Field(() => OverlayPosition, { nullable: true })
+  overlayPosition?: OverlayPosition;
 
   @Field(() => Int)
   likesCount: number;
