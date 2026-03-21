@@ -173,6 +173,97 @@ export class UploadsController {
   }
 
   /**
+   * Upload image for a feed post (no matchId required)
+   * POST /uploads/post-image
+   */
+  @Post('post-image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadPostImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    // Validate file type
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('Only image files are allowed');
+    }
+
+    // Validate file size (max 5MB for post images)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size must be less than 5MB');
+    }
+
+    const userId = req.user.userId;
+    const timestamp = Date.now();
+    const ext = file.originalname.split('.').pop() || 'jpg';
+    const filename = `${timestamp}.${ext}`;
+
+    // Upload to Bunny Storage in feed/posts/{userId}/ folder
+    const result = await this.bunnyStorageService.uploadFile(
+      file.buffer,
+      `feed/posts/${userId}/${filename}`,
+      file.mimetype,
+    );
+
+    return {
+      success: true,
+      url: result.cdnUrl,
+      path: result.path,
+    };
+  }
+
+  /**
+   * Upload video for a feed post (no matchId required)
+   * POST /uploads/post-video
+   */
+  @Post('post-video')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadPostVideo(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    // Validate file type
+    if (!file.mimetype.startsWith('video/')) {
+      throw new BadRequestException('Only video files are allowed');
+    }
+
+    // Validate file size (max 100MB for post videos)
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size must be less than 100MB');
+    }
+
+    const userId = req.user.userId;
+    const timestamp = Date.now();
+    const ext = file.originalname.split('.').pop() || 'mp4';
+    const filename = `${timestamp}.${ext}`;
+
+    // Upload to Bunny Storage in feed/posts/{userId}/ folder
+    const result = await this.bunnyStorageService.uploadFile(
+      file.buffer,
+      `feed/posts/${userId}/${filename}`,
+      file.mimetype,
+    );
+
+    return {
+      success: true,
+      videoUrl: result.cdnUrl,
+      url: result.cdnUrl,
+      path: result.path,
+    };
+  }
+
+  /**
    * Upload quiniela image/logo
    * POST /uploads/quiniela-image
    */

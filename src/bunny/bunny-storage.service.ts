@@ -425,6 +425,54 @@ export class BunnyStorageService {
   }
 
   /**
+   * Generic file upload to Bunny Storage
+   * @param file - File buffer
+   * @param path - Full path where file should be stored (e.g., "feed/posts/userId/filename.jpg")
+   * @param contentType - MIME type of the file (e.g., "image/jpeg")
+   * @returns Upload result with URLs
+   */
+  async uploadFile(
+    file: Buffer,
+    path: string,
+    contentType: string,
+  ): Promise<UploadResult> {
+    this.checkConfiguration();
+
+    try {
+      // Upload to Bunny Storage
+      const storageUrl = `https://${this.region}.bunnycdn.com/${this.storageZoneName}/${path}`;
+
+      const response = await axios.put(storageUrl, file, {
+        headers: {
+          'AccessKey': this.accessKey,
+          'Content-Type': contentType,
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      });
+
+      if (response.status !== 201 && response.status !== 200) {
+        throw new InternalServerErrorException('Failed to upload file to Bunny Storage');
+      }
+
+      // Generate CDN URL with cache-busting timestamp
+      const timestamp = Date.now();
+      const cdnUrl = `https://${this.cdnHostname}/${path}?v=${timestamp}`;
+
+      return {
+        url: `https://${this.cdnHostname}/${path}`,
+        cdnUrl,
+        path,
+      };
+    } catch (error) {
+      console.error('Bunny Storage file upload error:', error.response?.data || error.message);
+      throw new InternalServerErrorException(
+        `Failed to upload file: ${error.response?.data?.Message || error.message}`,
+      );
+    }
+  }
+
+  /**
    * Uploads a quiniela image/logo to Bunny Storage
    * @param file - File buffer
    * @param filename - Original filename
