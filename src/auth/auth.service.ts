@@ -65,9 +65,10 @@ export class AuthService {
 
     const idToken = response.AuthenticationResult?.IdToken
 
-    // Case-insensitive email lookup
+    // Case-insensitive email lookup (escape special regex chars like +)
+    const escapedEmail = email.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const user = await this.userModel.findOne({
-      email: { $regex: new RegExp(`^${email.toLowerCase()}$`, 'i') }
+      email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') }
     })
 
     if (!user) {
@@ -313,8 +314,8 @@ export class AuthService {
 
       userName = userName.replace(/\s+/g, '_').toLowerCase()
 
-      // Normalize email to lowercase for consistent matching
-      const normalizedEmail = email.toLowerCase()
+      // Normalize email to lowercase and escape regex special chars for consistent matching
+      const normalizedEmail = email.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
       // Check if user already exists in our DB (case-insensitive email search)
       let user = await this.userModel.findOne({
@@ -537,8 +538,8 @@ export class AuthService {
 
       userName = userName.replace(/\s+/g, '_').toLowerCase()
 
-      // Normalize email to lowercase
-      const normalizedEmail = email.toLowerCase()
+      // Normalize email to lowercase and escape regex special chars
+      const normalizedEmail = email.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
       // Check if user already exists
       let user = await this.userModel.findOne({
@@ -1073,7 +1074,8 @@ export class AuthService {
    * Used to detect if user should add password vs create new account
    */
   async checkEmailExists(email: string): Promise<CheckEmailResponse> {
-    const normalizedEmail = email.toLowerCase()
+    // Escape regex special chars like + . etc
+    const normalizedEmail = email.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
     const user = await this.userModel.findOne({
       email: { $regex: new RegExp(`^${normalizedEmail}$`, 'i') }
@@ -1126,7 +1128,8 @@ export class AuthService {
       const { email, password, idToken, googleIdToken } = input
       // Support both new idToken and deprecated googleIdToken for backwards compatibility
       const token = idToken || googleIdToken
-      const normalizedEmail = email.toLowerCase()
+      // Escape regex special chars like + . etc
+      const normalizedEmail = email.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
       if (!token) {
         throw new HttpException('OAuth token required', HttpStatus.BAD_REQUEST)

@@ -83,9 +83,11 @@ export class AwsCognitoAuthStrategy extends PassportStrategy(
 
       // Buscar al usuario en la base de datos (case-insensitive)
       console.log('[JWT-Auth] Looking up user by email:', decodedToken.email);
+      // Escape special regex characters in email (like + . etc)
+      const escapedEmail = decodedToken.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const user = await this.userModel
         .findOne({
-          email: { $regex: new RegExp(`^${decodedToken.email}$`, 'i') }
+          email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') }
         })
         .exec();
 
