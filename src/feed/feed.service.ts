@@ -77,6 +77,8 @@ export class FeedService {
       thumbnailUrl: input.thumbnailUrl,
       sharedMatch: input.sharedMatch,
       sharedQuiniela: input.sharedQuiniela,
+      sharedPrediction: input.sharedPrediction,
+      sharedRank: input.sharedRank,
     });
 
     const saved = await post.save();
@@ -528,6 +530,8 @@ export class FeedService {
       thumbnailUrl: post.thumbnailUrl,
       sharedMatch: post.sharedMatch,
       sharedQuiniela: post.sharedQuiniela,
+      sharedPrediction: post.sharedPrediction,
+      sharedRank: post.sharedRank,
       likesCount: post.likesCount || 0,
       commentsCount: post.commentsCount || 0,
       sharesCount: post.sharesCount || 0,
