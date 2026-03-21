@@ -16,6 +16,16 @@ import {
   DeletePostResult,
 } from './dto/user-post.dto';
 import {
+  CreateCommentInput,
+  UpdateCommentInput,
+  CommentOutput,
+  CommentsResponse,
+  DeleteCommentResult,
+  LikeCommentResult,
+  RecordViewResult,
+  SharePostResult,
+} from './dto/comment.dto';
+import {
   MyFeedResponse,
   UserPostsResponse,
   FeedItem,
@@ -151,6 +161,34 @@ export class FeedResolver {
     return cards.find((card) => card.id === cardId) || null;
   }
 
+  /**
+   * Get comments for a post
+   */
+  @Query(() => CommentsResponse, { name: 'postComments' })
+  async getPostComments(
+    @Args('postId', { type: () => ID }) postId: string,
+    @Args('limit', { type: () => Int, nullable: true, defaultValue: 20 }) limit: number,
+    @Args('offset', { type: () => Int, nullable: true, defaultValue: 0 }) offset: number,
+    @Context() context: { req?: { user?: { userId?: string } } },
+  ): Promise<CommentsResponse> {
+    const userId = context.req?.user?.userId;
+    return this.feedService.getPostComments(postId, userId, limit, offset);
+  }
+
+  /**
+   * Get replies for a comment
+   */
+  @Query(() => CommentsResponse, { name: 'commentReplies' })
+  async getCommentReplies(
+    @Args('commentId', { type: () => ID }) commentId: string,
+    @Args('limit', { type: () => Int, nullable: true, defaultValue: 10 }) limit: number,
+    @Args('offset', { type: () => Int, nullable: true, defaultValue: 0 }) offset: number,
+    @Context() context: { req?: { user?: { userId?: string } } },
+  ): Promise<CommentsResponse> {
+    const userId = context.req?.user?.userId;
+    return this.feedService.getCommentReplies(commentId, userId, limit, offset);
+  }
+
   // ============================================================================
   // MUTATIONS
   // ============================================================================
@@ -210,5 +248,90 @@ export class FeedResolver {
     @Args('postId', { type: () => ID }) postId: string,
   ): Promise<LikePostResult> {
     return this.feedService.toggleLikePost(postId, user.userId);
+  }
+
+  // ============================================================================
+  // COMMENT MUTATIONS
+  // ============================================================================
+
+  /**
+   * Create a new comment on a post
+   */
+  @Mutation(() => CommentOutput, { name: 'createComment' })
+  @UseGuards(GqlAuthGuard)
+  async createComment(
+    @CurrentUser() user: any,
+    @Args('input') input: CreateCommentInput,
+  ): Promise<CommentOutput> {
+    const userInfo = {
+      userId: user.userId,
+      username: user.username || user.email?.split('@')[0] || 'user',
+      displayName: user.displayName || user.name,
+      avatarUrl: user.avatarUrl || user.picture,
+      isVerified: user.isVerified || false,
+    };
+
+    return this.feedService.createComment(input, userInfo);
+  }
+
+  /**
+   * Update an existing comment
+   */
+  @Mutation(() => CommentOutput, { name: 'updateComment' })
+  @UseGuards(GqlAuthGuard)
+  async updateComment(
+    @CurrentUser() user: any,
+    @Args('input') input: UpdateCommentInput,
+  ): Promise<CommentOutput> {
+    return this.feedService.updateComment(input, user.userId);
+  }
+
+  /**
+   * Delete a comment
+   */
+  @Mutation(() => DeleteCommentResult, { name: 'deleteComment' })
+  @UseGuards(GqlAuthGuard)
+  async deleteComment(
+    @CurrentUser() user: any,
+    @Args('commentId', { type: () => ID }) commentId: string,
+  ): Promise<DeleteCommentResult> {
+    return this.feedService.deleteComment(commentId, user.userId);
+  }
+
+  /**
+   * Like or unlike a comment (toggle)
+   */
+  @Mutation(() => LikeCommentResult, { name: 'toggleLikeComment' })
+  @UseGuards(GqlAuthGuard)
+  async toggleLikeComment(
+    @CurrentUser() user: any,
+    @Args('commentId', { type: () => ID }) commentId: string,
+  ): Promise<LikeCommentResult> {
+    return this.feedService.toggleLikeComment(commentId, user.userId);
+  }
+
+  // ============================================================================
+  // VIEWS & SHARES MUTATIONS
+  // ============================================================================
+
+  /**
+   * Record a view on a post
+   */
+  @Mutation(() => RecordViewResult, { name: 'recordPostView' })
+  async recordPostView(
+    @Args('postId', { type: () => ID }) postId: string,
+  ): Promise<RecordViewResult> {
+    return this.feedService.recordPostView(postId);
+  }
+
+  /**
+   * Increment share count when user shares a post
+   */
+  @Mutation(() => SharePostResult, { name: 'sharePost' })
+  async sharePost(
+    @Args('postId', { type: () => ID }) postId: string,
+    @Args('platform', { nullable: true }) platform?: string,
+  ): Promise<SharePostResult> {
+    return this.feedService.sharePost(postId, platform);
   }
 }

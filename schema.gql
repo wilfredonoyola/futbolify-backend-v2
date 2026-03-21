@@ -2008,6 +2008,14 @@ type PostAuthor {
   isVerified: Boolean!
 }
 
+type CommentAuthor {
+  userId: ID!
+  username: String!
+  displayName: String
+  avatarUrl: String
+  isVerified: Boolean!
+}
+
 type FeedCardTeam {
   id: ID!
   name: String!
@@ -2110,6 +2118,7 @@ type UserPostOutput {
   likesCount: Int!
   commentsCount: Int!
   sharesCount: Int!
+  viewsCount: Int!
   isLikedByMe: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -2196,6 +2205,49 @@ type UserPostsResponse {
   posts: [UserPostOutput!]!
   total: Int!
   hasMore: Boolean!
+}
+
+type CommentOutput {
+  id: ID!
+  postId: ID!
+  author: CommentAuthor!
+  content: String!
+  parentCommentId: ID
+  likesCount: Int!
+  repliesCount: Int!
+  depth: Int!
+  isDeleted: Boolean!
+  isLikedByMe: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  replies: [CommentOutput!]
+}
+
+type CommentsResponse {
+  comments: [CommentOutput!]!
+  total: Int!
+  hasMore: Boolean!
+}
+
+type DeleteCommentResult {
+  success: Boolean!
+  message: String
+}
+
+type LikeCommentResult {
+  success: Boolean!
+  isLiked: Boolean!
+  likesCount: Int!
+}
+
+type RecordViewResult {
+  success: Boolean!
+  viewsCount: Int!
+}
+
+type SharePostResult {
+  success: Boolean!
+  sharesCount: Int!
 }
 
 type TeamInfoDto {
@@ -2403,6 +2455,8 @@ type Query {
   userPosts(userId: ID!, limit: Int = 20, offset: Int = 0): UserPostsResponse!
   feedContextualCards(limit: Int = 5, cardInterval: Int = 5, locale: String = "es"): FeedContextualCardsResponse!
   feedContextualCard(cardId: String!, locale: String = "es"): FeedContextualCard
+  postComments(postId: ID!, limit: Int = 20, offset: Int = 0): CommentsResponse!
+  commentReplies(commentId: ID!, limit: Int = 10, offset: Int = 0): CommentsResponse!
   standings(leagueId: String!, season: String, conference: String): StandingsDto
   mlsStandings(season: String): [StandingsDto!]!
 }
@@ -2650,6 +2704,12 @@ type Mutation {
   updateUserPost(input: UpdateUserPostInput!): UserPostOutput!
   deleteUserPost(postId: ID!): DeletePostResult!
   toggleLikePost(postId: ID!): LikePostResult!
+  createComment(input: CreateCommentInput!): CommentOutput!
+  updateComment(input: UpdateCommentInput!): CommentOutput!
+  deleteComment(commentId: ID!): DeleteCommentResult!
+  toggleLikeComment(commentId: ID!): LikeCommentResult!
+  recordPostView(postId: ID!): RecordViewResult!
+  sharePost(postId: ID!, platform: String): SharePostResult!
   footballChat(input: FootballChatInputDto!): FootballChatResponseDto!
 }
 
@@ -3178,6 +3238,17 @@ input OverlayPositionInput {
 input UpdateUserPostInput {
   postId: ID!
   description: String
+}
+
+input CreateCommentInput {
+  postId: ID!
+  content: String!
+  parentCommentId: ID
+}
+
+input UpdateCommentInput {
+  commentId: ID!
+  content: String!
 }
 
 input FootballChatInputDto {

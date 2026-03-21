@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { QueriesService, RawMatch } from '../worldcup/queries/queries.service';
 import { Quiniela, QuinielaDocument } from '../quiniela/schemas/quiniela.schema';
 import { UserPost, UserPostDocument, UserPostContentType } from './schemas/user-post.schema';
+import { Comment, CommentDocument } from './schemas/comment.schema';
 import {
   FeedContextualCard,
   FeedCardType,
@@ -20,6 +21,16 @@ import {
   LikePostResult,
   DeletePostResult,
 } from './dto/user-post.dto';
+import {
+  CreateCommentInput,
+  UpdateCommentInput,
+  CommentOutput,
+  CommentsResponse,
+  DeleteCommentResult,
+  LikeCommentResult,
+  RecordViewResult,
+  SharePostResult,
+} from './dto/comment.dto';
 import {
   FeedItemType,
   FeedUserPostItem,
@@ -49,6 +60,7 @@ export class FeedService {
     private readonly queriesService: QueriesService,
     @InjectModel(Quiniela.name) private readonly quinielaModel: Model<QuinielaDocument>,
     @InjectModel(UserPost.name) private readonly userPostModel: Model<UserPostDocument>,
+    @InjectModel(Comment.name) private readonly commentModel: Model<CommentDocument>,
   ) {}
 
   // ============================================================================
@@ -160,6 +172,263 @@ export class FeedService {
       success: true,
       isLiked: !isCurrentlyLiked,
       likesCount: post.likesCount,
+    };
+  }
+
+  // ============================================================================
+  // COMMENT OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a new comment on a post
+   */
+  async createComment(
+    input: CreateCommentInput,
+    userInfo: UserInfo,
+  ): Promise<CommentOutput> {
+    // Verify post exists
+    const post = await this.userPostModel.findById(input.postId);
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    let depth = 0;
+    let parentComment = null;
+
+    // If this is a reply, verify parent comment exists
+    if (input.parentCommentId) {
+      parentComment = await this.commentModel.findById(input.parentCommentId);
+      if (!parentComment) {
+        throw new NotFoundException('Parent comment not found');
+      }
+      // Max depth is 1 (only one level of replies)
+      depth = Math.min(parentComment.depth + 1, 1);
+    }
+
+    const comment = new this.commentModel({
+      postId: input.postId,
+      author: {
+        userId: userInfo.userId,
+        username: userInfo.username,
+        displayName: userInfo.displayName,
+        avatarUrl: userInfo.avatarUrl,
+        isVerified: userInfo.isVerified || false,
+      },
+      content: input.content,
+      parentCommentId: input.parentCommentId,
+      depth,
+    });
+
+    const saved = await comment.save();
+
+    // Update post's comments count
+    await this.userPostModel.findByIdAndUpdate(input.postId, {
+      $inc: { commentsCount: 1 },
+    });
+
+    // Update parent comment's replies count if this is a reply
+    if (parentComment) {
+      await this.commentModel.findByIdAndUpdate(input.parentCommentId, {
+        $inc: { repliesCount: 1 },
+      });
+    }
+
+    return this.mapCommentToOutput(saved, userInfo.userId);
+  }
+
+  /**
+   * Update an existing comment
+   */
+  async updateComment(
+    input: UpdateCommentInput,
+    userId: string,
+  ): Promise<CommentOutput> {
+    const comment = await this.commentModel.findById(input.commentId);
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    if (comment.author.userId !== userId) {
+      throw new ForbiddenException('You can only edit your own comments');
+    }
+
+    comment.content = input.content;
+    const updated = await comment.save();
+
+    return this.mapCommentToOutput(updated, userId);
+  }
+
+  /**
+   * Delete a comment (soft delete)
+   */
+  async deleteComment(commentId: string, userId: string): Promise<DeleteCommentResult> {
+    const comment = await this.commentModel.findById(commentId);
+
+    if (!comment) {
+      return { success: false, message: 'Comment not found' };
+    }
+
+    if (comment.author.userId !== userId) {
+      return { success: false, message: 'You can only delete your own comments' };
+    }
+
+    comment.isDeleted = true;
+    comment.deletedAt = new Date();
+    await comment.save();
+
+    // Decrement post's comments count
+    await this.userPostModel.findByIdAndUpdate(comment.postId, {
+      $inc: { commentsCount: -1 },
+    });
+
+    // Decrement parent's replies count if this is a reply
+    if (comment.parentCommentId) {
+      await this.commentModel.findByIdAndUpdate(comment.parentCommentId, {
+        $inc: { repliesCount: -1 },
+      });
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Get comments for a post (root level only)
+   */
+  async getPostComments(
+    postId: string,
+    userId?: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<CommentsResponse> {
+    const query = {
+      postId,
+      parentCommentId: { $exists: false },
+      isDeleted: false,
+    };
+
+    const [comments, total] = await Promise.all([
+      this.commentModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.commentModel.countDocuments(query),
+    ]);
+
+    return {
+      comments: comments.map((c) => this.mapCommentToOutput(c as any, userId)),
+      total,
+      hasMore: offset + comments.length < total,
+    };
+  }
+
+  /**
+   * Get replies for a comment
+   */
+  async getCommentReplies(
+    commentId: string,
+    userId?: string,
+    limit = 10,
+    offset = 0,
+  ): Promise<CommentsResponse> {
+    const query = {
+      parentCommentId: commentId,
+      isDeleted: false,
+    };
+
+    const [comments, total] = await Promise.all([
+      this.commentModel
+        .find(query)
+        .sort({ createdAt: 1 }) // Oldest first for replies
+        .skip(offset)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.commentModel.countDocuments(query),
+    ]);
+
+    return {
+      comments: comments.map((c) => this.mapCommentToOutput(c as any, userId)),
+      total,
+      hasMore: offset + comments.length < total,
+    };
+  }
+
+  /**
+   * Like or unlike a comment
+   */
+  async toggleLikeComment(commentId: string, userId: string): Promise<LikeCommentResult> {
+    const comment = await this.commentModel.findById(commentId);
+
+    if (!comment) {
+      return { success: false, isLiked: false, likesCount: 0 };
+    }
+
+    const isCurrentlyLiked = comment.likedBy.includes(userId);
+
+    if (isCurrentlyLiked) {
+      // Unlike
+      comment.likedBy = comment.likedBy.filter((id) => id !== userId);
+      comment.likesCount = Math.max(0, comment.likesCount - 1);
+    } else {
+      // Like
+      comment.likedBy.push(userId);
+      comment.likesCount += 1;
+    }
+
+    await comment.save();
+
+    return {
+      success: true,
+      isLiked: !isCurrentlyLiked,
+      likesCount: comment.likesCount,
+    };
+  }
+
+  // ============================================================================
+  // VIEWS & SHARES
+  // ============================================================================
+
+  /**
+   * Record a view on a post
+   */
+  async recordPostView(postId: string): Promise<RecordViewResult> {
+    const post = await this.userPostModel.findByIdAndUpdate(
+      postId,
+      { $inc: { viewsCount: 1 } },
+      { new: true },
+    );
+
+    if (!post) {
+      return { success: false, viewsCount: 0 };
+    }
+
+    return {
+      success: true,
+      viewsCount: post.viewsCount || 0,
+    };
+  }
+
+  /**
+   * Increment share count on a post
+   */
+  async sharePost(postId: string, platform?: string): Promise<SharePostResult> {
+    const post = await this.userPostModel.findByIdAndUpdate(
+      postId,
+      { $inc: { sharesCount: 1 } },
+      { new: true },
+    );
+
+    if (!post) {
+      return { success: false, sharesCount: 0 };
+    }
+
+    return {
+      success: true,
+      sharesCount: post.sharesCount || 0,
     };
   }
 
@@ -537,9 +806,34 @@ export class FeedService {
       likesCount: post.likesCount || 0,
       commentsCount: post.commentsCount || 0,
       sharesCount: post.sharesCount || 0,
+      viewsCount: post.viewsCount || 0,
       isLikedByMe,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
+    };
+  }
+
+  /**
+   * Map Comment document to output DTO
+   */
+  private mapCommentToOutput(comment: CommentDocument | any, currentUserId?: string): CommentOutput {
+    const isLikedByMe = currentUserId
+      ? (comment.likedBy || []).includes(currentUserId)
+      : false;
+
+    return {
+      id: comment._id?.toString() || comment.id,
+      postId: comment.postId,
+      author: comment.author,
+      content: comment.content,
+      parentCommentId: comment.parentCommentId,
+      likesCount: comment.likesCount || 0,
+      repliesCount: comment.repliesCount || 0,
+      depth: comment.depth || 0,
+      isDeleted: comment.isDeleted || false,
+      isLikedByMe,
+      createdAt: comment.createdAt,
+      updatedAt: comment.updatedAt,
     };
   }
 

@@ -350,6 +350,10 @@ export class UserPost {
   @Prop({ default: 0 })
   sharesCount: number;
 
+  @Field(() => Int)
+  @Prop({ default: 0 })
+  viewsCount: number;
+
   // Users who liked this post (for checking if current user liked)
   @Prop({ type: [String], default: [] })
   likedBy: string[];

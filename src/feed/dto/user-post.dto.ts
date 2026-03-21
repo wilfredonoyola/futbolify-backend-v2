@@ -451,6 +451,9 @@ export class UserPostOutput {
   @Field(() => Int)
   sharesCount: number;
 
+  @Field(() => Int)
+  viewsCount: number;
+
   @Field()
   isLikedByMe: boolean;
 
