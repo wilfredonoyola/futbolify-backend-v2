@@ -4,11 +4,13 @@ import { Field, ObjectType, ID, registerEnumType, Int } from '@nestjs/graphql';
 
 // Card types enum
 export enum FeedCardType {
-  PREDICTION = 'PREDICTION',   // Invite to predict upcoming match
-  RESULT = 'RESULT',           // Show prediction result
-  REMINDER = 'REMINDER',       // Match starting soon
-  WEEKLY = 'WEEKLY',           // Weekly summary stats
-  STREAK = 'STREAK',           // Prediction streak
+  PREDICTION = 'PREDICTION',       // Invite to predict upcoming match
+  RESULT = 'RESULT',               // Show prediction result
+  REMINDER = 'REMINDER',           // Match starting soon
+  WEEKLY = 'WEEKLY',               // Weekly summary stats
+  STREAK = 'STREAK',               // Prediction streak
+  LIVE_MATCH = 'LIVE_MATCH',       // Match currently in progress
+  LEADERBOARD_CHANGE = 'LEADERBOARD_CHANGE', // User ranking changed
 }
 
 registerEnumType(FeedCardType, {
@@ -85,6 +87,63 @@ export class FeedCardWeeklyStats {
   percentage: number;
 }
 
+// Live match data (extends FeedCardMatch)
+@ObjectType()
+export class FeedCardLiveMatch {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => FeedCardTeam)
+  homeTeam: FeedCardTeam;
+
+  @Field(() => FeedCardTeam)
+  awayTeam: FeedCardTeam;
+
+  @Field()
+  dateTimeUTC: string;
+
+  @Field({ nullable: true })
+  stage?: string;
+
+  @Field({ nullable: true })
+  group?: string;
+
+  // Live-specific fields
+  @Field(() => Int)
+  scoreHome: number;
+
+  @Field(() => Int)
+  scoreAway: number;
+
+  @Field(() => Int)
+  minute: number;
+
+  @Field({ nullable: true })
+  status?: string; // 'FIRST_HALF', 'HALF_TIME', 'SECOND_HALF', etc.
+}
+
+// Leaderboard change data
+@ObjectType()
+export class FeedCardLeaderboardChange {
+  @Field(() => ID)
+  quinielaId: string;
+
+  @Field()
+  quinielaName: string;
+
+  @Field(() => Int)
+  previousRank: number;
+
+  @Field(() => Int)
+  currentRank: number;
+
+  @Field(() => Int)
+  totalMembers: number;
+
+  @Field()
+  isImprovement: boolean;
+}
+
 // Main contextual card type
 @ObjectType()
 export class FeedContextualCard {
@@ -128,6 +187,14 @@ export class FeedContextualCard {
   // For STREAK cards
   @Field(() => Int, { nullable: true })
   streakCount?: number;
+
+  // For LIVE_MATCH cards
+  @Field(() => FeedCardLiveMatch, { nullable: true })
+  liveMatch?: FeedCardLiveMatch;
+
+  // For LEADERBOARD_CHANGE cards
+  @Field(() => FeedCardLeaderboardChange, { nullable: true })
+  leaderboardChange?: FeedCardLeaderboardChange;
 }
 
 // Response type

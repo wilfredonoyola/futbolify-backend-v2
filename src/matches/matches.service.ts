@@ -5,6 +5,10 @@ import {
   MatchState,
   LeagueStandingsDto,
   AvailableLeagueDto,
+  FootballSearchKind,
+  FootballSearchResultDto,
+  PlayerProfileDto,
+  PlayerSeasonStatDto,
 } from './dto'
 import { ApiFootballLiveService, LiveMatchData } from './api-football-live.service'
 import { OpenAiAnalysisService } from './openai-analysis.service'
@@ -324,48 +328,159 @@ export class MatchesService {
   }
 
   /**
-   * Get matches by league ID (combines live and upcoming)
-   * @param leagueId - Frontend league ID (e.g., 'laliga', 'premier-league')
-   * @param status - Optional filter: 'live', 'upcoming', 'all' (default: 'all')
+   * Get matches by league ID (live + upcoming + optional recent finished).
+   * Underlying API-Football calls are Redis-cached in ApiFootballLiveService.
+   *
+   * @param leagueId - Frontend league ID (e.g. 'premier-league', 'la-liga')
+   * @param status - 'all' | 'live' | 'upcoming' | 'finished'
    */
   async getMatchesByLeague(
     leagueId: string,
     status: string = 'all'
   ): Promise<LiveMatchOutputDto[]> {
     try {
-      const matches: LiveMatchOutputDto[] = []
+      if (status === 'live') {
+        const live = await this.apiFootballService.getLiveMatchesByLeague(leagueId)
+        return live.map((m) => this.transformToDto(m))
+      }
 
-      // Get live matches for the league
-      if (status === 'all' || status === 'live') {
-        const liveMatches = await this.apiFootballService.getLiveMatchesByLeague(leagueId)
-        if (liveMatches.length > 0) {
-          this.logger.log(`✅ ${liveMatches.length} live matches for ${leagueId}`)
-          matches.push(...liveMatches.map((m) => this.transformToDto(m)))
+      if (status === 'upcoming') {
+        const upcoming = await this.apiFootballService.getUpcomingMatchesByLeague(leagueId)
+        return upcoming.map((m) => this.transformToDto(m))
+      }
+
+      if (status === 'finished') {
+        const finished = await this.apiFootballService.getFinishedMatchesByLeague(leagueId)
+        return finished.map((m) => this.transformToDto(m))
+      }
+
+      // status === 'all' — merge sources, dedupe by fixture id, stable sort
+      const [liveRaw, upcomingRaw, finishedRaw] = await Promise.all([
+        this.apiFootballService.getLiveMatchesByLeague(leagueId),
+        this.apiFootballService.getUpcomingMatchesByLeague(leagueId),
+        this.apiFootballService.getFinishedMatchesByLeague(leagueId),
+      ])
+
+      const byId = new Map<number, LiveMatchOutputDto>()
+
+      const put = (list: LiveMatchData[]) => {
+        for (const m of list) {
+          const dto = this.transformToDto(m)
+          if (!byId.has(dto.id)) {
+            byId.set(dto.id, dto)
+          }
         }
       }
 
-      // Get upcoming matches for the league
-      if (status === 'all' || status === 'upcoming') {
-        const upcomingMatches = await this.apiFootballService.getUpcomingMatchesByLeague(leagueId)
-        if (upcomingMatches.length > 0) {
-          this.logger.log(`✅ ${upcomingMatches.length} upcoming matches for ${leagueId}`)
-          matches.push(...upcomingMatches.map((m) => this.transformToDto(m)))
-        }
-      }
+      put(liveRaw)
+      put(upcomingRaw)
+      put(finishedRaw)
 
-      // Sort by date/time (upcoming first, then live)
-      matches.sort((a, b) => {
-        // Live matches (state != NotStarted) come after upcoming
-        if (a.state === MatchState.NotStarted && b.state !== MatchState.NotStarted) return -1
-        if (a.state !== MatchState.NotStarted && b.state === MatchState.NotStarted) return 1
-        return 0
+      const merged = Array.from(byId.values())
+      merged.sort((a, b) => {
+        const order = (s: MatchState) => {
+          if (s === MatchState.NotStarted) return 0
+          if (s === MatchState.Finished) return 2
+          return 1
+        }
+        const oa = order(a.state)
+        const ob = order(b.state)
+        if (oa !== ob) return oa - ob
+        const ta = new Date(a.kickoffTime || 0).getTime()
+        const tb = new Date(b.kickoffTime || 0).getTime()
+        return ta - tb
       })
 
-      this.logger.log(`📊 Total ${matches.length} matches for ${leagueId} (status: ${status})`)
-      return matches
+      this.logger.log(
+        `📊 ${leagueId} all: ${merged.length} unique (live ${liveRaw.length}, upcoming ${upcomingRaw.length}, finished ${finishedRaw.length})`
+      )
+      return merged
     } catch (error) {
       this.logger.error(`❌ Error getting matches for ${leagueId}: ${error.message}`)
       return []
+    }
+  }
+
+  /**
+   * Partidos de un día (YYYY-MM-DD), opcionalmente filtrados por liga (slug).
+   */
+  async getFixturesByDate(
+    date: string,
+    leagueId?: string
+  ): Promise<LiveMatchOutputDto[]> {
+    try {
+      const raw = await this.apiFootballService.getFixturesByDate(date, leagueId)
+      return raw.map((m) => this.transformToDto(m))
+    } catch (error) {
+      this.logger.error(`getFixturesByDate: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
+   * Búsqueda de jugadores y equipos (API-Football).
+   */
+  async searchFootball(
+    query: string,
+    limit = 8
+  ): Promise<FootballSearchResultDto[]> {
+    try {
+      const hits = await this.apiFootballService.searchFootball(query, limit)
+      return hits.map((h) => {
+        const dto = new FootballSearchResultDto()
+        dto.kind =
+          h.kind === 'team' ? FootballSearchKind.TEAM : FootballSearchKind.PLAYER
+        dto.id = h.id
+        dto.name = h.name
+        dto.photo = h.photo
+        dto.meta = h.meta
+        return dto
+      })
+    } catch (error) {
+      this.logger.error(`searchFootball: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
+   * Ficha de jugador + estadísticas por competición en una temporada.
+   */
+  async getPlayerProfile(
+    playerId: number,
+    season?: number
+  ): Promise<PlayerProfileDto | null> {
+    try {
+      const raw = await this.apiFootballService.getPlayerProfile(playerId, season)
+      if (!raw) return null
+
+      const dto = new PlayerProfileDto()
+      dto.id = raw.id
+      dto.name = raw.name
+      dto.firstname = raw.firstname
+      dto.lastname = raw.lastname
+      dto.photo = raw.photo
+      dto.nationality = raw.nationality
+      dto.birthPlace = raw.birthPlace
+      dto.birthDate = raw.birthDate
+      dto.height = raw.height
+      dto.teamId = raw.teamId
+      dto.teamName = raw.teamName
+      dto.teamLogo = raw.teamLogo
+      dto.seasonStats = raw.seasonStats.map((s) => {
+        const st = new PlayerSeasonStatDto()
+        st.leagueId = s.leagueId
+        st.leagueName = s.leagueName
+        st.appearances = s.appearances
+        st.lineups = s.lineups
+        st.goals = s.goals
+        st.assists = s.assists
+        st.minutes = s.minutes
+        return st
+      })
+      return dto
+    } catch (error) {
+      this.logger.error(`getPlayerProfile: ${error.message}`)
+      return null
     }
   }
 }

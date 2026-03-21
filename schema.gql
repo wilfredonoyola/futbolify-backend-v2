@@ -154,6 +154,7 @@ type LiveMatchOutputDto {
   bookmakers: [String!]
   timeline: [TimelineEventDto!]
   state: MatchState
+  round: String
   yellowCards: Int
   redCards: Int
   offsides: Int
@@ -211,6 +212,49 @@ type AvailableLeagueDto {
   id: String!
   name: String!
   apiId: Int!
+  country: String
+  logoUrl: String!
+  order: Int!
+  isActive: Boolean!
+}
+
+type FootballSearchResultDto {
+  kind: FootballSearchKind!
+  id: Int!
+  name: String!
+  photo: String
+  meta: String
+}
+
+enum FootballSearchKind {
+  PLAYER
+  TEAM
+}
+
+type PlayerSeasonStatDto {
+  leagueId: String!
+  leagueName: String!
+  appearances: Int!
+  lineups: Int!
+  goals: Int!
+  assists: Int!
+  minutes: Int!
+}
+
+type PlayerProfileDto {
+  id: Int!
+  name: String!
+  firstname: String
+  lastname: String
+  photo: String
+  nationality: String
+  birthPlace: String
+  birthDate: String
+  height: String
+  teamId: Int
+  teamName: String
+  teamLogo: String
+  seasonStats: [PlayerSeasonStatDto!]!
 }
 
 type Team {
@@ -560,6 +604,7 @@ type Quiniela {
   _id: ID!
   name: String!
   code: String!
+  leagueId: String!
   ownerId: ID
   ownerName: String!
   anonymousCreatorId: String
@@ -803,6 +848,7 @@ type QuinielaInvite {
   inviteUrl: String!
   memberCount: Float!
   isPrivate: Boolean!
+  leagueId: String!
   isAnonymous: Boolean!
   anonymousCreatorId: String
 }
@@ -814,6 +860,7 @@ type QuinielaPublicInfo {
   ownerName: String!
   memberCount: Float!
   isPrivate: Boolean!
+  leagueId: String!
   status: QuinielaStatus!
   predictionMode: PredictionMode!
   description: String
@@ -874,6 +921,12 @@ type AIScoreData {
   aiExact: Float!
   totalMatches: Float!
   streak: AIScoreStreak!
+}
+
+type PaginatedPublicPools {
+  pools: [QuinielaPublicInfo!]!
+  total: Float!
+  hasMore: Boolean!
 }
 
 type ThemeTokens {
@@ -1851,6 +1904,76 @@ type FhgHealthAlert {
   recommendation: String!
 }
 
+type SharedMatchData {
+  matchId: String!
+  homeTeam: String!
+  awayTeam: String!
+  homeTeamLogo: String
+  awayTeamLogo: String
+  scoreHome: Int
+  scoreAway: Int
+  leagueName: String
+  leagueLogo: String
+  kickoffTime: DateTime
+  isLive: Boolean!
+  isFinished: Boolean!
+  round: String
+}
+
+type SharedPredictionData {
+  predictionId: ID!
+  matchId: String!
+  homeTeam: String!
+  awayTeam: String!
+  homeTeamLogo: String
+  awayTeamLogo: String
+  predictedHome: Int
+  predictedAway: Int
+  predictedWinner: String
+  actualHome: Int
+  actualAway: Int
+  isCorrect: Boolean!
+  isExactScore: Boolean!
+  pointsEarned: Int!
+  quinielaId: String
+  quinielaName: String
+  kickoffTime: DateTime
+  isFinished: Boolean!
+}
+
+type SharedRankData {
+  quinielaId: ID!
+  quinielaName: String!
+  quinielaImage: String
+  currentRank: Int!
+  totalMembers: Int!
+  totalPoints: Int!
+  previousRank: Int
+  rankChange: Int!
+  leagueName: String
+  leagueLogo: String
+}
+
+type SharedQuinielaData {
+  quinielaId: ID!
+  name: String!
+  code: String!
+  leagueId: String!
+  imageUrl: String
+  description: String
+  ownerName: String!
+  memberCount: Int!
+  isPublic: Boolean!
+}
+
+type PostAuthor {
+  userId: ID!
+  username: String!
+  displayName: String
+  avatarUrl: String
+  isVerified: Boolean!
+}
+
 type FeedCardTeam {
   id: ID!
   name: String!
@@ -1875,6 +1998,28 @@ type FeedCardWeeklyStats {
   percentage: Int!
 }
 
+type FeedCardLiveMatch {
+  id: ID!
+  homeTeam: FeedCardTeam!
+  awayTeam: FeedCardTeam!
+  dateTimeUTC: String!
+  stage: String
+  group: String
+  scoreHome: Int!
+  scoreAway: Int!
+  minute: Int!
+  status: String
+}
+
+type FeedCardLeaderboardChange {
+  quinielaId: ID!
+  quinielaName: String!
+  previousRank: Int!
+  currentRank: Int!
+  totalMembers: Int!
+  isImprovement: Boolean!
+}
+
 type FeedContextualCard {
   id: ID!
   type: FeedCardType!
@@ -1888,6 +2033,8 @@ type FeedContextualCard {
   minutesUntil: Int
   weeklyStats: FeedCardWeeklyStats
   streakCount: Int
+  liveMatch: FeedCardLiveMatch
+  leaderboardChange: FeedCardLeaderboardChange
 }
 
 """Type of contextual card in the feed"""
@@ -1897,6 +2044,8 @@ enum FeedCardType {
   REMINDER
   WEEKLY
   STREAK
+  LIVE_MATCH
+  LEADERBOARD_CHANGE
 }
 
 """Prediction outcome (home win, draw, away win)"""
@@ -1909,6 +2058,109 @@ enum PredictionOutcome {
 type FeedContextualCardsResponse {
   cards: [FeedContextualCard!]!
   totalCards: Int!
+}
+
+type UserPostOutput {
+  id: ID!
+  author: PostAuthor!
+  contentType: UserPostContentType!
+  description: String!
+  imageUrls: [String!]
+  videoUrl: String
+  thumbnailUrl: String
+  sharedMatch: SharedMatchData
+  sharedQuiniela: SharedQuinielaData
+  sharedPrediction: SharedPredictionData
+  sharedRank: SharedRankData
+  likesCount: Int!
+  commentsCount: Int!
+  sharesCount: Int!
+  isLikedByMe: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Type of content in a user post"""
+enum UserPostContentType {
+  TEXT
+  IMAGE
+  VIDEO
+  MATCH_SHARE
+  QUINIELA_SHARE
+  PREDICTION_SHARE
+  RANK_SHARE
+}
+
+type DeletePostResult {
+  success: Boolean!
+  message: String
+}
+
+type LikePostResult {
+  success: Boolean!
+  isLiked: Boolean!
+  likesCount: Int!
+}
+
+type SuggestionUser {
+  userId: String!
+  username: String!
+  displayName: String
+  avatarUrl: String
+  isVerified: Boolean!
+  followersCount: Int!
+}
+
+type SuggestionQuiniela {
+  quinielaId: String!
+  name: String!
+  code: String!
+  imageUrl: String
+  memberCount: Int!
+  leagueId: String!
+}
+
+type MyFeedResponse {
+  items: [FeedItem!]!
+  totalItems: Int!
+  hasMore: Boolean!
+  nextOffset: Int!
+}
+
+union FeedItem = FeedUserPostItem | FeedContextualCardItem | FeedSuggestionItem
+
+type FeedUserPostItem {
+  itemType: FeedItemType!
+  position: Int!
+  post: UserPostOutput!
+}
+
+"""Type of item in the feed"""
+enum FeedItemType {
+  USER_POST
+  CONTEXTUAL_CARD
+  SUGGESTION
+  AD
+}
+
+type FeedContextualCardItem {
+  itemType: FeedItemType!
+  position: Int!
+  card: FeedContextualCard!
+}
+
+type FeedSuggestionItem {
+  itemType: FeedItemType!
+  position: Int!
+  suggestionType: String!
+  users: [SuggestionUser!]
+  quinielas: [SuggestionQuiniela!]
+}
+
+type UserPostsResponse {
+  posts: [UserPostOutput!]!
+  total: Int!
+  hasMore: Boolean!
 }
 
 type TeamInfoDto {
@@ -1974,6 +2226,10 @@ type Query {
   matchById(id: Float!): LiveMatchOutputDto
   leagueStandings(leagueId: String!, season: Int): LeagueStandingsDto
   availableLeagues: [AvailableLeagueDto!]!
+  matchesByLeague(leagueId: String!, status: String = "all"): [LiveMatchOutputDto!]!
+  fixturesByDate(date: String!, leagueId: String): [LiveMatchOutputDto!]!
+  footballSearch(query: String!, limit: Int = 8): [FootballSearchResultDto!]!
+  playerProfile(playerId: Int!, season: Int): PlayerProfileDto
   myTeams: [Team!]!
   team(id: ID!): TeamWithMembers!
   teamByCode(code: String!): Team!
@@ -2012,6 +2268,7 @@ type Query {
   worldcupVenue(id: String!): VenueDto
   worldcupChatSession(sessionId: String!): ChatSession
   quinielaByCode(code: String!): QuinielaPublicInfo
+  discoverPublicPools(leagueId: String, search: String, status: QuinielaStatus, limit: Float = 20, offset: Float = 0, sortBy: String = "createdAt"): PaginatedPublicPools!
   myQuinielas: [Quiniela!]!
   quiniela(id: String!): Quiniela
   quinielaLeaderboard(quinielaId: String!): [LeaderboardEntry!]!
@@ -2105,6 +2362,10 @@ type Query {
 
   """Get FHG logs with filters"""
   fhgLogs(filter: FhgLogFilterInput): [FhgLogEntryDto!]!
+  myFeed(filter: FeedFilterInput, locale: String = "es"): MyFeedResponse!
+  globalFeed(filter: FeedFilterInput, locale: String = "es"): MyFeedResponse!
+  userPost(postId: ID!): UserPostOutput
+  userPosts(userId: ID!, limit: Int = 20, offset: Int = 0): UserPostsResponse!
   feedContextualCards(limit: Int = 5, cardInterval: Int = 5, locale: String = "es"): FeedContextualCardsResponse!
   feedContextualCard(cardId: String!, locale: String = "es"): FeedContextualCard
   standings(leagueId: String!, season: String, conference: String): StandingsDto
@@ -2176,6 +2437,15 @@ input FhgLogFilterInput {
   endDate: DateTime
   limit: Int
   offset: Int
+}
+
+input FeedFilterInput {
+  limit: Int = 20
+  offset: Int = 0
+  contentType: UserPostContentType
+  userId: ID
+  includeContextualCards: Boolean = true
+  cardInterval: Int = 5
 }
 
 type Mutation {
@@ -2341,6 +2611,10 @@ type Mutation {
 
   """Full data refresh: matches + odds for all active leagues"""
   fhgFullRefresh(date: String, daysAhead: Int = 7): RefreshResultDto!
+  createUserPost(input: CreateUserPostInput!): UserPostOutput!
+  updateUserPost(input: UpdateUserPostInput!): UserPostOutput!
+  deleteUserPost(postId: ID!): DeletePostResult!
+  toggleLikePost(postId: ID!): LikePostResult!
   footballChat(input: FootballChatInputDto!): FootballChatResponseDto!
 }
 
@@ -2508,6 +2782,7 @@ input ChatMessageInput {
 
 input CreateQuinielaInput {
   name: String!
+  leagueId: String!
   description: String
   isPrivate: Boolean! = true
   imageUrl: String
@@ -2782,6 +3057,84 @@ input FhgPipelineOptionsInput {
   leagueCode: String
   dryRun: Boolean
   forceRegenerate: Boolean
+}
+
+input CreateUserPostInput {
+  contentType: UserPostContentType!
+  description: String
+  imageUrls: [String!]
+  videoUrl: String
+  thumbnailUrl: String
+  sharedMatch: SharedMatchInput
+  sharedQuiniela: SharedQuinielaInput
+  sharedPrediction: SharedPredictionInput
+  sharedRank: SharedRankInput
+}
+
+input SharedMatchInput {
+  matchId: String!
+  homeTeam: String!
+  awayTeam: String!
+  homeTeamLogo: String
+  awayTeamLogo: String
+  scoreHome: Int
+  scoreAway: Int
+  leagueName: String
+  leagueLogo: String
+  kickoffTime: DateTime
+  isLive: Boolean
+  isFinished: Boolean
+  round: String
+}
+
+input SharedQuinielaInput {
+  quinielaId: ID!
+  name: String!
+  code: String!
+  leagueId: String!
+  imageUrl: String
+  description: String
+  ownerName: String!
+  memberCount: Int
+  isPublic: Boolean
+}
+
+input SharedPredictionInput {
+  predictionId: ID!
+  matchId: String!
+  homeTeam: String!
+  awayTeam: String!
+  homeTeamLogo: String
+  awayTeamLogo: String
+  predictedHome: Int
+  predictedAway: Int
+  predictedWinner: String
+  actualHome: Int
+  actualAway: Int
+  isCorrect: Boolean
+  isExactScore: Boolean
+  pointsEarned: Int
+  quinielaId: String
+  quinielaName: String
+  kickoffTime: DateTime
+  isFinished: Boolean
+}
+
+input SharedRankInput {
+  quinielaId: ID!
+  quinielaName: String!
+  quinielaImage: String
+  currentRank: Int!
+  totalMembers: Int!
+  totalPoints: Int
+  previousRank: Int
+  leagueName: String
+  leagueLogo: String
+}
+
+input UpdateUserPostInput {
+  postId: ID!
+  description: String
 }
 
 input FootballChatInputDto {

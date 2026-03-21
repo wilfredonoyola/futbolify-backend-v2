@@ -449,6 +449,85 @@ export class ApiFootballLiveService {
   }
 
   /**
+   * Recently finished fixtures for a league (last N days), for matchesByLeague(status=finished).
+   * Cached in Redis to limit API-Football usage.
+   */
+  async getFinishedMatchesByLeague(
+    leagueId: string,
+    daysBack: number = 7
+  ): Promise<LiveMatchData[]> {
+    const leagueInfo = LEAGUE_MAP[leagueId]
+    if (!leagueInfo) {
+      this.logger.warn(`Unknown league: ${leagueId}`)
+      return []
+    }
+
+    const cacheKey = `api-football:finished-matches:league:${leagueId}:${daysBack}`
+
+    const cached = await this.redisCache.get<LiveMatchData[]>(cacheKey)
+    if (cached) {
+      this.logger.debug(
+        `♻️ Cache hit for finished matches ${leagueId} (${cached.length})`
+      )
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return []
+    }
+
+    try {
+      const today = new Date()
+      const from = new Date(today)
+      from.setDate(from.getDate() - daysBack)
+      const fromStr = from.toISOString().split('T')[0]
+      const toStr = today.toISOString().split('T')[0]
+
+      const currentMonth = today.getMonth() + 1
+      const currentYear = today.getFullYear()
+      const season = currentMonth <= 7 ? currentYear - 1 : currentYear
+
+      const response = await fetch(
+        `${this.baseUrl}/fixtures?league=${leagueInfo.apiId}&season=${season}&from=${fromStr}&to=${toStr}&status=FT`,
+        {
+          headers: { 'x-apisports-key': this.apiKey },
+        }
+      )
+
+      if (!response.ok) {
+        this.logger.error(`Finished fixtures API error: ${response.status}`)
+        return []
+      }
+
+      const data = await response.json()
+      const fixtures = data.response || []
+
+      const matches: LiveMatchData[] = fixtures.map((fixture: any) =>
+        this.transformFixture(fixture)
+      )
+
+      matches.sort(
+        (a, b) =>
+          new Date(b.kickoffTime || 0).getTime() -
+          new Date(a.kickoffTime || 0).getTime()
+      )
+
+      await this.redisCache.set(cacheKey, matches, CACHE_TTL.FINISHED_MATCHES)
+
+      this.logger.log(
+        `✅ ${matches.length} finished matches for ${leagueId} (${fromStr}–${toStr})`
+      )
+
+      return matches
+    } catch (error) {
+      this.logger.error(
+        `Error fetching finished matches for ${leagueId}: ${error.message}`
+      )
+      return []
+    }
+  }
+
+  /**
    * Get upcoming matches for today and tomorrow from allowed leagues
    */
   async getUpcomingMatches(): Promise<LiveMatchData[]> {
@@ -861,6 +940,308 @@ export class ApiFootballLiveService {
       goalDiff: standing.goalsDiff || 0,
       form: standing.form || null,
       description: standing.description || null,
+    }
+  }
+
+  /**
+   * Partidos de un día concreto (YYYY-MM-DD). Filtra ligas permitidas; opcionalmente una liga nuestra (slug).
+   */
+  async getFixturesByDate(
+    date: string,
+    leagueSlug?: string
+  ): Promise<LiveMatchData[]> {
+    const safeDate = date.match(/^\d{4}-\d{2}-\d{2}$/) ? date : null
+    if (!safeDate) {
+      this.logger.warn(`Invalid date format: ${date}`)
+      return []
+    }
+
+    const leaguePart = leagueSlug || 'all'
+    const cacheKey = `api-football:fixtures:date:${safeDate}:${leaguePart}`
+
+    const cached = await this.redisCache.get<LiveMatchData[]>(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return []
+    }
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/fixtures?date=${safeDate}`,
+        { headers: { 'x-apisports-key': this.apiKey } }
+      )
+
+      if (!response.ok) {
+        return []
+      }
+
+      const data = await response.json()
+      let fixtures: any[] = data.response || []
+
+      fixtures = fixtures.filter((f: any) =>
+        ALLOWED_LEAGUE_IDS.includes(f.league?.id)
+      )
+
+      if (leagueSlug) {
+        const info = LEAGUE_MAP[leagueSlug]
+        if (info) {
+          fixtures = fixtures.filter(
+            (f: any) => f.league?.id === info.apiId
+          )
+        }
+      }
+
+      const matches = fixtures.map((f: any) => this.transformFixture(f))
+      matches.sort(
+        (a, b) =>
+          new Date(a.kickoffTime || 0).getTime() -
+          new Date(b.kickoffTime || 0).getTime()
+      )
+
+      await this.redisCache.set(cacheKey, matches, 300)
+      return matches
+    } catch (error) {
+      this.logger.error(`getFixturesByDate: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
+   * Búsqueda ligera de jugadores y equipos (API-Football search).
+   */
+  async searchFootball(
+    query: string,
+    limit = 8
+  ): Promise<
+    Array<{
+      kind: 'player' | 'team'
+      id: number
+      name: string
+      photo?: string
+      meta?: string
+    }>
+  > {
+    const q = query.trim()
+    if (q.length < 2) {
+      return []
+    }
+
+    const cacheKey = `api-football:search:${q.toLowerCase()}:${limit}`
+    const cached = await this.redisCache.get<
+      Array<{
+        kind: 'player' | 'team'
+        id: number
+        name: string
+        photo?: string
+        meta?: string
+      }>
+    >(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return []
+    }
+
+    try {
+      const half = Math.ceil(limit / 2)
+      const [playersRes, teamsRes] = await Promise.all([
+        fetch(`${this.baseUrl}/players?search=${encodeURIComponent(q)}`, {
+          headers: { 'x-apisports-key': this.apiKey },
+        }),
+        fetch(`${this.baseUrl}/teams?search=${encodeURIComponent(q)}`, {
+          headers: { 'x-apisports-key': this.apiKey },
+        }),
+      ])
+
+      const [playersData, teamsData] = await Promise.all([
+        playersRes.json(),
+        teamsRes.json(),
+      ])
+
+      const out: Array<{
+        kind: 'player' | 'team'
+        id: number
+        name: string
+        photo?: string
+        meta?: string
+      }> = []
+
+      for (const row of (playersData.response || []).slice(0, half)) {
+        const p = row.player
+        if (!p?.id) continue
+        out.push({
+          kind: 'player',
+          id: p.id,
+          name: p.name,
+          photo: p.photo || undefined,
+          meta: row.statistics?.[0]?.team?.name || p.nationality || undefined,
+        })
+      }
+
+      for (const row of (teamsData.response || []).slice(0, half)) {
+        const t = row.team
+        if (!t?.id) continue
+        out.push({
+          kind: 'team',
+          id: t.id,
+          name: t.name,
+          photo: t.logo || undefined,
+          meta: row.venue?.city || t.nationality || undefined,
+        })
+      }
+
+      await this.redisCache.set(cacheKey, out.slice(0, limit), 600)
+      return out.slice(0, limit)
+    } catch (error) {
+      this.logger.error(`searchFootball: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
+   * Perfil de jugador + estadísticas por liga en una temporada.
+   */
+  async getPlayerProfile(
+    playerId: number,
+    season?: number
+  ): Promise<{
+    id: number
+    name: string
+    firstname?: string
+    lastname?: string
+    photo?: string
+    nationality?: string
+    birthPlace?: string
+    birthDate?: string
+    height?: string
+    teamId?: number
+    teamName?: string
+    teamLogo?: string
+    seasonStats: Array<{
+      leagueId: string
+      leagueName: string
+      appearances: number
+      lineups: number
+      goals: number
+      assists: number
+      minutes: number
+    }>
+  } | null> {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1
+    const targetSeason =
+      season ??
+      (currentMonth <= 7 ? currentYear - 1 : currentYear)
+
+    const cacheKey = `api-football:player:${playerId}:${targetSeason}`
+
+    const cached = await this.redisCache.get<{
+      id: number
+      name: string
+      firstname?: string
+      lastname?: string
+      photo?: string
+      nationality?: string
+      birthPlace?: string
+      birthDate?: string
+      height?: string
+      teamId?: number
+      teamName?: string
+      teamLogo?: string
+      seasonStats: Array<{
+        leagueId: string
+        leagueName: string
+        appearances: number
+        lineups: number
+        goals: number
+        assists: number
+        minutes: number
+      }>
+    }>(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return null
+    }
+
+    try {
+      const [playerRes, statsRes] = await Promise.all([
+        fetch(`${this.baseUrl}/players?id=${playerId}&season=${targetSeason}`, {
+          headers: { 'x-apisports-key': this.apiKey },
+        }),
+        fetch(
+          `${this.baseUrl}/players/statistics?player=${playerId}&season=${targetSeason}`,
+          { headers: { 'x-apisports-key': this.apiKey } }
+        ),
+      ])
+
+      const playerData = await playerRes.json()
+      const statsData = await statsRes.json()
+
+      const row = playerData.response?.[0]
+      if (!row?.player) {
+        return null
+      }
+
+      const p = row.player
+      const team = row.statistics?.[0]?.team
+
+      const seasonStats: Array<{
+        leagueId: string
+        leagueName: string
+        appearances: number
+        lineups: number
+        goals: number
+        assists: number
+        minutes: number
+      }> = []
+
+      for (const s of statsData.response || []) {
+        const leagueApiId = s.league?.id
+        const slug =
+          (leagueApiId && REVERSE_LEAGUE_MAP[leagueApiId]) || `api-${leagueApiId}`
+        const games = s.games || {}
+        const goals = s.goals || {}
+        seasonStats.push({
+          leagueId: slug,
+          leagueName: s.league?.name || 'League',
+          appearances: games.appearences ?? games.appearances ?? 0,
+          lineups: games.lineups ?? 0,
+          goals: goals.total ?? 0,
+          assists: goals.assists ?? 0,
+          minutes: games.minutes ?? 0,
+        })
+      }
+
+      const result = {
+        id: p.id,
+        name: p.name,
+        firstname: p.firstname,
+        lastname: p.lastname,
+        photo: p.photo || undefined,
+        nationality: p.nationality,
+        birthPlace: p.birth?.place,
+        birthDate: p.birth?.date,
+        height: p.height,
+        teamId: team?.id,
+        teamName: team?.name,
+        teamLogo: team?.logo,
+        seasonStats,
+      }
+
+      await this.redisCache.set(cacheKey, result, 3600)
+      return result
+    } catch (error) {
+      this.logger.error(`getPlayerProfile: ${error.message}`)
+      return null
     }
   }
 
