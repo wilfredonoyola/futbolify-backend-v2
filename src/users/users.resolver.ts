@@ -1,4 +1,4 @@
-import { Resolver, Query, Args, Mutation } from '@nestjs/graphql';
+import { Resolver, Query, Args, Mutation, ResolveField, Parent } from '@nestjs/graphql';
 import { UsersService } from './users.service';
 import { AuthService } from '../auth/auth.service';
 import { UserRole } from './schemas/user.schema';
@@ -9,6 +9,7 @@ import { UpdateUserInput } from './dto/update-user.input';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { CurrentUserPayload } from 'src/auth/current-user-payload.interface';
 import { GqlAuthGuard } from 'src/auth/gql-auth.guard';
+import { QuinielaService } from 'src/quiniela/quiniela.service';
 
 export const Roles = (...roles: UserRole[]) => SetMetadata('roles', roles);
 
@@ -17,6 +18,7 @@ export class UsersResolver {
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
+    private readonly quinielaService: QuinielaService,
   ) {}
   @Query(() => UserOutputDto, { nullable: true })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
@@ -133,5 +135,10 @@ export class UsersResolver {
       default:
         return UserRole.USER;
     }
+  }
+
+  @ResolveField(() => Number, { nullable: true })
+  async totalRankingPoints(@Parent() user: UserOutputDto): Promise<number> {
+    return this.quinielaService.getTotalUserPoints(user.id);
   }
 }

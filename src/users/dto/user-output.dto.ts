@@ -1,4 +1,4 @@
-import { Field, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { UserRole } from '../schemas/user.schema';
 
 @ObjectType()
@@ -23,4 +23,7 @@ export class UserOutputDto {
 
   @Field(() => [UserRole])
   roles: UserRole[];
+
+  @Field(() => Int, { nullable: true })
+  totalRankingPoints?: number;
 }

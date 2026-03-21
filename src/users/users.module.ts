@@ -5,11 +5,13 @@ import { UsersResolver } from "./users.resolver";
 import { UserSchema } from "./schemas/user.schema";
 import { AuthModule } from "src/auth/auth.module";
 import { RolesGuard } from "src/auth/roles.guard";
+import { QuinielaModule } from "src/quiniela/quiniela.module";
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: "User", schema: UserSchema }]),
     forwardRef(() => AuthModule),
+    QuinielaModule,
   ],
   providers: [UsersService, UsersResolver, RolesGuard],
   exports: [UsersService],

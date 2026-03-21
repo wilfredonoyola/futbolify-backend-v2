@@ -801,6 +801,18 @@ export class QuinielaService {
     return mergedCount;
   }
 
+  // ============ USER RANKING POINTS ============
+
+  // Get total ranking points for a user across all quinielas
+  async getTotalUserPoints(userId: string): Promise<number> {
+    const result = await this.quinielaModel.aggregate([
+      { $unwind: '$members' },
+      { $match: { 'members.userId': new Types.ObjectId(userId) } },
+      { $group: { _id: null, total: { $sum: '$members.totalPoints' } } },
+    ]);
+    return result[0]?.total ?? 0;
+  }
+
   // ============ DISCOVER PUBLIC POOLS ============
 
   // Discover public pools for exploration (excludes user's own pools)
