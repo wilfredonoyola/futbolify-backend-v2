@@ -1931,6 +1931,13 @@ type FhgHealthAlert {
   recommendation: String!
 }
 
+type OverlayPosition {
+  x: Float
+  y: Float
+  scale: Float
+  rotation: Float
+}
+
 type SharedMatchData {
   matchId: String!
   homeTeam: String!
@@ -2099,6 +2106,7 @@ type UserPostOutput {
   sharedQuiniela: SharedQuinielaData
   sharedPrediction: SharedPredictionData
   sharedRank: SharedRankData
+  overlayPosition: OverlayPosition
   likesCount: Int!
   commentsCount: Int!
   sharesCount: Int!
@@ -3096,6 +3104,7 @@ input CreateUserPostInput {
   sharedQuiniela: SharedQuinielaInput
   sharedPrediction: SharedPredictionInput
   sharedRank: SharedRankInput
+  overlayPosition: OverlayPositionInput
 }
 
 input SharedMatchInput {
@@ -3157,6 +3166,13 @@ input SharedRankInput {
   previousRank: Int
   leagueName: String
   leagueLogo: String
+}
+
+input OverlayPositionInput {
+  x: Float
+  y: Float
+  scale: Float
+  rotation: Float
 }
 
 input UpdateUserPostInput {
