@@ -96,6 +96,19 @@ export class FeedResolver {
   }
 
   /**
+   * Get posts liked by the authenticated user
+   */
+  @Query(() => UserPostsResponse, { name: 'likedPosts' })
+  @UseGuards(GqlAuthGuard)
+  async getLikedPosts(
+    @CurrentUser() user: any,
+    @Args('limit', { type: () => Int, nullable: true, defaultValue: 20 }) limit: number,
+    @Args('offset', { type: () => Int, nullable: true, defaultValue: 0 }) offset: number,
+  ): Promise<UserPostsResponse> {
+    return this.feedService.getLikedPosts(user.userId, limit, offset);
+  }
+
+  /**
    * Get contextual cards for the user's feed
    */
   @Query(() => FeedContextualCardsResponse, { name: 'feedContextualCards' })

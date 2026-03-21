@@ -487,6 +487,38 @@ export class FeedService {
     };
   }
 
+  /**
+   * Get posts liked by a user
+   */
+  async getLikedPosts(
+    userId: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<UserPostsResponse> {
+    const query = {
+      likedBy: userId,
+      isDeleted: false,
+      isVisible: true,
+    };
+
+    const [posts, total] = await Promise.all([
+      this.userPostModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(offset)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.userPostModel.countDocuments(query),
+    ]);
+
+    return {
+      posts: posts.map((p) => this.mapPostToOutput(p as any, userId)),
+      total,
+      hasMore: offset + posts.length < total,
+    };
+  }
+
   // ============================================================================
   // UNIFIED FEED
   // ============================================================================
