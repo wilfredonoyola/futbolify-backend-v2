@@ -257,10 +257,33 @@ export class UploadsController {
     const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
     console.log(`🎬 POST /uploads/post-video - File: ${file.originalname}, Size: ${fileSizeMB} MB, Type: ${file.mimetype}`);
 
-    // Validate file type
-    if (!file.mimetype.startsWith('video/')) {
-      console.log(`❌ POST /uploads/post-video - Invalid file type: ${file.mimetype}`);
-      throw new BadRequestException('Only video files are allowed');
+    // Validate file type - check mimetype OR extension (iOS sometimes sends wrong mimetype)
+    const ext = (file.originalname.split('.').pop() || '').toLowerCase();
+    const validVideoExtensions = ['mp4', 'mov', 'avi', 'webm', 'm4v', '3gp', 'mkv'];
+    const isVideoMimetype = file.mimetype.startsWith('video/') ||
+                            file.mimetype === 'application/octet-stream' ||
+                            file.mimetype === 'application/x-mpegURL';
+    const isVideoExtension = validVideoExtensions.includes(ext);
+
+    if (!isVideoMimetype && !isVideoExtension) {
+      console.log(`❌ POST /uploads/post-video - Invalid file type: ${file.mimetype}, ext: ${ext}`);
+      throw new BadRequestException(`Only video files are allowed. Received: ${file.mimetype}`);
+    }
+
+    // If mimetype is generic, try to determine from extension
+    let finalMimetype = file.mimetype;
+    if (file.mimetype === 'application/octet-stream' || !file.mimetype.startsWith('video/')) {
+      const mimetypeMap = {
+        'mp4': 'video/mp4',
+        'mov': 'video/quicktime',
+        'avi': 'video/x-msvideo',
+        'webm': 'video/webm',
+        'm4v': 'video/x-m4v',
+        '3gp': 'video/3gpp',
+        'mkv': 'video/x-matroska',
+      };
+      finalMimetype = mimetypeMap[ext] || 'video/mp4';
+      console.log(`🎬 POST /uploads/post-video - Corrected mimetype from ${file.mimetype} to ${finalMimetype}`);
     }
 
     // Validate file size (max 100MB for post videos)
@@ -272,8 +295,7 @@ export class UploadsController {
 
     const userId = req.user.userId;
     const timestamp = Date.now();
-    const ext = file.originalname.split('.').pop() || 'mp4';
-    const filename = `${timestamp}.${ext}`;
+    const filename = `${timestamp}.${ext || 'mp4'}`;
 
     try {
       // Upload to Bunny Storage (same as images) - direct CDN URL, no auth needed
@@ -282,7 +304,7 @@ export class UploadsController {
       const result = await this.bunnyStorageService.uploadFile(
         file.buffer,
         `feed/posts/${userId}/videos/${filename}`,
-        file.mimetype,
+        finalMimetype,
       );
 
       console.log(`✅ POST /uploads/post-video - Upload successful: ${result.cdnUrl}`);
