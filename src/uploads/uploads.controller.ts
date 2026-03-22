@@ -187,19 +187,26 @@ export class UploadsController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: any,
   ) {
+    console.log(`📸 POST /uploads/post-image - Starting image upload`);
+
     if (!file) {
+      console.log(`❌ POST /uploads/post-image - No file provided`);
       throw new BadRequestException('No file provided');
     }
 
+    console.log(`📸 POST /uploads/post-image - File: ${file.originalname}, Size: ${(file.size / 1024).toFixed(1)} KB, Type: ${file.mimetype}`);
+
     // Validate file type
     if (!file.mimetype.startsWith('image/')) {
+      console.log(`❌ POST /uploads/post-image - Invalid file type: ${file.mimetype}`);
       throw new BadRequestException('Only image files are allowed');
     }
 
-    // Validate file size (max 5MB for post images)
-    const maxSize = 5 * 1024 * 1024;
+    // Validate file size (max 10MB for post images - increased from 5MB)
+    const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('File size must be less than 5MB');
+      console.log(`❌ POST /uploads/post-image - File too large: ${(file.size / 1024 / 1024).toFixed(1)} MB`);
+      throw new BadRequestException('File size must be less than 10MB');
     }
 
     const userId = req.user.userId;
@@ -207,18 +214,25 @@ export class UploadsController {
     const ext = file.originalname.split('.').pop() || 'jpg';
     const filename = `${timestamp}.${ext}`;
 
-    // Upload to Bunny Storage in feed/posts/{userId}/ folder
-    const result = await this.bunnyStorageService.uploadFile(
-      file.buffer,
-      `feed/posts/${userId}/${filename}`,
-      file.mimetype,
-    );
+    try {
+      // Upload to Bunny Storage in feed/posts/{userId}/ folder
+      const result = await this.bunnyStorageService.uploadFile(
+        file.buffer,
+        `feed/posts/${userId}/${filename}`,
+        file.mimetype,
+      );
 
-    return {
-      success: true,
-      url: result.cdnUrl,
-      path: result.path,
-    };
+      console.log(`✅ POST /uploads/post-image - Upload successful: ${result.cdnUrl}`);
+
+      return {
+        success: true,
+        url: result.cdnUrl,
+        path: result.path,
+      };
+    } catch (error) {
+      console.error(`❌ POST /uploads/post-image - Upload failed:`, error.message);
+      throw error;
+    }
   }
 
   /**
@@ -233,18 +247,26 @@ export class UploadsController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: any,
   ) {
+    console.log(`🎬 POST /uploads/post-video - Starting video upload`);
+
     if (!file) {
+      console.log(`❌ POST /uploads/post-video - No file provided`);
       throw new BadRequestException('No file provided');
     }
 
+    const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
+    console.log(`🎬 POST /uploads/post-video - File: ${file.originalname}, Size: ${fileSizeMB} MB, Type: ${file.mimetype}`);
+
     // Validate file type
     if (!file.mimetype.startsWith('video/')) {
+      console.log(`❌ POST /uploads/post-video - Invalid file type: ${file.mimetype}`);
       throw new BadRequestException('Only video files are allowed');
     }
 
     // Validate file size (max 100MB for post videos)
     const maxSize = 100 * 1024 * 1024;
     if (file.size > maxSize) {
+      console.log(`❌ POST /uploads/post-video - File too large: ${fileSizeMB} MB`);
       throw new BadRequestException('File size must be less than 100MB');
     }
 
@@ -253,20 +275,29 @@ export class UploadsController {
     const ext = file.originalname.split('.').pop() || 'mp4';
     const filename = `${timestamp}.${ext}`;
 
-    // Upload to Bunny Storage (same as images) - direct CDN URL, no auth needed
-    const result = await this.bunnyStorageService.uploadFile(
-      file.buffer,
-      `feed/posts/${userId}/videos/${filename}`,
-      file.mimetype,
-    );
+    try {
+      // Upload to Bunny Storage (same as images) - direct CDN URL, no auth needed
+      console.log(`🎬 POST /uploads/post-video - Uploading ${fileSizeMB} MB to Bunny Storage...`);
 
-    return {
-      success: true,
-      videoUrl: result.cdnUrl,
-      url: result.cdnUrl,
-      path: result.path,
-      status: 'finished', // No processing needed, ready immediately
-    };
+      const result = await this.bunnyStorageService.uploadFile(
+        file.buffer,
+        `feed/posts/${userId}/videos/${filename}`,
+        file.mimetype,
+      );
+
+      console.log(`✅ POST /uploads/post-video - Upload successful: ${result.cdnUrl}`);
+
+      return {
+        success: true,
+        videoUrl: result.cdnUrl,
+        url: result.cdnUrl,
+        path: result.path,
+        status: 'finished', // No processing needed, ready immediately
+      };
+    } catch (error) {
+      console.error(`❌ POST /uploads/post-video - Upload failed:`, error.message);
+      throw error;
+    }
   }
 
   /**

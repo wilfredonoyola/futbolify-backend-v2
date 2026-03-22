@@ -438,9 +438,19 @@ export class BunnyStorageService {
   ): Promise<UploadResult> {
     this.checkConfiguration();
 
+    const fileSizeMB = (file.length / 1024 / 1024).toFixed(2);
+    console.log(`📤 Bunny uploadFile: Starting upload of ${fileSizeMB} MB to ${path}`);
+
     try {
       // Upload to Bunny Storage
       const storageUrl = `https://${this.region}.bunnycdn.com/${this.storageZoneName}/${path}`;
+
+      // Calculate timeout based on file size (min 60s, ~30s per 10MB, max 10min)
+      const timeoutMs = Math.min(
+        Math.max(60000, Math.ceil(file.length / 1024 / 1024 / 10) * 30000),
+        600000
+      );
+      console.log(`📤 Bunny uploadFile: Using timeout of ${timeoutMs / 1000}s for ${fileSizeMB} MB file`);
 
       const response = await axios.put(storageUrl, file, {
         headers: {
@@ -449,11 +459,15 @@ export class BunnyStorageService {
         },
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
+        timeout: timeoutMs,
       });
 
       if (response.status !== 201 && response.status !== 200) {
+        console.error(`📤 Bunny uploadFile: Unexpected status ${response.status}`);
         throw new InternalServerErrorException('Failed to upload file to Bunny Storage');
       }
+
+      console.log(`✅ Bunny uploadFile: Successfully uploaded ${fileSizeMB} MB to ${path}`);
 
       // Generate CDN URL with cache-busting timestamp
       const timestamp = Date.now();
@@ -465,9 +479,19 @@ export class BunnyStorageService {
         path,
       };
     } catch (error) {
-      console.error('Bunny Storage file upload error:', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.Message || error.message || 'Unknown error';
+      const errorCode = error.code || 'NO_CODE';
+      console.error(`❌ Bunny uploadFile error [${errorCode}]: ${errorMsg}`);
+      console.error(`   File: ${path}, Size: ${fileSizeMB} MB`);
+
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        throw new InternalServerErrorException(
+          `Upload timeout: El archivo es muy grande o la conexión es lenta. Intenta con un archivo más pequeño.`,
+        );
+      }
+
       throw new InternalServerErrorException(
-        `Failed to upload file: ${error.response?.data?.Message || error.message}`,
+        `Failed to upload file: ${errorMsg}`,
       );
     }
   }
