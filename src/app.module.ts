@@ -27,6 +27,7 @@ import { CommonModule } from './common/common.module'
 import { StandingsModule } from './standings/standings.module'
 import { FootballChatModule } from './football/chat/football-chat.module'
 import { ReportsModule } from './reports/reports.module'
+import { FirebaseModule } from './firebase/firebase.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -94,6 +95,7 @@ import { AppService } from './app.service'
     StandingsModule,
     FootballChatModule,
     ReportsModule,
+    FirebaseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
