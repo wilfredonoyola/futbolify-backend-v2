@@ -3,6 +3,8 @@
 import { Resolver, Query, Mutation, Args, Context, InputType, Field } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { CurrentUserPayload } from '../auth/current-user-payload.interface';
 import { GqlOptionalAuthGuard } from '../auth/gql-optional-auth.guard';
 import { QuinielaService } from './quiniela.service';
 import { QuinielaAIService } from './quiniela-ai.service';
@@ -348,9 +350,10 @@ export class QuinielaResolver {
   @UseGuards(GqlAuthGuard)
   async setQuinielaOfficial(
     @Args('input') input: SetQuinielaOfficialInput,
-    @Context() context: { req?: { user?: { userId?: string; email?: string } } },
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<Quiniela> {
-    const userEmail = context.req?.user?.email;
+    // username is the email in our auth system
+    const userEmail = user.username;
     if (!userEmail) {
       throw new Error('Authentication required');
     }
