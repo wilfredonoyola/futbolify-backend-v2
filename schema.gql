@@ -2885,7 +2885,6 @@ input UpdateQuinielaInput {
 input SetQuinielaOfficialInput {
   quinielaId: String!
   isOfficial: Boolean!
-  tournamentSlug: String
 }
 
 input SetAdminEmailInput {
