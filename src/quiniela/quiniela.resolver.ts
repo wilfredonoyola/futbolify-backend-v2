@@ -22,6 +22,7 @@ import {
   VerifyAdminEmailResult,
   ValidateAdminTokenInput,
   ValidateAdminTokenResult,
+  SetQuinielaOfficialInput,
   AIPrediction,
   AIScoreData,
   PaginatedPublicPools,
@@ -64,6 +65,20 @@ export class QuinielaResolver {
     @Args('code') code: string,
   ): Promise<QuinielaPublicInfo | null> {
     return this.quinielaService.getByCode(code);
+  }
+
+  // ============ OFFICIAL QUINIELAS (PUBLIC) ============
+
+  @Query(() => [Quiniela], { name: 'officialQuinielas' })
+  async getOfficialQuinielas(): Promise<Quiniela[]> {
+    return this.quinielaService.getOfficialQuinielas();
+  }
+
+  @Query(() => Quiniela, { name: 'officialQuiniela', nullable: true })
+  async getOfficialQuiniela(
+    @Args('tournamentSlug') tournamentSlug: string,
+  ): Promise<Quiniela | null> {
+    return this.quinielaService.getOfficialQuinielaBySlug(tournamentSlug);
   }
 
   // Discover public pools for exploration (optional auth to exclude user's pools)
@@ -325,6 +340,26 @@ export class QuinielaResolver {
       return false;
     }
     return this.quinielaService.isOwner(quinielaId, userId);
+  }
+
+  // ============ OFFICIAL QUINIELAS ADMIN ============
+
+  @Mutation(() => Quiniela, { name: 'setQuinielaOfficial' })
+  @UseGuards(GqlAuthGuard)
+  async setQuinielaOfficial(
+    @Args('input') input: SetQuinielaOfficialInput,
+    @Context() context: { req?: { user?: { userId?: string; email?: string } } },
+  ): Promise<Quiniela> {
+    const userEmail = context.req?.user?.email;
+    if (!userEmail) {
+      throw new Error('Authentication required');
+    }
+    return this.quinielaService.setQuinielaOfficial(
+      input.quinielaId,
+      input.isOfficial,
+      input.tournamentSlug,
+      userEmail,
+    );
   }
 
   // ============ ADMIN EMAIL FLOW ============

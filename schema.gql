@@ -84,6 +84,7 @@ type UserOutputDto {
   phone: String
   avatarUrl: String
   roles: [UserRole!]!
+  totalRankingPoints: Int
 }
 
 type GoogleSigninResponse {
@@ -95,6 +96,163 @@ type GoogleSigninResponse {
   isProfileCompleted: Boolean!
   access_token: String!
   roles: [UserRole!]!
+}
+
+type QuinielaRules {
+  exactScore: Float!
+  correctResult: Float!
+  bonusChampion: Float!
+}
+
+type MatchPrediction {
+  matchId: String!
+  homeScore: Float
+  awayScore: Float
+  simplePrediction: String
+  submittedAt: DateTime!
+}
+
+type QuinielaMember {
+  _id: ID!
+  userId: ID!
+  userName: String!
+  avatarUrl: String
+  predictions: [MatchPrediction!]!
+  championPick: String
+  totalPoints: Float!
+  correctPredictions: Float!
+  exactScores: Float!
+  rank: Float
+  joinedAt: DateTime!
+}
+
+type Quiniela {
+  _id: ID!
+  name: String!
+  code: String!
+  leagueId: String!
+  ownerId: ID
+  ownerName: String!
+  anonymousCreatorId: String
+  claimedAt: DateTime
+  adminEmail: String
+  emailVerified: Boolean!
+  isPrivate: Boolean!
+  isOfficial: Boolean!
+  tournamentSlug: String
+  status: QuinielaStatus!
+  rules: QuinielaRules!
+  predictionMode: PredictionMode!
+  members: [QuinielaMember!]!
+  memberCount: Float!
+  description: String
+  imageUrl: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Status of the quiniela"""
+enum QuinielaStatus {
+  OPEN
+  ACTIVE
+  CLOSED
+}
+
+"""Mode of prediction for the quiniela"""
+enum PredictionMode {
+  SIMPLE
+  DETAILED
+}
+
+type QuinielaInvite {
+  quinielaId: ID!
+  quinielaName: String!
+  ownerName: String!
+  code: String!
+  inviteUrl: String!
+  memberCount: Float!
+  isPrivate: Boolean!
+  leagueId: String!
+  isAnonymous: Boolean!
+  anonymousCreatorId: String
+}
+
+type QuinielaPublicInfo {
+  id: ID!
+  name: String!
+  ownerId: ID
+  ownerName: String!
+  memberCount: Float!
+  isPrivate: Boolean!
+  isOfficial: Boolean!
+  tournamentSlug: String
+  leagueId: String!
+  status: QuinielaStatus!
+  predictionMode: PredictionMode!
+  description: String
+  imageUrl: String
+  adminEmail: String
+  createdAt: DateTime!
+}
+
+type LeaderboardEntry {
+  rank: Float!
+  memberId: ID!
+  userId: ID!
+  userName: String!
+  avatarUrl: String
+  totalPoints: Float!
+  correctPredictions: Float!
+  exactScores: Float!
+  championPick: String
+}
+
+type SetAdminEmailResult {
+  success: Boolean!
+  message: String!
+}
+
+type VerifyAdminEmailResult {
+  success: Boolean!
+  message: String!
+  adminToken: String
+  adminUrl: String
+}
+
+type ValidateAdminTokenResult {
+  isValid: Boolean!
+  quinielaId: String
+  quinielaName: String
+  message: String
+}
+
+type AIPrediction {
+  matchId: String!
+  homeScore: Float!
+  awayScore: Float!
+  confidence: Float!
+  reasoning: String!
+  isUpset: Boolean
+}
+
+type AIScoreStreak {
+  type: String!
+  count: Float!
+}
+
+type AIScoreData {
+  userCorrect: Float!
+  aiCorrect: Float!
+  userExact: Float!
+  aiExact: Float!
+  totalMatches: Float!
+  streak: AIScoreStreak!
+}
+
+type PaginatedPublicPools {
+  pools: [QuinielaPublicInfo!]!
+  total: Float!
+  hasMore: Boolean!
 }
 
 type TimelineEventDto {
@@ -599,70 +757,6 @@ enum SmartNotificationType {
   ACHIEVEMENT
 }
 
-type QuinielaRules {
-  exactScore: Float!
-  correctResult: Float!
-  bonusChampion: Float!
-}
-
-type MatchPrediction {
-  matchId: String!
-  homeScore: Float
-  awayScore: Float
-  simplePrediction: String
-  submittedAt: DateTime!
-}
-
-type QuinielaMember {
-  _id: ID!
-  userId: ID!
-  userName: String!
-  avatarUrl: String
-  predictions: [MatchPrediction!]!
-  championPick: String
-  totalPoints: Float!
-  correctPredictions: Float!
-  exactScores: Float!
-  rank: Float
-  joinedAt: DateTime!
-}
-
-type Quiniela {
-  _id: ID!
-  name: String!
-  code: String!
-  leagueId: String!
-  ownerId: ID
-  ownerName: String!
-  anonymousCreatorId: String
-  claimedAt: DateTime
-  adminEmail: String
-  emailVerified: Boolean!
-  isPrivate: Boolean!
-  status: QuinielaStatus!
-  rules: QuinielaRules!
-  predictionMode: PredictionMode!
-  members: [QuinielaMember!]!
-  memberCount: Float!
-  description: String
-  imageUrl: String
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-"""Status of the quiniela"""
-enum QuinielaStatus {
-  OPEN
-  ACTIVE
-  CLOSED
-}
-
-"""Mode of prediction for the quiniela"""
-enum PredictionMode {
-  SIMPLE
-  DETAILED
-}
-
 type ProcessMatchResultOutput {
   processed: Int!
   notifications: Int!
@@ -865,95 +959,6 @@ type WorldcupChatResponse {
   messagesRemaining: Float
   isAtLimit: Boolean
   warning: ChatWarning
-}
-
-type QuinielaInvite {
-  quinielaId: ID!
-  quinielaName: String!
-  ownerName: String!
-  code: String!
-  inviteUrl: String!
-  memberCount: Float!
-  isPrivate: Boolean!
-  leagueId: String!
-  isAnonymous: Boolean!
-  anonymousCreatorId: String
-}
-
-type QuinielaPublicInfo {
-  id: ID!
-  name: String!
-  ownerId: ID
-  ownerName: String!
-  memberCount: Float!
-  isPrivate: Boolean!
-  leagueId: String!
-  status: QuinielaStatus!
-  predictionMode: PredictionMode!
-  description: String
-  imageUrl: String
-  adminEmail: String
-  createdAt: DateTime!
-}
-
-type LeaderboardEntry {
-  rank: Float!
-  memberId: ID!
-  userId: ID!
-  userName: String!
-  avatarUrl: String
-  totalPoints: Float!
-  correctPredictions: Float!
-  exactScores: Float!
-  championPick: String
-}
-
-type SetAdminEmailResult {
-  success: Boolean!
-  message: String!
-}
-
-type VerifyAdminEmailResult {
-  success: Boolean!
-  message: String!
-  adminToken: String
-  adminUrl: String
-}
-
-type ValidateAdminTokenResult {
-  isValid: Boolean!
-  quinielaId: String
-  quinielaName: String
-  message: String
-}
-
-type AIPrediction {
-  matchId: String!
-  homeScore: Float!
-  awayScore: Float!
-  confidence: Float!
-  reasoning: String!
-  isUpset: Boolean
-}
-
-type AIScoreStreak {
-  type: String!
-  count: Float!
-}
-
-type AIScoreData {
-  userCorrect: Float!
-  aiCorrect: Float!
-  userExact: Float!
-  aiExact: Float!
-  totalMatches: Float!
-  streak: AIScoreStreak!
-}
-
-type PaginatedPublicPools {
-  pools: [QuinielaPublicInfo!]!
-  total: Float!
-  hasMore: Boolean!
 }
 
 type ThemeTokens {
@@ -2373,6 +2378,21 @@ type Query {
   me: UserOutputDto
   userByUserName(userName: String!): UserOutputDto
   isUserNameAvailable(userName: String!): Boolean!
+  quinielaByCode(code: String!): QuinielaPublicInfo
+  officialQuinielas: [Quiniela!]!
+  officialQuiniela(tournamentSlug: String!): Quiniela
+  discoverPublicPools(leagueId: String, search: String, status: QuinielaStatus, limit: Float = 20, offset: Float = 0, sortBy: String = "createdAt"): PaginatedPublicPools!
+  myQuinielas: [Quiniela!]!
+  quiniela(id: String!): Quiniela
+  quinielaLeaderboard(quinielaId: String!): [LeaderboardEntry!]!
+  myQuinielaPredictions(quinielaId: String!): QuinielaMember
+  anonymousQuinielas(anonymousCreatorId: String!): [Quiniela!]!
+  memberPredictions(quinielaId: String!, memberId: String!): QuinielaMember
+  isQuinielaOwner(quinielaId: String!): Boolean!
+  validateQuinielaAdminToken(input: ValidateAdminTokenInput!): ValidateAdminTokenResult!
+  aiPredictionsForMatches(matches: [MatchInfoInput!]!, locale: String = "es"): [AIPrediction!]!
+  aiPredictionForMatch(matchId: String!, homeTeamCode: String!, awayTeamCode: String!, homeTeamId: String!, awayTeamId: String!, locale: String = "es"): AIPrediction
+  myAIScore(quinielaId: String!): AIScoreData!
   liveMatches: [LiveMatchOutputDto!]!
   lateMatches(options: LateMatchOptionsDto): [LiveMatchOutputDto!]!
   upcomingMatches: [LiveMatchOutputDto!]!
@@ -2420,19 +2440,6 @@ type Query {
   worldcupVenues(country: String): [VenueDto!]!
   worldcupVenue(id: String!): VenueDto
   worldcupChatSession(sessionId: String!): ChatSession
-  quinielaByCode(code: String!): QuinielaPublicInfo
-  discoverPublicPools(leagueId: String, search: String, status: QuinielaStatus, limit: Float = 20, offset: Float = 0, sortBy: String = "createdAt"): PaginatedPublicPools!
-  myQuinielas: [Quiniela!]!
-  quiniela(id: String!): Quiniela
-  quinielaLeaderboard(quinielaId: String!): [LeaderboardEntry!]!
-  myQuinielaPredictions(quinielaId: String!): QuinielaMember
-  anonymousQuinielas(anonymousCreatorId: String!): [Quiniela!]!
-  memberPredictions(quinielaId: String!, memberId: String!): QuinielaMember
-  isQuinielaOwner(quinielaId: String!): Boolean!
-  validateQuinielaAdminToken(input: ValidateAdminTokenInput!): ValidateAdminTokenResult!
-  aiPredictionsForMatches(matches: [MatchInfoInput!]!, locale: String = "es"): [AIPrediction!]!
-  aiPredictionForMatch(matchId: String!, homeTeamCode: String!, awayTeamCode: String!, homeTeamId: String!, awayTeamId: String!, locale: String = "es"): AIPrediction
-  myAIScore(quinielaId: String!): AIScoreData!
   myBrands: [Brand!]!
   activeBrand: Brand
   brand(id: ID!): Brand!
@@ -2519,6 +2526,7 @@ type Query {
   globalFeed(filter: FeedFilterInput, locale: String = "es"): MyFeedResponse!
   userPost(postId: ID!): UserPostOutput
   userPosts(userId: ID!, limit: Int = 20, offset: Int = 0): UserPostsResponse!
+  likedPosts(limit: Int = 20, offset: Int = 0): UserPostsResponse!
   feedContextualCards(limit: Int = 5, cardInterval: Int = 5, locale: String = "es"): FeedContextualCardsResponse!
   feedContextualCard(cardId: String!, locale: String = "es"): FeedContextualCard
   postComments(postId: ID!, limit: Int = 20, offset: Int = 0): CommentsResponse!
@@ -2527,19 +2535,6 @@ type Query {
   mlsStandings(season: String): [StandingsDto!]!
   getReportReasons: [ReportReasonOutput!]!
   adminGetReports(status: ReportStatus, reportType: ReportType, limit: Int! = 20, offset: Int! = 0): ReportsListResponse!
-}
-
-input LateMatchOptionsDto {
-  minMinute: Int
-  minPressureScore: Float
-  requireRecentActivity: Boolean
-  maxGoals: Int
-}
-
-input MediaFiltersInput {
-  type: MediaType
-  category: MediaCategory
-  isHighlight: Boolean
 }
 
 input ValidateAdminTokenInput {
@@ -2553,6 +2548,19 @@ input MatchInfoInput {
   awayTeamCode: String!
   homeTeamId: String!
   awayTeamId: String!
+}
+
+input LateMatchOptionsDto {
+  minMinute: Int
+  minPressureScore: Float
+  requireRecentActivity: Boolean
+  maxGoals: Int
+}
+
+input MediaFiltersInput {
+  type: MediaType
+  category: MediaCategory
+  isHighlight: Boolean
 }
 
 input FetchContentInput {
@@ -2621,6 +2629,21 @@ type Mutation {
   addPasswordToAccount(input: AddPasswordToAccountInput!): LinkAccountResponse!
   updateUser(id: String!, updateUserInput: UpdateUserInput!): UserOutputDto!
   removeUser(id: String!): Boolean!
+  createQuiniela(input: CreateQuinielaInput!): QuinielaInvite!
+  claimQuiniela(input: ClaimQuinielaInput!): QuinielaInvite!
+  joinQuiniela(code: String!): QuinielaMember!
+  leaveQuiniela(quinielaId: String!): Boolean!
+  savePrediction(quinielaId: String!, input: SavePredictionInput!): QuinielaMember!
+  savePredictions(quinielaId: String!, input: SavePredictionsInput!): QuinielaMember!
+  saveChampionPick(quinielaId: String!, teamId: String!): QuinielaMember!
+  updateQuiniela(quinielaId: String!, input: UpdateQuinielaInput!): Quiniela!
+  deleteQuiniela(quinielaId: String!): Boolean!
+  removeMember(quinielaId: String!, memberId: String!): Boolean!
+  setQuinielaOfficial(input: SetQuinielaOfficialInput!): Quiniela!
+  setQuinielaAdminEmail(input: SetAdminEmailInput!): SetAdminEmailResult!
+  verifyQuinielaAdminEmail(input: VerifyAdminEmailInput!): VerifyAdminEmailResult!
+  regenerateQuinielaAdminToken(code: String!, email: String!): SetAdminEmailResult!
+  evaluateMatchResult(matchId: String!, homeScore: Float!, awayScore: Float!): Boolean!
   createTeam(input: CreateTeamInput!): Team!
   updateTeam(id: ID!, input: UpdateTeamInput!): Team!
   deleteTeam(id: ID!): Boolean!
@@ -2662,20 +2685,6 @@ type Mutation {
   worldcupChat(input: WorldcupChatInput!): WorldcupChatResponse!
   worldcupClearChatSession(sessionId: String!): Boolean!
   worldcupUpdateFavoriteTeams(sessionId: String!, favoriteTeams: [String!]!): ChatSession
-  createQuiniela(input: CreateQuinielaInput!): QuinielaInvite!
-  claimQuiniela(input: ClaimQuinielaInput!): QuinielaInvite!
-  joinQuiniela(code: String!): QuinielaMember!
-  leaveQuiniela(quinielaId: String!): Boolean!
-  savePrediction(quinielaId: String!, input: SavePredictionInput!): QuinielaMember!
-  savePredictions(quinielaId: String!, input: SavePredictionsInput!): QuinielaMember!
-  saveChampionPick(quinielaId: String!, teamId: String!): QuinielaMember!
-  updateQuiniela(quinielaId: String!, input: UpdateQuinielaInput!): Quiniela!
-  deleteQuiniela(quinielaId: String!): Boolean!
-  removeMember(quinielaId: String!, memberId: String!): Boolean!
-  setQuinielaAdminEmail(input: SetAdminEmailInput!): SetAdminEmailResult!
-  verifyQuinielaAdminEmail(input: VerifyAdminEmailInput!): VerifyAdminEmailResult!
-  regenerateQuinielaAdminToken(code: String!, email: String!): SetAdminEmailResult!
-  evaluateMatchResult(matchId: String!, homeScore: Float!, awayScore: Float!): Boolean!
   createBrand(input: CreateBrandInput!): Brand!
   updateBrand(input: UpdateBrandInput!): Brand!
   setActiveBrand(brandId: ID!): Brand!
@@ -2839,6 +2848,57 @@ input UpdateUserInput {
   avatarUrl: String
 }
 
+input CreateQuinielaInput {
+  name: String!
+  leagueId: String!
+  description: String
+  isPrivate: Boolean! = true
+  imageUrl: String
+  anonymousCreatorId: String
+  ownerName: String
+  predictionMode: PredictionMode! = SIMPLE
+}
+
+input ClaimQuinielaInput {
+  code: String!
+  anonymousCreatorId: String!
+}
+
+input SavePredictionInput {
+  matchId: String!
+  homeScore: Float
+  awayScore: Float
+  simplePrediction: String
+}
+
+input SavePredictionsInput {
+  predictions: [SavePredictionInput!]!
+}
+
+input UpdateQuinielaInput {
+  name: String
+  description: String
+  isPrivate: Boolean
+  imageUrl: String
+}
+
+input SetQuinielaOfficialInput {
+  quinielaId: String!
+  isOfficial: Boolean!
+  tournamentSlug: String
+}
+
+input SetAdminEmailInput {
+  code: String!
+  anonymousCreatorId: String!
+  email: String!
+}
+
+input VerifyAdminEmailInput {
+  code: String!
+  verificationCode: String!
+}
+
 input CreateTeamInput {
   name: String!
   color: TeamColor!
@@ -2944,51 +3004,6 @@ input WorldcupChatInput {
 input ChatMessageInput {
   role: String!
   content: String!
-}
-
-input CreateQuinielaInput {
-  name: String!
-  leagueId: String!
-  description: String
-  isPrivate: Boolean! = true
-  imageUrl: String
-  anonymousCreatorId: String
-  ownerName: String
-  predictionMode: PredictionMode! = SIMPLE
-}
-
-input ClaimQuinielaInput {
-  code: String!
-  anonymousCreatorId: String!
-}
-
-input SavePredictionInput {
-  matchId: String!
-  homeScore: Float
-  awayScore: Float
-  simplePrediction: String
-}
-
-input SavePredictionsInput {
-  predictions: [SavePredictionInput!]!
-}
-
-input UpdateQuinielaInput {
-  name: String
-  description: String
-  isPrivate: Boolean
-  imageUrl: String
-}
-
-input SetAdminEmailInput {
-  code: String!
-  anonymousCreatorId: String!
-  email: String!
-}
-
-input VerifyAdminEmailInput {
-  code: String!
-  verificationCode: String!
 }
 
 input CreateBrandInput {

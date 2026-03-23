@@ -181,6 +181,16 @@ export class Quiniela {
   @Field()
   isPrivate: boolean;
 
+  // Official quinielas managed by Futbolify (e.g., Mundial 2026)
+  @Prop({ default: false })
+  @Field({ defaultValue: false })
+  isOfficial: boolean;
+
+  // Tournament slug for official quinielas (e.g., 'mundial-2026', 'la-liga')
+  @Prop()
+  @Field({ nullable: true })
+  tournamentSlug?: string;
+
   @Prop({ type: String, enum: QuinielaStatus, default: QuinielaStatus.OPEN })
   @Field(() => QuinielaStatus)
   status: QuinielaStatus;
@@ -231,3 +241,7 @@ QuinielaSchema.index({ createdAt: -1 });
 QuinielaSchema.index({ isPrivate: 1, createdAt: -1 });
 QuinielaSchema.index({ isPrivate: 1, memberCount: -1 });
 QuinielaSchema.index({ isPrivate: 1, leagueId: 1 });
+
+// Indexes for official quinielas
+QuinielaSchema.index({ isOfficial: 1 });
+QuinielaSchema.index({ tournamentSlug: 1 }, { sparse: true });

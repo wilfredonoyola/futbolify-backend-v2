@@ -144,6 +144,14 @@ export class QuinielaPublicInfo {
   @Field()
   isPrivate: boolean;
 
+  // Official quinielas managed by Futbolify
+  @Field({ defaultValue: false })
+  isOfficial: boolean;
+
+  // Tournament slug for official quinielas
+  @Field({ nullable: true })
+  tournamentSlug?: string;
+
   // League ID (e.g., 'la-liga', 'premier-league')
   @Field()
   leagueId: string;
@@ -325,6 +333,21 @@ export class ValidateAdminTokenResult {
 
   @Field({ nullable: true })
   message?: string;
+}
+
+// ============ OFFICIAL QUINIELAS ============
+
+// Input: Set quiniela as official (admin only)
+@InputType()
+export class SetQuinielaOfficialInput {
+  @Field()
+  quinielaId: string;
+
+  @Field()
+  isOfficial: boolean;
+
+  @Field({ nullable: true })
+  tournamentSlug?: string;
 }
 
 // ============ AI PREDICTIONS ============

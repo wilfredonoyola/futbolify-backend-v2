@@ -194,6 +194,8 @@ export class QuinielaService {
       ownerName: quiniela.ownerName,
       memberCount: quiniela.memberCount,
       isPrivate: quiniela.isPrivate,
+      isOfficial: quiniela.isOfficial || false,
+      tournamentSlug: quiniela.tournamentSlug,
       leagueId: quiniela.leagueId,
       status: quiniela.status,
       predictionMode: quiniela.predictionMode || PredictionMode.SIMPLE,
@@ -801,6 +803,70 @@ export class QuinielaService {
     return mergedCount;
   }
 
+  // ============ OFFICIAL QUINIELAS ============
+
+  // Admin email allowed to manage official quinielas
+  private readonly OFFICIAL_ADMIN_EMAIL = 'wilfredon163@gmail.com';
+
+  // Get all official quinielas
+  async getOfficialQuinielas(): Promise<Quiniela[]> {
+    return this.quinielaModel.find({ isOfficial: true }).sort({ createdAt: -1 });
+  }
+
+  // Get official quiniela by tournament slug
+  async getOfficialQuinielaBySlug(tournamentSlug: string): Promise<Quiniela | null> {
+    return this.quinielaModel.findOne({
+      isOfficial: true,
+      tournamentSlug: tournamentSlug.toLowerCase(),
+    });
+  }
+
+  // Set quiniela as official (admin only - wilfredon163@gmail.com)
+  async setQuinielaOfficial(
+    quinielaId: string,
+    isOfficial: boolean,
+    tournamentSlug: string | undefined,
+    userEmail: string,
+  ): Promise<Quiniela> {
+    // Check if user is authorized
+    if (userEmail.toLowerCase() !== this.OFFICIAL_ADMIN_EMAIL) {
+      throw new ForbiddenException('Only Futbolify admin can manage official quinielas');
+    }
+
+    const quiniela = await this.quinielaModel.findById(quinielaId);
+    if (!quiniela) {
+      throw new NotFoundException('Quiniela not found');
+    }
+
+    // If setting as official, require tournament slug
+    if (isOfficial && !tournamentSlug) {
+      throw new ForbiddenException('Tournament slug is required for official quinielas');
+    }
+
+    // Check if another quiniela already has this tournament slug
+    if (isOfficial && tournamentSlug) {
+      const existing = await this.quinielaModel.findOne({
+        tournamentSlug: tournamentSlug.toLowerCase(),
+        _id: { $ne: quiniela._id },
+      });
+      if (existing) {
+        throw new ConflictException(`Tournament slug "${tournamentSlug}" is already in use`);
+      }
+    }
+
+    // Update quiniela
+    quiniela.isOfficial = isOfficial;
+    quiniela.tournamentSlug = isOfficial ? tournamentSlug?.toLowerCase() : undefined;
+
+    // Official quinielas should always be public
+    if (isOfficial) {
+      quiniela.isPrivate = false;
+    }
+
+    await quiniela.save();
+    return quiniela;
+  }
+
   // ============ USER RANKING POINTS ============
 
   // Get total ranking points for a user across all quinielas
@@ -862,6 +928,8 @@ export class QuinielaService {
         ownerName: q.ownerName || 'Anonymous',
         memberCount: q.memberCount || 0,
         isPrivate: q.isPrivate,
+        isOfficial: q.isOfficial || false,
+        tournamentSlug: q.tournamentSlug,
         leagueId: q.leagueId,
         status: q.status || QuinielaStatus.OPEN,
         predictionMode: q.predictionMode || PredictionMode.SIMPLE,
