@@ -1,10 +1,15 @@
 // Quiniela Resolver - GraphQL endpoints for prediction pools
 
 import { Resolver, Query, Mutation, Args, Context, InputType, Field } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
+import { UseGuards, SetMetadata } from '@nestjs/common';
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CurrentUserPayload } from '../auth/current-user-payload.interface';
+import { UserRole } from '../users/schemas/user.schema';
+
+// Role decorator for admin-only mutations
+const Roles = (...roles: UserRole[]) => SetMetadata('roles', roles);
 import { GqlOptionalAuthGuard } from '../auth/gql-optional-auth.guard';
 import { QuinielaService } from './quiniela.service';
 import { QuinielaAIService } from './quiniela-ai.service';
@@ -347,20 +352,14 @@ export class QuinielaResolver {
   // ============ OFFICIAL QUINIELAS ADMIN ============
 
   @Mutation(() => Quiniela, { name: 'setQuinielaOfficial' })
-  @UseGuards(GqlAuthGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @UseGuards(GqlAuthGuard, RolesGuard)
   async setQuinielaOfficial(
     @Args('input') input: SetQuinielaOfficialInput,
-    @CurrentUser() user: CurrentUserPayload,
   ): Promise<Quiniela> {
-    // username is the email in our auth system
-    const userEmail = user.username;
-    if (!userEmail) {
-      throw new Error('Authentication required');
-    }
     return this.quinielaService.setQuinielaOfficial(
       input.quinielaId,
       input.isOfficial,
-      userEmail,
     );
   }
 

@@ -805,9 +805,6 @@ export class QuinielaService {
 
   // ============ OFFICIAL QUINIELAS ============
 
-  // Admin email allowed to manage official quinielas
-  private readonly OFFICIAL_ADMIN_EMAIL = 'wilfredon163@gmail.com';
-
   // Get all official quinielas
   async getOfficialQuinielas(): Promise<Quiniela[]> {
     return this.quinielaModel.find({ isOfficial: true }).sort({ createdAt: -1 });
@@ -821,18 +818,12 @@ export class QuinielaService {
     });
   }
 
-  // Set quiniela as official (admin only - wilfredon163@gmail.com)
+  // Set quiniela as official (admin only - protected by RolesGuard in resolver)
   // Note: tournamentSlug is derived from the quiniela's leagueId (already saved during creation)
   async setQuinielaOfficial(
     quinielaId: string,
     isOfficial: boolean,
-    userEmail: string,
   ): Promise<Quiniela> {
-    // Check if user is authorized
-    if (userEmail.toLowerCase() !== this.OFFICIAL_ADMIN_EMAIL) {
-      throw new ForbiddenException('Only Futbolify admin can manage official quinielas');
-    }
-
     const quiniela = await this.quinielaModel.findById(quinielaId);
     if (!quiniela) {
       throw new NotFoundException('Quiniela not found');
