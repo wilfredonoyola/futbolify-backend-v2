@@ -357,7 +357,6 @@ export class QuinielaResolver {
     return this.quinielaService.setQuinielaOfficial(
       input.quinielaId,
       input.isOfficial,
-      input.tournamentSlug,
       userEmail,
     );
   }

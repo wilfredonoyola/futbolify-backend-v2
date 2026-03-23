@@ -338,6 +338,7 @@ export class ValidateAdminTokenResult {
 // ============ OFFICIAL QUINIELAS ============
 
 // Input: Set quiniela as official (admin only)
+// Note: tournamentSlug is derived from leagueId which is already saved in the quiniela
 @InputType()
 export class SetQuinielaOfficialInput {
   @Field()
@@ -345,9 +346,6 @@ export class SetQuinielaOfficialInput {
 
   @Field()
   isOfficial: boolean;
-
-  @Field({ nullable: true })
-  tournamentSlug?: string;
 }
 
 // ============ AI PREDICTIONS ============

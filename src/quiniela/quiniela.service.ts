@@ -822,10 +822,10 @@ export class QuinielaService {
   }
 
   // Set quiniela as official (admin only - wilfredon163@gmail.com)
+  // Note: tournamentSlug is derived from the quiniela's leagueId (already saved during creation)
   async setQuinielaOfficial(
     quinielaId: string,
     isOfficial: boolean,
-    tournamentSlug: string | undefined,
     userEmail: string,
   ): Promise<Quiniela> {
     // Check if user is authorized
@@ -838,25 +838,24 @@ export class QuinielaService {
       throw new NotFoundException('Quiniela not found');
     }
 
-    // If setting as official, require tournament slug
-    if (isOfficial && !tournamentSlug) {
-      throw new ForbiddenException('Tournament slug is required for official quinielas');
-    }
+    // Use leagueId as the tournament slug (already saved during quiniela creation)
+    const tournamentSlug = quiniela.leagueId;
 
-    // Check if another quiniela already has this tournament slug
-    if (isOfficial && tournamentSlug) {
+    // Check if another quiniela already has this tournament slug as official
+    if (isOfficial) {
       const existing = await this.quinielaModel.findOne({
         tournamentSlug: tournamentSlug.toLowerCase(),
+        isOfficial: true,
         _id: { $ne: quiniela._id },
       });
       if (existing) {
-        throw new ConflictException(`Tournament slug "${tournamentSlug}" is already in use`);
+        throw new ConflictException(`Ya existe una quiniela oficial para "${tournamentSlug}"`);
       }
     }
 
     // Update quiniela
     quiniela.isOfficial = isOfficial;
-    quiniela.tournamentSlug = isOfficial ? tournamentSlug?.toLowerCase() : undefined;
+    quiniela.tournamentSlug = isOfficial ? tournamentSlug.toLowerCase() : undefined;
 
     // Official quinielas should always be public
     if (isOfficial) {
