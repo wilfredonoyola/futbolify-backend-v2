@@ -30,6 +30,7 @@ import {
   CredibilityStats,
 } from '../dto/betting.dto'
 import { PickStatus, ComboStatus, ComboType, MarketType, ComboScoreLevel } from '../enums/betting.enums'
+import { getMarketLabel } from '../utils/market-labels'
 
 @Resolver()
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -539,6 +540,7 @@ export class BettingAnalyticsResolver {
       kickoff: pick.kickoff,
       timeWindow: pick.timeWindow,
       market: pick.market,
+      marketLabel: getMarketLabel(pick.market),
       direction: pick.direction,
       line: pick.line,
       probOwn: pick.probOwn,

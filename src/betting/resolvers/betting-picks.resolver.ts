@@ -22,6 +22,7 @@ import {
   MatchResult,
 } from '../dto/betting.dto'
 import { PickStatus } from '../enums/betting.enums'
+import { getMarketLabel } from '../utils/market-labels'
 
 @Resolver()
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -282,6 +283,7 @@ export class BettingPicksResolver {
       kickoff: pick.kickoff,
       timeWindow: pick.timeWindow,
       market: pick.market,
+      marketLabel: getMarketLabel(pick.market),
       direction: pick.direction,
       line: pick.line,
       probOwn: pick.probOwn,

@@ -206,6 +206,9 @@ export class BettingPickOutput {
   @Field(() => MarketType)
   market: MarketType
 
+  @Field({ description: 'Human-readable market label' })
+  marketLabel: string
+
   @Field(() => MarketDirection)
   direction: MarketDirection
 
