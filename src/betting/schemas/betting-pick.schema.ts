@@ -91,6 +91,15 @@ export class PickModelInputs {
   @Prop()
   @Field(() => Float, { nullable: true })
   cornersExpected1H?: number
+
+  // Corners handicap specific
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  handicapLineExpected?: number // Línea que calcula nuestro modelo
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  handicapLineBookmaker?: number // Línea que ofrece el bookmaker
 }
 
 export const PickModelInputsSchema =

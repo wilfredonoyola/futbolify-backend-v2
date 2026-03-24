@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { BettingPickDocument } from '../schemas/betting-pick.schema'
 import { BettingComboDocument } from '../schemas/betting-combo.schema'
-import { PickStatus, ComboStatus, MarketType, TimeWindow } from '../enums/betting.enums'
+import { PickStatus, ComboStatus, MarketType, MarketDirection, TimeWindow } from '../enums/betting.enums'
 
 /**
  * Format confidence score with visual bar
@@ -39,7 +39,17 @@ function formatTime(date: Date): string {
 /**
  * Format market name for display
  */
-function formatMarket(market: MarketType): string {
+function formatMarket(market: MarketType, pick?: any): string {
+  // Special handling for corners handicap - show line and team direction
+  if (market === MarketType.CORNERS_HANDICAP && pick) {
+    const line = pick.line || 0
+    const direction = pick.direction
+    const lineStr = line >= 0 ? `+${line}` : `${line}`
+    // OVER = Home covers, UNDER = Away covers
+    const teamSide = direction === MarketDirection.OVER ? 'Local' : 'Visitante'
+    return `Corners Hcap ${teamSide} (${lineStr})`
+  }
+
   const marketNames: Record<MarketType, string> = {
     [MarketType.OVER_05_1H]: 'Over 0.5 Goles 1H',
     [MarketType.OVER_15_1H]: 'Over 1.5 Goles 1H',
@@ -136,17 +146,25 @@ export class BettingTelegramFormatters {
 
         message += `${index + 1}\ufe0f\u20e3 ${pick.teamHome.name} vs ${pick.teamAway.name}\n`
         message += `   ${pick.league.name}\n`
-        message += `   \u26bd ${formatMarket(pick.market)} @${odds} ${stars}\n`
+        message += `   \u26bd ${formatMarket(pick.market, pick)} @${odds} ${stars}\n`
 
-        // Show reasons (human-readable)
-        if (reasons.length > 0) {
-          message += `   \ud83d\udca1 ${reasons[0]}\n`
-          if (reasons.length > 1) {
-            message += `   \ud83d\udca1 ${reasons[1]}\n`
-          }
+        // Show all reasons (human-readable)
+        reasons.forEach((reason) => {
+          message += `   \ud83d\udca1 ${reason}\n`
+        })
+
+        // Show stake suggestion
+        if (pick.stake && pick.stake > 0) {
+          message += `   \ud83d\udcb5 Stake sugerido: $${stake}\n`
         }
 
         message += `   \u23f0 ${kickoffTime}\n`
+
+        // Add betting instructions for corners handicap
+        if (pick.market === MarketType.CORNERS_HANDICAP) {
+          message += this.formatHandicapInstructions(pick)
+        }
+
         message += '\n'
       })
     }
@@ -223,7 +241,7 @@ export class BettingTelegramFormatters {
 
     confirmed.forEach(({ pick, status, newOdds, newEdge, confidenceChange }) => {
       const odds = (newOdds || pick.oddsAtDetection || 0).toFixed(2)
-      const market = formatMarket(pick.market)
+      const market = formatMarket(pick.market, pick)
 
       if (status === 'steam_favorable') {
         message += `\u2705 ${pick.teamHome.name} ${market} \u2014 Cuota bajo a @${odds} \u2192 STEAM MOVE \u2193\n`
@@ -241,7 +259,7 @@ export class BettingTelegramFormatters {
     })
 
     cancelled.forEach(({ pick, reason }) => {
-      const market = formatMarket(pick.market)
+      const market = formatMarket(pick.market, pick)
       message += `\u274c ${pick.teamHome.name} ${market} \u2014 ${reason || 'Edge insuficiente'}\n`
       message += `   \u2192 CANCELAR\n`
     })
@@ -253,7 +271,7 @@ export class BettingTelegramFormatters {
     confirmed.forEach(({ pick, newOdds }) => {
       const odds = (newOdds || pick.oddsAtDetection || 0).toFixed(2)
       const stake = (pick.stake || 0).toFixed(2)
-      const market = formatMarket(pick.market)
+      const market = formatMarket(pick.market, pick)
       message += `\u2022 ${pick.teamHome.name} ${market} @${odds} \u2014 $${stake}\n`
     })
 
@@ -266,7 +284,7 @@ export class BettingTelegramFormatters {
     if (cancelled.length > 0 || combos.filter(c => c.status === 'cancelled').length > 0) {
       message += '\nCANCELADOS:\n'
       cancelled.forEach(({ pick, reason }) => {
-        message += `\u2022 ${pick.teamHome.name} ${formatMarket(pick.market)} \u2014 ${reason || 'edge insuficiente'}\n`
+        message += `\u2022 ${pick.teamHome.name} ${formatMarket(pick.market, pick)} \u2014 ${reason || 'edge insuficiente'}\n`
       })
       combos.filter(c => c.status === 'cancelled').forEach(({ combo, reason }) => {
         message += `\u2022 ${formatComboType(combo.type)} \u2014 ${reason || 'cancelada'}\n`
@@ -308,7 +326,7 @@ export class BettingTelegramFormatters {
 
     picks.forEach((pick) => {
       const statusIcon = pick.status === PickStatus.WON ? '\u2705' : '\u274c'
-      const market = formatMarket(pick.market)
+      const market = formatMarket(pick.market, pick)
       const odds = (pick.oddsAtBet || pick.oddsAtDetection || 0).toFixed(2)
       const profit = pick.profit || 0
       const clv = ((pick.clv || 0) * 100).toFixed(1)
@@ -381,7 +399,7 @@ export class BettingTelegramFormatters {
 
     picks.forEach((pick, index) => {
       const statusIcon = this.getStatusIcon(pick.status)
-      const market = formatMarket(pick.market)
+      const market = formatMarket(pick.market, pick)
       const odds = (pick.oddsAtDetection || 0).toFixed(2)
       const time = formatTime(pick.kickoff)
 
@@ -459,6 +477,49 @@ export class BettingTelegramFormatters {
     message += `Profit total: ${stats.profit >= 0 ? '+' : ''}$${stats.profit.toFixed(2)}`
 
     return message
+  }
+
+  /**
+   * Format betting instructions for corners handicap
+   * Explains HOW to place this bet on Bet365/other bookmakers
+   */
+  private formatHandicapInstructions(pick: BettingPickDocument): string {
+    const line = pick.line || 0
+    const direction = pick.direction
+    const homeTeam = pick.teamHome.name
+    const awayTeam = pick.teamAway.name
+
+    // Determine which team to bet on (OVER = Home team covers, UNDER = Away team covers)
+    const isHome = direction === MarketDirection.OVER
+    const teamToBet = isHome ? homeTeam : awayTeam
+    const lineStr = line >= 0 ? `+${line}` : `${line}`
+
+    let instructions = '\n   \ud83c\udfb0 COMO APOSTAR EN BET365:\n'
+    instructions += `   \u2192 Corners Asiaticos > Handicap\n`
+    instructions += `   \u2192 Selecciona: "${teamToBet} ${lineStr}"\n`
+
+    // Explain what needs to happen to win
+    if (isHome) {
+      if (line < 0) {
+        const absLine = Math.abs(line)
+        instructions += `   \u2192 Para ganar: ${homeTeam} debe ganar\n`
+        instructions += `      por ${absLine}+ corners de diferencia\n`
+      } else {
+        instructions += `   \u2192 Para ganar: ${homeTeam} no debe perder\n`
+        instructions += `      por mas de ${line} corners\n`
+      }
+    } else {
+      if (line > 0) {
+        instructions += `   \u2192 Para ganar: ${awayTeam} no debe perder\n`
+        instructions += `      por mas de ${line} corners\n`
+      } else {
+        const absLine = Math.abs(line)
+        instructions += `   \u2192 Para ganar: ${awayTeam} debe ganar\n`
+        instructions += `      por ${absLine}+ corners de diferencia\n`
+      }
+    }
+
+    return instructions
   }
 
   /**

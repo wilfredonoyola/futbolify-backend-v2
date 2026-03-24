@@ -2441,6 +2441,8 @@ type PickModelInputs {
   expectedGoals1H: Float
   cornersExpected: Float
   cornersExpected1H: Float
+  handicapLineExpected: Float
+  handicapLineBookmaker: Float
 }
 
 type PickSteamMove {
@@ -2491,6 +2493,21 @@ type ModelInputs {
   leagueAdjustment: Float
   contextMultiplier: Float
   contextFlags: [String!]
+
+  """Expected goals in first half"""
+  expectedGoals1H: Float
+
+  """Expected total corners in match"""
+  cornersExpected: Float
+
+  """Expected corners in first half"""
+  cornersExpected1H: Float
+
+  """Handicap line calculated by our model (positive = home advantage)"""
+  handicapLineExpected: Float
+
+  """Handicap line offered by bookmaker"""
+  handicapLineBookmaker: Float
 }
 
 type MatchResult {
@@ -2519,6 +2536,12 @@ type BettingPickOutput {
   edge: Float!
   confidenceScore: Int!
   modelInputs: ModelInputs
+
+  """Human-readable reasons for this pick"""
+  reasons: [String!]
+
+  """Star rating 1-5 based on edge"""
+  stars: Int
   oddsAtDetection: Float!
   oddsAtBet: Float
   oddsAtClose: Float

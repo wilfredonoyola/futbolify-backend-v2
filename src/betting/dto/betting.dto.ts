@@ -79,6 +79,24 @@ export class ModelInputs {
 
   @Field(() => [String], { nullable: true })
   contextFlags?: string[]
+
+  // Goals 1H specific
+  @Field(() => Float, { nullable: true, description: 'Expected goals in first half' })
+  expectedGoals1H?: number
+
+  // Corners specific
+  @Field(() => Float, { nullable: true, description: 'Expected total corners in match' })
+  cornersExpected?: number
+
+  @Field(() => Float, { nullable: true, description: 'Expected corners in first half' })
+  cornersExpected1H?: number
+
+  // Corners handicap specific
+  @Field(() => Float, { nullable: true, description: 'Handicap line calculated by our model (positive = home advantage)' })
+  handicapLineExpected?: number
+
+  @Field(() => Float, { nullable: true, description: 'Handicap line offered by bookmaker' })
+  handicapLineBookmaker?: number
 }
 
 @ObjectType()
@@ -151,6 +169,12 @@ export class BettingPickOutput {
 
   @Field(() => ModelInputs, { nullable: true })
   modelInputs?: ModelInputs
+
+  @Field(() => [String], { nullable: true, description: 'Human-readable reasons for this pick' })
+  reasons?: string[]
+
+  @Field(() => Int, { nullable: true, description: 'Star rating 1-5 based on edge' })
+  stars?: number
 
   @Field(() => Float)
   oddsAtDetection: number

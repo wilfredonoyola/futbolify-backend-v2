@@ -403,4 +403,44 @@ export class StakeCalculatorService {
 
     return { valid: true }
   }
+
+  /**
+   * Calculate stake for individual pick using Kelly Criterion
+   * Simpler version for single bets (not combos)
+   */
+  calculatePickStake(
+    probOwn: number,
+    odds: number,
+    edge: number,
+    bankroll: number = DEFAULT_CONFIG.totalBankroll
+  ): number {
+    // Kelly formula: (b * p - q) / b
+    const b = odds - 1 // Net odds
+    const q = 1 - probOwn
+    const kellyFull = (b * probOwn - q) / b
+
+    // Kelly is negative = don't bet
+    if (kellyFull <= 0) {
+      return 0
+    }
+
+    // Use 25% of Kelly for individual picks (more aggressive than combos)
+    const kellyFraction = 0.25
+
+    // Edge-based multiplier: higher edge = higher stake
+    let edgeMultiplier = 1.0
+    if (edge >= 0.15) edgeMultiplier = 1.0
+    else if (edge >= 0.10) edgeMultiplier = 0.85
+    else if (edge >= 0.07) edgeMultiplier = 0.7
+    else edgeMultiplier = 0.5
+
+    let stake = bankroll * kellyFull * kellyFraction * edgeMultiplier
+
+    // Apply limits: min $1, max 3% of bankroll for individual picks
+    const maxPickStake = bankroll * 0.03
+    stake = Math.max(DEFAULT_CONFIG.minStake, Math.min(maxPickStake, stake))
+
+    // Round to 2 decimals
+    return Math.round(stake * 100) / 100
+  }
 }

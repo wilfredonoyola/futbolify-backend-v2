@@ -194,6 +194,50 @@ export class NightlyAnalysisCron {
   }
 
   /**
+   * Generate human-readable reasons for a corners handicap pick
+   * Explains WHY we chose this pick and HOW to bet it
+   */
+  private generateHandicapReasons(
+    homeTeam: string,
+    awayTeam: string,
+    expectedLine: number,
+    bookmakerLine: number,
+    direction: string,
+    edge: number,
+    probOwn: number,
+    teamAStats: any,
+    teamBStats: any
+  ): string[] {
+    const reasons: string[] = []
+    const lineDiff = Math.abs(expectedLine - bookmakerLine)
+    const edgePct = (edge * 100).toFixed(1)
+    const probPct = (probOwn * 100).toFixed(0)
+
+    // Razón principal: la discrepancia entre líneas
+    const expectedStr = expectedLine >= 0 ? `+${expectedLine.toFixed(1)}` : expectedLine.toFixed(1)
+    const bookmakerStr = bookmakerLine >= 0 ? `+${bookmakerLine.toFixed(1)}` : bookmakerLine.toFixed(1)
+
+    if (direction === 'OVER') {
+      // Apostamos al local
+      reasons.push(`Modelo: ${homeTeam} ${expectedStr} vs Casa: ${bookmakerStr}`)
+      if (teamAStats?.corners_for_avg > teamBStats?.corners_for_avg) {
+        reasons.push(`${homeTeam} gana ${teamAStats.corners_for_avg?.toFixed(1) || '?'} corners/partido`)
+      }
+    } else {
+      // Apostamos al visitante
+      reasons.push(`Modelo: ${awayTeam} cubre handicap (${bookmakerStr})`)
+      if (teamBStats?.corners_for_avg >= 4.5) {
+        reasons.push(`${awayTeam} gana ${teamBStats.corners_for_avg?.toFixed(1) || '?'} corners/partido`)
+      }
+    }
+
+    // Edge y probabilidad
+    reasons.push(`Edge: ${edgePct}% | Prob: ${probPct}%`)
+
+    return reasons.slice(0, 3) // Máximo 3 razones para handicap
+  }
+
+  /**
    * Friday 9:00 PM El Salvador - Analyze Saturday matches
    */
   @Cron('0 21 * * 5', {
@@ -290,7 +334,7 @@ export class NightlyAnalysisCron {
       let fixturesAnalyzed = 0
 
       for (const league of activeLeagues) {
-        const leaguePicks = await this.analyzeLeague(
+        const { picks: leaguePicks, fixturesCount } = await this.analyzeLeague(
           league,
           tomorrowDate,
           contexts,
@@ -302,7 +346,7 @@ export class NightlyAnalysisCron {
           pickDocuments.push(pick.document)
         }
 
-        fixturesAnalyzed += leaguePicks.length > 0 ? 1 : 0
+        fixturesAnalyzed += fixturesCount
       }
 
       this.logger.log(
@@ -316,7 +360,7 @@ export class NightlyAnalysisCron {
       // 4. Max 5 picks total
       const maxPicks = 5
       const maxPicksPerMatch = 2
-      const minProbability = 0.70 // Minimum 70% win probability
+      const minProbability = 0.65 // Minimum 65% win probability
 
       // Filter picks by minimum probability
       const qualifiedPicks = allValuePicks.filter(
@@ -418,6 +462,17 @@ export class NightlyAnalysisCron {
         this.logger.log(
           `Cleaned up previous run: ${deleteResult.deletedCount} picks, ${deleteComboResult.deletedCount} combos`
         )
+      }
+
+      // Calculate stakes for individual picks
+      for (const pickDoc of topPickDocs) {
+        const stake = this.stakeCalculatorService.calculatePickStake(
+          pickDoc.probOwn || 0,
+          pickDoc.oddsAtDetection || 1,
+          pickDoc.edge || 0,
+          settings.bankroll
+        )
+        pickDoc.stake = stake
       }
 
       // Save only top picks to database (max 5)
@@ -531,14 +586,16 @@ export class NightlyAnalysisCron {
 
   /**
    * Analyze a single league for value picks
+   * Returns picks and number of fixtures analyzed
    */
   private async analyzeLeague(
     league: BettingLeagueDocument,
     date: string,
     contexts: Map<number, any>,
     bankroll: number
-  ): Promise<Array<{ leg: ComboLeg; document: Partial<BettingPick> }>> {
+  ): Promise<{ picks: Array<{ leg: ComboLeg; document: Partial<BettingPick> }>; fixturesCount: number }> {
     const picks: Array<{ leg: ComboLeg; document: Partial<BettingPick> }> = []
+    let fixturesCount = 0
 
     try {
       // Get fixtures for this league
@@ -550,9 +607,10 @@ export class NightlyAnalysisCron {
 
       if (!fixtures || fixtures.length === 0) {
         this.logger.debug(`No fixtures found for ${league.name} on ${date}`)
-        return picks
+        return { picks, fixturesCount: 0 }
       }
 
+      fixturesCount = fixtures.length
       this.logger.log(`Found ${fixtures.length} fixtures for ${league.name}`)
 
       for (const fixture of fixtures) {
@@ -1025,17 +1083,22 @@ export class NightlyAnalysisCron {
                   bestBookmaker: 'API-Football',
                   status: PickStatus.PENDING,
                   stars: this.calculateStars(handicapValue.edge),
-                  reasons: this.generateCornersReasons(
-                    'corners_handicap',
+                  reasons: this.generateHandicapReasons(
+                    fixture.homeTeamName,
+                    fixture.awayTeamName,
+                    cornersResult.handicapLine,
+                    handicapOdds.line,
+                    handicapValue.direction,
+                    handicapValue.edge,
+                    handicapValue.probOwn,
                     teamAStats,
-                    teamBStats,
-                    h2h,
-                    league,
-                    cornersResult
+                    teamBStats
                   ),
                   modelInputs: {
                     contextFlags: context.flags,
                     cornersExpected: cornersResult.cornersExpected,
+                    handicapLineExpected: cornersResult.handicapLine,
+                    handicapLineBookmaker: handicapOdds.line,
                   },
                 },
               })
@@ -1047,7 +1110,7 @@ export class NightlyAnalysisCron {
       this.logger.error(`Failed to analyze league ${league.name}: ${error}`)
     }
 
-    return picks
+    return { picks, fixturesCount }
   }
 
   /**
