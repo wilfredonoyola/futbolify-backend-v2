@@ -337,6 +337,7 @@ export class BettingAnalyticsResolver {
     return Array.from(byMarket.entries())
       .map(([market, data]) => ({
         market,
+        marketLabel: getMarketLabel(market),
         bets: data.bets,
         winRate: data.bets > 0 ? data.wins / data.bets : 0,
         roi: data.staked > 0 ? data.profit / data.staked : 0,

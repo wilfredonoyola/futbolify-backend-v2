@@ -2605,6 +2605,9 @@ type BettingPickOutput {
   kickoff: DateTime!
   timeWindow: TimeWindow!
   market: MarketType!
+
+  """Human-readable market label"""
+  marketLabel: String!
   direction: MarketDirection!
   line: Float!
   probOwn: Float!
@@ -2847,6 +2850,9 @@ type LeaguePerformance {
 
 type MarketPerformance {
   market: MarketType!
+
+  """Human-readable market label"""
+  marketLabel: String!
   bets: Int!
   winRate: Float!
   roi: Float!

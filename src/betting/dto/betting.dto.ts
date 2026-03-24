@@ -563,6 +563,9 @@ export class MarketPerformance {
   @Field(() => MarketType)
   market: MarketType
 
+  @Field({ description: 'Human-readable market label' })
+  marketLabel: string
+
   @Field(() => Int)
   bets: number
 
