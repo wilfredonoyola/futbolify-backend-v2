@@ -138,6 +138,22 @@ export class ModelInputs {
   // Calculation explanation
   @Field({ nullable: true, description: 'Human-readable explanation of how the model calculated this pick' })
   calculationExplanation?: string
+
+  // Weather data
+  @Field({ nullable: true, description: 'Weather description at match time' })
+  weatherDescription?: string
+
+  @Field(() => Float, { nullable: true, description: 'Temperature in Celsius' })
+  weatherTemp?: number
+
+  @Field(() => Float, { nullable: true, description: 'Wind speed in km/h' })
+  weatherWind?: number
+
+  @Field(() => Float, { nullable: true, description: 'Precipitation in mm' })
+  weatherPrecip?: number
+
+  @Field(() => [String], { nullable: true, description: 'Weather flags applied (RAIN, WINDY, etc.)' })
+  weatherFlags?: string[]
 }
 
 @ObjectType()

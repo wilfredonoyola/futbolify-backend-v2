@@ -2431,18 +2431,38 @@ type PickTeamInfo {
   name: String!
 }
 
+type PickTeamStats {
+  name: String
+  cornersForAvg: Float
+  cornersAgainstAvg: Float
+  gamesPlayed: Int
+  avgGoals1H: Float
+  avgConceded1H: Float
+  over05_1h_pct: Float
+  dataQuality: String
+}
+
 type PickModelInputs {
+  dataSource: String
   probBase: Float
   formAdjustment: Float
   h2hAdjustment: Float
   leagueAdjustment: Float
   contextMultiplier: Float
   contextFlags: [String!]!
+  teamAStats: PickTeamStats
+  teamBStats: PickTeamStats
   expectedGoals1H: Float
   cornersExpected: Float
   cornersExpected1H: Float
   handicapLineExpected: Float
   handicapLineBookmaker: Float
+  calculationExplanation: String
+  weatherDescription: String
+  weatherTemp: Float
+  weatherWind: Float
+  weatherPrecip: Float
+  weatherFlags: [String!]
 }
 
 type PickSteamMove {
@@ -2517,7 +2537,6 @@ type TeamStatsInput {
 type ModelInputs {
   """Data source used for stats (e.g., API-Football)"""
   dataSource: String
-
   probBase: Float
   formAdjustment: Float
   h2hAdjustment: Float
@@ -2550,6 +2569,21 @@ type ModelInputs {
 
   """Human-readable explanation of how the model calculated this pick"""
   calculationExplanation: String
+
+  """Weather description at match time"""
+  weatherDescription: String
+
+  """Temperature in Celsius"""
+  weatherTemp: Float
+
+  """Wind speed in km/h"""
+  weatherWind: Float
+
+  """Precipitation in mm"""
+  weatherPrecip: Float
+
+  """Weather flags applied (RAIN, WINDY, etc.)"""
+  weatherFlags: [String!]
 }
 
 type MatchResult {

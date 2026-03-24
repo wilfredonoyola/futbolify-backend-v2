@@ -18,6 +18,7 @@ import { ScoringGoalsService } from '../services/scoring-goals.service'
 import { ScoringCornersService } from '../services/scoring-corners.service'
 import { ContextService } from '../services/context.service'
 import { ValueDetectionService } from '../services/value-detection.service'
+import { OpenMeteoService, WeatherData } from '../services/open-meteo.service'
 import { ComboEngineService, ComboLeg } from '../services/combo-engine.service'
 import { PortfolioOptimizerService } from '../services/portfolio-optimizer.service'
 import { StakeCalculatorService } from '../services/stake-calculator.service'
@@ -69,8 +70,37 @@ export class NightlyAnalysisCron {
     private comboEngineService: ComboEngineService,
     private portfolioOptimizerService: PortfolioOptimizerService,
     private stakeCalculatorService: StakeCalculatorService,
-    private telegramService: BettingTelegramService
+    private telegramService: BettingTelegramService,
+    private openMeteoService: OpenMeteoService
   ) {}
+
+  /**
+   * Generate weather fields for modelInputs
+   */
+  private getWeatherFields(weather: WeatherData | null, context: any): {
+    weatherDescription?: string
+    weatherTemp?: number
+    weatherWind?: number
+    weatherPrecip?: number
+    weatherFlags?: string[]
+  } {
+    if (!weather) {
+      return {}
+    }
+
+    // Extract weather-related flags from context
+    const weatherFlags = context.flags?.filter((flag: string) =>
+      ['RAIN', 'HEAVY_RAIN', 'STRONG_WIND', 'EXTREME_WEATHER', 'HOT', 'COLD'].includes(flag)
+    ) || []
+
+    return {
+      weatherDescription: weather.weatherDescription,
+      weatherTemp: weather.temperature,
+      weatherWind: weather.windSpeed,
+      weatherPrecip: weather.precipitation,
+      weatherFlags: weatherFlags.length > 0 ? weatherFlags : undefined,
+    }
+  }
 
   /**
    * Calculate star rating based on edge (1-5 stars)
@@ -636,12 +666,44 @@ export class NightlyAnalysisCron {
 
         this.logger.debug(`Team stats OK for ${fixture.homeTeamName} vs ${fixture.awayTeamName}`)
 
-        // Get match context (pass null for weather in nightly analysis)
+        // Fetch weather data for the match
+        let weather: WeatherData | null = null
+        try {
+          const kickoffDate = new Date(fixture.kickoff)
+          const dateStr = kickoffDate.toISOString().split('T')[0]
+          const hour = kickoffDate.getHours()
+
+          // Try stadium first, then city
+          weather = await this.openMeteoService.getWeatherForStadium(
+            fixture.venue,
+            dateStr,
+            hour
+          )
+
+          if (!weather && fixture.city) {
+            weather = await this.openMeteoService.getWeatherForCity(
+              fixture.city,
+              dateStr,
+              hour
+            )
+          }
+
+          if (weather) {
+            this.logger.debug(
+              `Weather for ${fixture.homeTeamName} vs ${fixture.awayTeamName}: ` +
+              `${weather.weatherDescription}, ${weather.temperature}°C, wind ${weather.windSpeed}km/h`
+            )
+          }
+        } catch (weatherError) {
+          this.logger.warn(`Failed to fetch weather for fixture ${fixture.fixtureId}: ${weatherError}`)
+        }
+
+        // Get match context with weather data
         const context = this.contextService.getMatchContext(
           fixture,
           teamAStats,
           teamBStats,
-          null // Weather not fetched in nightly analysis
+          weather
         )
         contexts.set(fixture.fixtureId, context)
 
@@ -772,6 +834,7 @@ export class NightlyAnalysisCron {
                       dataQuality: teamBStats.dataQuality?.form_goals_1h || 'estimated',
                     },
                     calculationExplanation: `Probabilidad calculada usando stats de ${teamAStats.gamesPlayed} partidos del local y ${teamBStats.gamesPlayed} del visitante. xG 1H: ${goalsResult.expectedGoals1H?.toFixed(2) || 'N/A'}.`,
+                    ...this.getWeatherFields(weather, context),
                   },
                 },
               })
@@ -870,6 +933,7 @@ export class NightlyAnalysisCron {
                       dataQuality: teamBStats.dataQuality?.form_goals_1h || 'estimated',
                     },
                     calculationExplanation: `Over 1.5 1H requiere que ambos equipos marquen. Local promedia ${teamAStats.avg_goals_1h?.toFixed(2)} goles/1H, visitante ${teamBStats.avg_goals_1h?.toFixed(2)}. xG combinado: ${goalsResult.expectedGoals1H?.toFixed(2) || 'N/A'}.`,
+                    ...this.getWeatherFields(weather, context),
                   },
                 },
               })
@@ -976,6 +1040,7 @@ export class NightlyAnalysisCron {
                         dataQuality: teamBStats.dataQuality?.corners || 'league_average',
                       },
                       calculationExplanation: `Corners esperados (${cornersResult.cornersExpected?.toFixed(1)}) calculados sumando: Local gana ${teamAStats.avg_corners_for?.toFixed(1)} + Visitante gana ${teamBStats.avg_corners_for?.toFixed(1)} corners/partido.`,
+                      ...this.getWeatherFields(weather, context),
                     },
                   },
                 })
@@ -1084,6 +1149,7 @@ export class NightlyAnalysisCron {
                         dataQuality: teamBStats.dataQuality?.corners || 'league_average',
                       },
                       calculationExplanation: `Corners 1H esperados: ${cornersResult.cornersExpected1H?.toFixed(1)} (aprox 45% del total ${cornersResult.cornersExpected?.toFixed(1)}). Basado en promedios de ${teamAStats.gamesPlayed} y ${teamBStats.gamesPlayed} partidos.`,
+                      ...this.getWeatherFields(weather, context),
                     },
                   },
                 })
@@ -1185,6 +1251,7 @@ export class NightlyAnalysisCron {
                       dataQuality: teamBStats.dataQuality?.corners || 'league_average',
                     },
                     calculationExplanation: `Handicap modelo: ${cornersResult.handicapLine >= 0 ? '+' : ''}${cornersResult.handicapLine?.toFixed(1)} (${fixture.homeTeamName} ${teamAStats.avg_corners_for?.toFixed(1)} - ${fixture.awayTeamName} ${teamBStats.avg_corners_for?.toFixed(1)} = diferencia esperada). Casa ofrece ${handicapOdds.line >= 0 ? '+' : ''}${handicapOdds.line}. Discrepancia de ${Math.abs(cornersResult.handicapLine - handicapOdds.line).toFixed(1)} corners = valor.`,
+                    ...this.getWeatherFields(weather, context),
                   },
                 },
               })

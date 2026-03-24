@@ -157,6 +157,27 @@ export class PickModelInputs {
   @Prop()
   @Field({ nullable: true })
   calculationExplanation?: string
+
+  // Weather data
+  @Prop()
+  @Field({ nullable: true })
+  weatherDescription?: string
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  weatherTemp?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  weatherWind?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  weatherPrecip?: number
+
+  @Prop({ type: [String], default: [] })
+  @Field(() => [String], { nullable: true })
+  weatherFlags?: string[]
 }
 
 export const PickModelInputsSchema =
