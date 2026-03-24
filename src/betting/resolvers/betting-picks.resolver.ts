@@ -220,6 +220,18 @@ export class BettingPicksResolver {
       )
       .exec()
 
+    // If pick is already resolved, update bankroll with profit
+    if (
+      settings &&
+      (pick.status === PickStatus.WON || pick.status === PickStatus.LOST) &&
+      pick.profit !== undefined
+    ) {
+      await this.bettingSettingsModel.updateOne(
+        { _id: settings._id },
+        { $inc: { bankroll: pick.profit } }
+      )
+    }
+
     return this.mapPickToOutput(updatedPick!)
   }
 
@@ -233,6 +245,21 @@ export class BettingPicksResolver {
     const pick = await this.bettingPickModel.findById(pickId).exec()
     if (!pick) {
       throw new Error('Pick not found')
+    }
+
+    // If pick is already resolved and was marked as bet, reverse the bankroll change
+    if (
+      pick.betPlaced &&
+      (pick.status === PickStatus.WON || pick.status === PickStatus.LOST) &&
+      pick.profit !== undefined
+    ) {
+      const settings = await this.bettingSettingsModel.findOne().exec()
+      if (settings) {
+        await this.bettingSettingsModel.updateOne(
+          { _id: settings._id },
+          { $inc: { bankroll: -pick.profit } }
+        )
+      }
     }
 
     const updatedPick = await this.bettingPickModel
