@@ -1,0 +1,5 @@
+export * from './betting-picks.resolver'
+export * from './betting-combos.resolver'
+export * from './betting-analytics.resolver'
+export * from './betting-settings.resolver'
+export * from './betting-leagues.resolver'
