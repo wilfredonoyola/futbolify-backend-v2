@@ -111,14 +111,18 @@ export class BettingTelegramService implements OnModuleInit {
     this.bot.command('result', (ctx) => this.commands.handleResult(ctx))
     this.bot.command('result_combo', (ctx) => this.commands.handleResultCombo(ctx))
 
-    // Force scan (triggers nightly analysis manually)
+    // Force scan info
     this.bot.command('force_scan', async (ctx) => {
       if (!this.guard.checkAuth(ctx)) {
         await ctx.reply('No autorizado para comandos de betting')
         return
       }
+
       await ctx.reply(
-        'Force scan debe ejecutarse desde el cron. Usa: yarn betting:scan'
+        '📋 *Para ejecutar un scan manual:*\n\n' +
+          '```\nnpm run betting:scan\n```\n\n' +
+          'O espera el cron automático (9PM)',
+        { parse_mode: 'Markdown' }
       )
     })
   }

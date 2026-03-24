@@ -14,6 +14,15 @@ const CACHE_TTL = {
 }
 
 /**
+ * Data quality indicator for stats
+ */
+export interface DataQuality {
+  form_goals_1h: 'real' | 'estimated'
+  corners: 'real' | 'league_average'
+  fouls: 'real' | 'estimated'
+}
+
+/**
  * Team statistics for betting analysis
  * Maps to variables needed by scoring algorithms
  */
@@ -57,6 +66,9 @@ export interface BettingTeamStats {
   // Clean sheets / scoring streaks
   clean_sheets_pct: number
   failed_to_score_pct: number
+
+  // Data quality indicators
+  dataQuality?: DataQuality
 }
 
 /**
@@ -166,7 +178,8 @@ export class ApiFootballBettingService {
    */
   async getFixtures(
     date: string,
-    leagueId: number
+    leagueId: number,
+    season: string = '2025'
   ): Promise<BettingFixture[]> {
     const cacheKey = `betting:fixtures:${date}:${leagueId}`
 
@@ -182,7 +195,7 @@ export class ApiFootballBettingService {
 
     try {
       const response = await fetch(
-        `${this.baseUrl}/fixtures?date=${date}&league=${leagueId}`,
+        `${this.baseUrl}/fixtures?date=${date}&league=${leagueId}&season=${season}`,
         {
           headers: { 'x-apisports-key': this.apiKey },
         }
@@ -301,6 +314,24 @@ export class ApiFootballBettingService {
       // For now, use league averages as fallback
       const avgCorners = this.getLeagueAvgCorners(leagueId)
 
+      // Fetch recent form data (actual goals in 1H from last 5 matches)
+      const recentForm = await this.getTeamRecentForm(teamId, 5)
+      const formDataIsReal = recentForm.totalMatches >= 3
+
+      // Determine data quality
+      const dataQuality: DataQuality = {
+        form_goals_1h: formDataIsReal ? 'real' : 'estimated',
+        corners: 'league_average', // API doesn't provide corner stats per team
+        fouls: 'estimated', // API doesn't provide fouls breakdown
+      }
+
+      // Log when using estimated data
+      if (!formDataIsReal) {
+        this.logger.warn(
+          `Team ${teamId}: Using estimated form_goals_1h (only ${recentForm.totalMatches} matches found)`
+        )
+      }
+
       const result: BettingTeamStats = {
         teamId,
         teamName: stats.team?.name || '',
@@ -321,7 +352,7 @@ export class ApiFootballBettingService {
         home_avg_goals_1h: avgGoals1H * 1.1,
         away_avg_goals_1h: avgGoals1H * 0.9,
 
-        // Corners (using estimates - would need fixture-level data for accurate)
+        // Corners (using league averages - API doesn't provide team-level corner stats)
         avg_corners_for: avgCorners / 2,
         avg_corners_against: avgCorners / 2,
         avg_corners_total: avgCorners,
@@ -332,15 +363,20 @@ export class ApiFootballBettingService {
         avg_shots: this.extractAvgShots(stats),
         avg_shots_on_target: this.extractAvgShotsOnTarget(stats),
         avg_possession: this.extractAvgPossession(stats),
-        avg_fouls: 12, // fallback average
+        avg_fouls: 12, // estimated - API doesn't provide fouls per team
 
-        // Form (would need last 5 fixtures API call)
-        form_goals_1h: 3, // default: 3 of 5
+        // Form (real data from last 5 fixtures when available)
+        form_goals_1h: formDataIsReal
+          ? recentForm.matchesWithGoal1H
+          : Math.round(gamesPlayed > 0 ? Math.min(5, gamesPlayed * over05_1h_pct) : 3),
         form_corners_5: avgCorners,
 
         // Clean sheets
         clean_sheets_pct: (stats.clean_sheet?.total || 0) / Math.max(1, gamesPlayed),
         failed_to_score_pct: (stats.failed_to_score?.total || 0) / Math.max(1, gamesPlayed),
+
+        // Data quality indicators
+        dataQuality,
       }
 
       await this.redisCache.set(cacheKey, result, CACHE_TTL.TEAM_STATS)
@@ -616,6 +652,90 @@ export class ApiFootballBettingService {
   }
 
   // ============ Helper Methods ============
+
+  /**
+   * Get team's recent form by fetching last N fixtures
+   * Returns actual goals in 1H stats from real match data
+   */
+  async getTeamRecentForm(
+    teamId: number,
+    last: number = 5
+  ): Promise<{
+    matchesWithGoal1H: number
+    avgGoals1H: number
+    avgCorners: number
+    totalMatches: number
+  }> {
+    const cacheKey = `betting:team-form:${teamId}:${last}`
+
+    const cached = await this.redisCache.get<{
+      matchesWithGoal1H: number
+      avgGoals1H: number
+      avgCorners: number
+      totalMatches: number
+    }>(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/fixtures?team=${teamId}&last=${last}&status=FT`,
+        {
+          headers: { 'x-apisports-key': this.apiKey },
+        }
+      )
+
+      if (!response.ok) {
+        this.logger.warn(`API error ${response.status} getting team form`)
+        return {
+          matchesWithGoal1H: 3, // fallback
+          avgGoals1H: 0.8,
+          avgCorners: 5,
+          totalMatches: 0,
+        }
+      }
+
+      const data = await response.json()
+      const matches = data.response || []
+
+      let matchesWithGoal1H = 0
+      let totalGoals1H = 0
+
+      for (const match of matches) {
+        const homeHT = match.score?.halftime?.home || 0
+        const awayHT = match.score?.halftime?.away || 0
+        const total1H = homeHT + awayHT
+
+        if (total1H > 0) {
+          matchesWithGoal1H++
+        }
+        totalGoals1H += total1H
+      }
+
+      const result = {
+        matchesWithGoal1H,
+        avgGoals1H: matches.length > 0 ? totalGoals1H / matches.length : 0.8,
+        avgCorners: 5, // Still estimated - would need fixture stats endpoint
+        totalMatches: matches.length,
+      }
+
+      await this.redisCache.set(cacheKey, result, CACHE_TTL.TEAM_STATS)
+      this.logger.debug(
+        `Team ${teamId} form: ${matchesWithGoal1H}/${matches.length} matches with goal in 1H`
+      )
+
+      return result
+    } catch (error) {
+      this.logger.error(`Error fetching team form: ${error.message}`)
+      return {
+        matchesWithGoal1H: 3,
+        avgGoals1H: 0.8,
+        avgCorners: 5,
+        totalMatches: 0,
+      }
+    }
+  }
 
   private getCurrentSeason(): number {
     const now = new Date()

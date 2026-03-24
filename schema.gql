@@ -2370,6 +2370,519 @@ type ReportsListResponse {
   hasMore: Boolean!
 }
 
+type LeagueStats {
+  avgGoals1H: Float!
+  over05_1H_pct: Float!
+  over15_1H_pct: Float!
+  avgCornersPerMatch: Float!
+  avgShotsPerMatch: Float!
+  bts1H_pct: Float!
+  matchesPlayed: Int!
+  lastUpdated: DateTime
+}
+
+type LeagueSchedule {
+  primaryDay: String!
+  secondaryDay: String
+  typicalKickoffs: [String!]!
+  timezone: String!
+  utcOffset: Int!
+  windowA: Boolean!
+  windowB: Boolean!
+}
+
+type LeagueModelConfig {
+  leagueBonus: Float!
+  correlationAdj: Float!
+  cornersBaseline: Float!
+  goalsBaseline: Float!
+  shotsBaseline: Float!
+  bookmakerQuality: BookmakerQuality!
+}
+
+"""Quality of odds modeling by bookmakers for this league"""
+enum BookmakerQuality {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+type LeagueCoverage {
+  events: Boolean!
+  lineups: Boolean!
+  statisticsFixtures: Boolean!
+  statisticsPlayers: Boolean!
+  standings: Boolean!
+  players: Boolean!
+  topScorers: Boolean!
+  predictions: Boolean!
+  odds: Boolean!
+}
+
+type PickLeagueInfo {
+  id: Int!
+  name: String!
+  country: String!
+  tier: Int!
+}
+
+type PickTeamInfo {
+  id: Int!
+  name: String!
+}
+
+type PickModelInputs {
+  probBase: Float
+  formAdjustment: Float
+  h2hAdjustment: Float
+  leagueAdjustment: Float
+  contextMultiplier: Float
+  contextFlags: [String!]!
+  expectedGoals1H: Float
+  cornersExpected: Float
+  cornersExpected1H: Float
+}
+
+type PickSteamMove {
+  detected: Boolean!
+  direction: SteamMoveDirection
+  pctChange: Float
+  timestamp: DateTime
+}
+
+"""Direction of steam move relative to our pick"""
+enum SteamMoveDirection {
+  FAVORABLE
+  CONTRA
+}
+
+type PickMatchResult {
+  scoreHT: String
+  scoreFT: String
+  cornersTotal: Int
+  cornersHT: Int
+  cornersHome: Int
+  cornersAway: Int
+}
+
+type LeagueInfo {
+  id: Int!
+  name: String!
+  country: String!
+  tier: Int!
+}
+
+type BettingTeamInfo {
+  id: Int!
+  name: String!
+}
+
+type SteamMoveInfo {
+  detected: Boolean!
+  direction: SteamMoveDirection
+  pctChange: Float
+  timestamp: DateTime
+}
+
+type ModelInputs {
+  probBase: Float
+  formAdjustment: Float
+  h2hAdjustment: Float
+  leagueAdjustment: Float
+  contextMultiplier: Float
+  contextFlags: [String!]
+}
+
+type MatchResult {
+  scoreHT: String
+  scoreFT: String
+  cornersTotal: Int
+  cornersHT: Int
+  cornersHome: Int
+  cornersAway: Int
+}
+
+type BettingPickOutput {
+  id: String!
+  fixtureId: Int!
+  date: DateTime!
+  league: LeagueInfo!
+  teamHome: BettingTeamInfo!
+  teamAway: BettingTeamInfo!
+  kickoff: DateTime!
+  timeWindow: TimeWindow!
+  market: MarketType!
+  direction: MarketDirection!
+  line: Float!
+  probOwn: Float!
+  probImplied: Float!
+  edge: Float!
+  confidenceScore: Int!
+  modelInputs: ModelInputs
+  oddsAtDetection: Float!
+  oddsAtBet: Float
+  oddsAtClose: Float
+  bestBookmaker: String
+  steamMove: SteamMoveInfo
+  status: PickStatus!
+  stake: Float
+  profit: Float
+  clv: Float
+  matchResult: MatchResult
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Time window for betting combinations"""
+enum TimeWindow {
+  WINDOW_A
+  WINDOW_B
+  WINDOW_C
+}
+
+"""Type of betting market"""
+enum MarketType {
+  OVER_05_1H
+  OVER_15_1H
+  OVER_75_CORNERS
+  OVER_85_CORNERS
+  OVER_95_CORNERS
+  OVER_105_CORNERS
+  OVER_115_CORNERS
+  OVER_125_CORNERS
+  OVER_45_CORNERS_1H
+  UNDER_75_CORNERS
+  UNDER_85_CORNERS
+  UNDER_95_CORNERS
+  UNDER_105_CORNERS
+  CORNERS_HANDICAP
+}
+
+"""Direction of the market bet"""
+enum MarketDirection {
+  OVER
+  UNDER
+}
+
+"""Status of a betting pick"""
+enum PickStatus {
+  PENDING
+  ACTIVE
+  WON
+  LOST
+  VOID
+  CANCELLED
+}
+
+type ComboLegOutput {
+  pickId: String
+  fixtureId: Int!
+  market: MarketType!
+  direction: MarketDirection!
+  odds: Float!
+  probOwn: Float!
+  result: PickStatus
+  teamHome: String
+  teamAway: String
+}
+
+type CorrelationInfo {
+  base: Float!
+  dynamic: Float!
+  adjustments: [CorrelationAdjustment!]
+}
+
+type CorrelationAdjustment {
+  factor: String!
+  value: Float!
+}
+
+type ScoreBreakdown {
+  evPoints: Float!
+  correlationPoints: Float!
+  confidencePoints: Float!
+  steamPoints: Float!
+  diversificationPoints: Float!
+  penalties: Float!
+}
+
+type BettingComboOutput {
+  id: String!
+  date: DateTime!
+  type: ComboType!
+  sharpConfirmed: Boolean!
+  legs: [ComboLegOutput!]!
+  correlation: CorrelationInfo
+  pCasa: Float!
+  pReal: Float!
+  hiddenEdge: Float!
+  combinedOdds: Float!
+  evReal: Float!
+  score: Int!
+  scoreLevel: ComboScoreLevel!
+  scoreBreakdown: ScoreBreakdown
+  status: ComboStatus!
+  stake: Float
+  profit: Float
+  timeWindow: TimeWindow
+  warnings: [String!]
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Type of betting combination based on correlation strategy"""
+enum ComboType {
+  GEMELA
+  GEMELA_INVERTIDA
+  CROSS_MERCADO
+  CROSS_LIGA
+  TRIPLE_CORRELACIONADO
+  DOBLE_GEMELA
+  SHARP_GEMELA
+  SHARP_CROSS_MERCADO
+}
+
+"""Score classification for betting combinations"""
+enum ComboScoreLevel {
+  ELITE
+  FUERTE
+  SOLIDA
+  MARGINAL
+  DESCARTAR
+}
+
+"""Status of a betting combination"""
+enum ComboStatus {
+  PENDING
+  WON
+  LOST
+  PARTIAL
+  CANCELLED
+}
+
+type BettingDashboard {
+  bankroll: Float!
+  roi: Float!
+  avgCLV: Float!
+  currentStreak: Int!
+  maxStreak: Int!
+  totalBets: Int!
+  todayPicks: [BettingPickOutput!]!
+  todayCombos: [BettingComboOutput!]!
+  recentResults: [BettingPickOutput!]!
+  todayExposure: Float!
+}
+
+type BettingAnalytics {
+  totalBets: Int!
+  winRate: Float!
+  roi: Float!
+  avgCLV: Float!
+  sharpeRatio: Float!
+  maxDrawdown: Float!
+  totalProfit: Float!
+  bestDay: Float!
+  worstDay: Float!
+}
+
+type LeaguePerformance {
+  leagueId: Int!
+  leagueName: String!
+  bets: Int!
+  winRate: Float!
+  roi: Float!
+  avgCLV: Float!
+  profit: Float!
+}
+
+type MarketPerformance {
+  market: MarketType!
+  bets: Int!
+  winRate: Float!
+  roi: Float!
+  avgCLV: Float!
+  profit: Float!
+}
+
+type ComboTypePerformance {
+  type: ComboType!
+  count: Int!
+  winRate: Float!
+  roi: Float!
+  avgEV: Float!
+  avgHiddenEdge: Float!
+  profit: Float!
+}
+
+type BankrollDataPoint {
+  date: DateTime!
+  value: Float!
+  dailyProfit: Float!
+}
+
+type CLVDataPoint {
+  date: DateTime!
+  clv: Float!
+  result: PickStatus!
+}
+
+type ThresholdsConfig {
+  minEdge: Float!
+  minComboEV: Float!
+  minScore: Int!
+  minGamesPlayed: Int!
+}
+
+type StakesConfig {
+  kellyFraction: Float!
+  maxStakeIndividualPct: Float!
+  maxStakeComboPct: Float!
+  maxDailyExposurePct: Float!
+  maxPicksPerDay: Int!
+  maxCombosPerDay: Int!
+}
+
+type AntiTiltConfig {
+  stopLossDailyPct: Float!
+  maxConsecutiveLosses: Int!
+}
+
+type ActiveLeagueInfo {
+  id: Int!
+  name: String!
+  tier: Int!
+  isActive: Boolean!
+}
+
+type BettingSettingsOutput {
+  id: String!
+  bankroll: Float!
+  isActive: Boolean!
+  telegramAlertsOn: Boolean!
+  thresholds: ThresholdsConfig!
+  stakes: StakesConfig!
+  antiTilt: AntiTiltConfig!
+  activeLeagues: [ActiveLeagueInfo!]!
+}
+
+type BettingLeagueOutput {
+  id: String!
+  apiFootballId: Int!
+  name: String!
+  country: String!
+  logo: String
+  tier: Int!
+  isActive: Boolean!
+  season: String
+  fixturesAnalyzed: Int
+  picksGenerated: Int
+}
+
+type ScanResult {
+  fixturesAnalyzed: Int!
+  picksGenerated: Int!
+  combosGenerated: Int!
+  leagues: [String!]!
+}
+
+type ComboLeg {
+  pickId: ID!
+  fixtureId: Int!
+  leagueId: Int!
+  homeTeam: String!
+  awayTeam: String!
+  market: MarketType!
+  direction: MarketDirection!
+  odds: Float!
+  probOwn: Float!
+  confidenceScore: Int!
+  result: PickStatus!
+}
+
+type ComboCorrelation {
+  base: Float!
+  dynamic: Float!
+  adjustments: [CorrelationAdjustment!]!
+}
+
+type ComboScoreBreakdown {
+  evPoints: Int!
+  correlationPoints: Int!
+  confidencePoints: Int!
+  steamPoints: Int!
+  diversificationPoints: Int!
+  penalties: Int!
+}
+
+type MarketDailyStats {
+  count: Int!
+  won: Int!
+  profit: Float!
+  avgCLV: Float!
+}
+
+type ByMarketBreakdown {
+  goals_1h: MarketDailyStats!
+  corners: MarketDailyStats!
+}
+
+type LeagueDailyPerformance {
+  leagueId: Int!
+  leagueName: String!
+  count: Int!
+  won: Int!
+  profit: Float!
+}
+
+type ComboTypeDailyPerformance {
+  type: String!
+  count: Int!
+  won: Int!
+  profit: Float!
+  avgHiddenEdge: Float!
+}
+
+type BettingThresholds {
+  minEdge: Float!
+  minComboEV: Float!
+  minScore: Int!
+  minGamesPlayed: Int!
+}
+
+type BettingStakesConfig {
+  kellyFraction: Float!
+  maxStakeIndividualPct: Float!
+  maxStakeComboPct: Float!
+  maxDailyExposurePct: Float!
+  maxPicksPerDay: Int!
+  maxCombosPerDay: Int!
+}
+
+type BettingAntiTiltConfig {
+  stopLossDailyPct: Float!
+  maxConsecutiveLosses: Int!
+}
+
+type BettingApiKeys {
+  apiFootball: String
+  theOddsApi: String
+}
+
+type BettingCronSchedule {
+  nightlyAnalysis: String!
+  preMatchCheck: String!
+  resultCollection: String!
+  leagueSync: String!
+  statsUpdater: String!
+}
+
+type ActiveLeagueRef {
+  id: Int!
+  name: String!
+  tier: Int!
+  isActive: Boolean!
+}
+
 type Query {
   getLinkedProviders: [LinkedProviderInfo!]!
   checkEmailExists(email: String!): CheckEmailResponse!
@@ -2535,6 +3048,22 @@ type Query {
   mlsStandings(season: String): [StandingsDto!]!
   getReportReasons: [ReportReasonOutput!]!
   adminGetReports(status: ReportStatus, reportType: ReportType, limit: Int! = 20, offset: Int! = 0): ReportsListResponse!
+  bettingPicks(filters: PickFiltersInput): [BettingPickOutput!]!
+  bettingPickDetail(id: ID!): BettingPickOutput
+  bettingTodayPicks: [BettingPickOutput!]!
+  bettingCombos(filters: ComboFiltersInput): [BettingComboOutput!]!
+  bettingComboDetail(id: ID!): BettingComboOutput
+  bettingTodayCombos: [BettingComboOutput!]!
+  bettingDashboard(date: String): BettingDashboard!
+  bettingAnalytics(dateFrom: String, dateTo: String): BettingAnalytics!
+  bettingPerformanceByLeague: [LeaguePerformance!]!
+  bettingPerformanceByMarket: [MarketPerformance!]!
+  bettingPerformanceByComboType: [ComboTypePerformance!]!
+  bettingBankrollHistory(days: Int = 30): [BankrollDataPoint!]!
+  bettingCLVHistory: [CLVDataPoint!]!
+  bettingSettings: BettingSettingsOutput!
+  bettingLeagues(activeOnly: Boolean = false, tier: Int): [BettingLeagueOutput!]!
+  bettingLeague(apiFootballId: Int!): BettingLeagueOutput
 }
 
 input ValidateAdminTokenInput {
@@ -2611,6 +3140,26 @@ input FeedFilterInput {
   userId: ID
   includeContextualCards: Boolean = true
   cardInterval: Int = 5
+}
+
+input PickFiltersInput {
+  dateFrom: String
+  dateTo: String
+  leagueId: Int
+  market: MarketType
+  status: PickStatus
+  minConfidence: Int
+  limit: Int
+  offset: Int
+}
+
+input ComboFiltersInput {
+  dateFrom: String
+  dateTo: String
+  type: ComboType
+  status: ComboStatus
+  limit: Int
+  offset: Int
 }
 
 type Mutation {
@@ -2791,6 +3340,16 @@ type Mutation {
   createReport(input: GenerateReportInput!): GenerateReportResponse!
   generateReport(GenerateReportInput: LegacyGenerateReportInput!): GenerateReportResponse!
   adminUpdateReportStatus(reportId: String!, status: ReportStatus!, resolution: String): ReportOutput!
+  updatePickResult(id: ID!, result: PickResult!): BettingPickOutput!
+  cancelPick(id: ID!, reason: String): BettingPickOutput!
+  updateComboResult(id: ID!, result: ComboResult!): BettingComboOutput!
+  updateBettingSettings(input: BettingSettingsInput!): BettingSettingsOutput!
+  updateBankroll(amount: Float!): BettingSettingsOutput!
+  toggleBettingActive(active: Boolean!): BettingSettingsOutput!
+  toggleLeague(leagueId: Int!, active: Boolean!): BettingSettingsOutput!
+  forceScan(date: String!): ScanResult!
+  toggleBettingLeague(apiFootballId: Int!, active: Boolean!): BettingLeagueOutput!
+  updateLeagueTier(apiFootballId: Int!, tier: Int!): BettingLeagueOutput!
 }
 
 input SigninInputDto {
@@ -3360,6 +3919,38 @@ input LegacyGenerateReportInput {
   reportType: String!
   referenceId: String!
   reasonId: String!
+}
+
+"""Result of a pick for manual registration"""
+enum PickResult {
+  WON
+  LOST
+  VOID
+}
+
+"""Result of a combo for manual registration"""
+enum ComboResult {
+  WON
+  LOST
+  PARTIAL
+  CANCELLED
+}
+
+input BettingSettingsInput {
+  bankroll: Float
+  isActive: Boolean
+  telegramAlertsOn: Boolean
+  minEdge: Float
+  minComboEV: Float
+  minScore: Int
+  kellyFraction: Float
+  maxStakeIndividualPct: Float
+  maxStakeComboPct: Float
+  maxDailyExposurePct: Float
+  maxPicksPerDay: Int
+  maxCombosPerDay: Int
+  stopLossDailyPct: Float
+  maxConsecutiveLosses: Int
 }
 
 type Subscription {

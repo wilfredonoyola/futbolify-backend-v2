@@ -29,6 +29,14 @@ export class ComboLeg {
   @Field(() => Int)
   leagueId: number
 
+  @Prop({ required: true })
+  @Field()
+  homeTeam: string
+
+  @Prop({ required: true })
+  @Field()
+  awayTeam: string
+
   @Prop({ required: true, enum: MarketType })
   @Field(() => MarketType)
   market: MarketType

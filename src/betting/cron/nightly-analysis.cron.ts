@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
+import { Model, Types } from 'mongoose'
 import {
   BettingLeague,
   BettingLeagueDocument,
@@ -24,6 +24,7 @@ import { StakeCalculatorService } from '../services/stake-calculator.service'
 import { BettingTelegramService } from '../telegram/betting-telegram.service'
 import {
   PickStatus,
+  ComboStatus,
   MarketType,
   MarketDirection,
   TimeWindow,
@@ -70,6 +71,127 @@ export class NightlyAnalysisCron {
     private stakeCalculatorService: StakeCalculatorService,
     private telegramService: BettingTelegramService
   ) {}
+
+  /**
+   * Calculate star rating based on edge (1-5 stars)
+   */
+  private calculateStars(edge: number): number {
+    if (edge >= 0.15) return 5
+    if (edge >= 0.12) return 4
+    if (edge >= 0.09) return 3
+    if (edge >= 0.07) return 2
+    return 1
+  }
+
+  /**
+   * Generate human-readable reasons for a goals pick
+   */
+  private generateGoalsReasons(
+    market: string,
+    teamAStats: any,
+    teamBStats: any,
+    h2h: any,
+    league: any,
+    goalsResult: any
+  ): string[] {
+    const reasons: string[] = []
+
+    // Stats del local
+    if (teamAStats) {
+      const homeOver05 = teamAStats.home_over05_1h || 0
+      if (homeOver05 >= 0.75) {
+        reasons.push(`Local marca en 1H en ${Math.round(homeOver05 * 100)}% de partidos`)
+      }
+      const avgGoals1H = teamAStats.avg_goals_1h || 0
+      if (avgGoals1H >= 1.3) {
+        reasons.push(`Local promedia ${avgGoals1H.toFixed(1)} goles en 1H`)
+      }
+    }
+
+    // Stats del visitante
+    if (teamBStats) {
+      const awayOver05 = teamBStats.away_over05_1h || 0
+      if (awayOver05 >= 0.70) {
+        reasons.push(`Visitante marca en 1H en ${Math.round(awayOver05 * 100)}% de partidos`)
+      }
+      const conceded1H = teamBStats.avg_conceded_1h || 0
+      if (conceded1H >= 0.8) {
+        reasons.push(`Visitante recibe ${conceded1H.toFixed(1)} goles/1H`)
+      }
+    }
+
+    // H2H
+    if (h2h && h2h.last_5_goals_1h > 0) {
+      const pct = Math.round((h2h.last_5_goals_1h / 5) * 100)
+      if (pct >= 60) {
+        reasons.push(`H2H: gol en 1H en ${h2h.last_5_goals_1h} de últimos 5`)
+      }
+    }
+
+    // Liga
+    if (league.tier <= 2) {
+      reasons.push(`Liga Tier ${league.tier} (más ineficiencias)`)
+    }
+
+    // Expected goals
+    if (goalsResult?.expectedGoals1H >= 1.2) {
+      reasons.push(`xG 1H: ${goalsResult.expectedGoals1H.toFixed(2)}`)
+    }
+
+    // Si no hay razones específicas, agregar una genérica
+    if (reasons.length === 0) {
+      reasons.push(`Probabilidad modelo: ${Math.round(goalsResult?.probOver05_1H * 100 || 0)}%`)
+    }
+
+    return reasons.slice(0, 2) // Máximo 2 razones
+  }
+
+  /**
+   * Generate human-readable reasons for a corners pick
+   */
+  private generateCornersReasons(
+    market: string,
+    teamAStats: any,
+    teamBStats: any,
+    h2h: any,
+    league: any,
+    cornersResult: any
+  ): string[] {
+    const reasons: string[] = []
+
+    // Corners del local
+    if (teamAStats) {
+      const cornersFor = teamAStats.corners_for_avg || 0
+      if (cornersFor >= 5.5) {
+        reasons.push(`Local gana ${cornersFor.toFixed(1)} corners/partido`)
+      }
+    }
+
+    // Corners del visitante
+    if (teamBStats) {
+      const cornersFor = teamBStats.corners_for_avg || 0
+      if (cornersFor >= 5.0) {
+        reasons.push(`Visitante gana ${cornersFor.toFixed(1)} corners/partido`)
+      }
+    }
+
+    // Liga
+    const leagueCorners = league.stats?.avgCornersPerMatch || 0
+    if (leagueCorners >= 10) {
+      reasons.push(`Liga alta en corners (${leagueCorners.toFixed(1)}/partido)`)
+    }
+
+    // Expected corners
+    if (cornersResult?.cornersExpected >= 10) {
+      reasons.push(`Corners esperados: ${cornersResult.cornersExpected.toFixed(1)}`)
+    }
+
+    if (reasons.length === 0) {
+      reasons.push(`Corners estimados: ${cornersResult?.cornersExpected?.toFixed(1) || '?'}`)
+    }
+
+    return reasons.slice(0, 2)
+  }
 
   /**
    * Friday 9:00 PM El Salvador - Analyze Saturday matches
@@ -187,66 +309,196 @@ export class NightlyAnalysisCron {
         `Analysis complete: ${allValuePicks.length} value picks from ${fixturesAnalyzed} fixtures`
       )
 
-      // Generate combos from value picks
+      // PICK SELECTION WITH DIVERSIFICATION:
+      // 1. Filter picks with probability >= 60%
+      // 2. Sort by probability (higher = better)
+      // 3. Max 2 picks per match (fixtureId) for diversification
+      // 4. Max 5 picks total
+      const maxPicks = 5
+      const maxPicksPerMatch = 2
+      const minProbability = 0.70 // Minimum 70% win probability
+
+      // Filter picks by minimum probability
+      const qualifiedPicks = allValuePicks.filter(
+        (pick) => (pick.probOwn || 0) >= minProbability
+      )
+
+      this.logger.log(
+        `Qualified picks: ${qualifiedPicks.length} of ${allValuePicks.length} have probability >= ${minProbability * 100}%`
+      )
+
+      // Sort by probability (higher = better) - all markets equal priority
+      const sortedPicks = [...qualifiedPicks].sort((a, b) => {
+        return (b.probOwn || 0) - (a.probOwn || 0)
+      })
+
+      // Select picks with max 2 per match for diversification
+      const topPicks: typeof sortedPicks = []
+      const picksPerMatch = new Map<number, number>()
+
+      for (const pick of sortedPicks) {
+        if (topPicks.length >= maxPicks) break
+
+        const matchCount = picksPerMatch.get(pick.fixtureId) || 0
+        if (matchCount < maxPicksPerMatch) {
+          topPicks.push(pick)
+          picksPerMatch.set(pick.fixtureId, matchCount + 1)
+        }
+      }
+
+      // Log diversification stats
+      const uniqueMatches = picksPerMatch.size
+      this.logger.log(
+        `Selected ${topPicks.length} picks from ${uniqueMatches} different matches (max ${maxPicksPerMatch} per match)`
+      )
+
+      // Also filter and sort pickDocuments to match
+      const qualifiedPickDocs = pickDocuments.filter(
+        (doc) => (doc.probOwn || 0) >= minProbability
+      )
+
+      const sortedPickDocs = [...qualifiedPickDocs].sort((a, b) => {
+        return (b.probOwn || 0) - (a.probOwn || 0)
+      })
+
+      // Apply same diversification to pickDocuments
+      const topPickDocs: typeof sortedPickDocs = []
+      const docsPerMatch = new Map<number, number>()
+
+      for (const doc of sortedPickDocs) {
+        if (topPickDocs.length >= maxPicks) break
+
+        const fixtureId = doc.fixtureId || 0
+        const matchCount = docsPerMatch.get(fixtureId) || 0
+        if (matchCount < maxPicksPerMatch) {
+          topPickDocs.push(doc)
+          docsPerMatch.set(fixtureId, matchCount + 1)
+        }
+      }
+
+      // Log final selection summary
+      const marketBreakdown = topPicks.reduce((acc, p) => {
+        acc[p.market] = (acc[p.market] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
+      this.logger.log(
+        `Final selection: ${topPicks.length} picks - ${JSON.stringify(marketBreakdown)}`
+      )
+
+      // Generate combos from TOP picks only (so all combos reference saved picks)
       const allCombos = this.comboEngineService.runComboEngine(
-        allValuePicks,
+        topPicks,
         contexts
       )
 
-      this.logger.log(`Generated ${allCombos.length} combo candidates`)
+      this.logger.log(`Generated ${allCombos.length} combo candidates from top ${topPicks.length} picks`)
 
       // Optimize portfolio
+      const maxCombos = settings.stakes?.maxCombosPerDay || 3
       const optimizedPortfolio = this.portfolioOptimizerService.optimizePortfolio(
         allCombos,
         settings.bankroll
       )
 
+      // Limit combos to maxCombosPerDay
+      optimizedPortfolio.selectedCombos = optimizedPortfolio.selectedCombos.slice(0, maxCombos)
+
       this.logger.log(
         `Portfolio optimized: ${optimizedPortfolio.selectedCombos.length} combos selected`
       )
 
-      // Save picks to database
-      if (pickDocuments.length > 0) {
-        await this.bettingPickModel.insertMany(pickDocuments)
-        this.logger.log(`Saved ${pickDocuments.length} picks to database`)
+      // Delete existing picks and combos for this date (avoid duplicates from multiple runs)
+      const deleteResult = await this.bettingPickModel.deleteMany({
+        date: new Date(tomorrowDate),
+      })
+      const deleteComboResult = await this.bettingComboModel.deleteMany({
+        date: new Date(tomorrowDate),
+      })
+      if (deleteResult.deletedCount > 0 || deleteComboResult.deletedCount > 0) {
+        this.logger.log(
+          `Cleaned up previous run: ${deleteResult.deletedCount} picks, ${deleteComboResult.deletedCount} combos`
+        )
       }
 
-      // Save combos to database
-      const comboDocuments = optimizedPortfolio.selectedCombos.map((combo) => {
-        const stakeResult = this.stakeCalculatorService.calculateStake(combo, {
-          totalBankroll: settings.bankroll,
-        })
-
-        return {
-          type: combo.type,
-          legs: combo.legs.map((leg) => ({
-            fixtureId: leg.fixtureId,
-            market: leg.market,
-            direction: leg.direction,
-            line: leg.line,
-            odds: leg.odds,
-            probOwn: leg.probOwn,
-          })),
-          combinedOdds: combo.combinedOdds,
-          pJoint: combo.pJoint,
-          pCasa: combo.pCasa,
-          evReal: combo.evReal,
-          hiddenEdge: combo.hiddenEdge,
-          correlation: combo.correlation.dynamic,
-          score: combo.score,
-          scoreLevel: combo.scoreLevel,
-          sharpConfirmed: combo.sharpConfirmed,
-          timeWindow: combo.timeWindow,
-          stake: stakeResult.recommendedStake,
-          status: PickStatus.PENDING,
-          warnings: combo.warnings,
-          contextFlags: combo.contextFlags,
-        }
+      // Save only top picks to database (max 5)
+      const savedPicksMap = new Map<string, string>()
+      const savedPickResults = await this.bettingPickModel.insertMany(topPickDocs)
+      savedPickResults.forEach((pick: any, idx: number) => {
+        const key = `${topPickDocs[idx].fixtureId}-${topPickDocs[idx].market}-${topPickDocs[idx].direction}`
+        savedPicksMap.set(key, pick._id.toString())
       })
+      this.logger.log(`Saved ${savedPickResults.length} picks to database`)
 
+      // Build combo documents, but filter out combos where any leg has no saved pickId
+      const comboDocuments = optimizedPortfolio.selectedCombos
+        .map((combo) => {
+          const stakeResult = this.stakeCalculatorService.calculateStake(combo, {
+            totalBankroll: settings.bankroll,
+          })
+
+          const legs = combo.legs.map((leg) => {
+            const pickKey = `${leg.fixtureId}-${leg.market}-${leg.direction}`
+            const pickId = savedPicksMap.get(pickKey)
+            return {
+              pickId: pickId ? new Types.ObjectId(pickId) : null,
+              fixtureId: leg.fixtureId,
+              leagueId: leg.leagueId || 0,
+              homeTeam: leg.homeTeam || 'TBD',
+              awayTeam: leg.awayTeam || 'TBD',
+              market: leg.market,
+              direction: leg.direction,
+              line: leg.line,
+              odds: leg.odds,
+              probOwn: leg.probOwn,
+              confidenceScore: Math.min(100, Math.round((leg.edge || 0.05) * 500 + 40)),
+            }
+          })
+
+          // Check if all legs have valid pickIds
+          const allLegsValid = legs.every((leg) => leg.pickId !== null)
+          if (!allLegsValid) {
+            return null // This combo references picks not in our saved top picks
+          }
+
+          return {
+            date: new Date(tomorrowDate),
+            type: combo.type,
+            legs,
+            combinedOdds: combo.combinedOdds,
+            pCasa: combo.pCasa,
+            pReal: combo.pJoint,
+            evReal: combo.evReal,
+            hiddenEdge: combo.hiddenEdge,
+            correlation: {
+              base: combo.correlation?.base || 0,
+              dynamic: combo.correlation?.dynamic || 0,
+              adjustments: combo.correlation?.adjustments || [],
+            },
+            score: combo.score,
+            sharpConfirmed: combo.sharpConfirmed,
+            timeWindow: combo.timeWindow,
+            stake: stakeResult.recommendedStake,
+            status: ComboStatus.PENDING,
+            warnings: combo.warnings || [],
+            contextFlags: combo.contextFlags || [],
+          }
+        })
+        .filter((doc) => doc !== null)
+
+      this.logger.log(
+        `Combo filtering: ${optimizedPortfolio.selectedCombos.length} candidates → ${comboDocuments.length} valid (all legs have saved picks)`
+      )
+
+      // Save combos to database
+      let savedComboCount = 0
       if (comboDocuments.length > 0) {
-        await this.bettingComboModel.insertMany(comboDocuments)
-        this.logger.log(`Saved ${comboDocuments.length} combos to database`)
+        try {
+          await this.bettingComboModel.insertMany(comboDocuments)
+          savedComboCount = comboDocuments.length
+          this.logger.log(`Saved ${savedComboCount} combos to database`)
+        } catch (comboError) {
+          this.logger.error(`Failed to save combos: ${comboError}`)
+        }
       }
 
       // Send Telegram Alert 1: Nightly Analysis
@@ -254,8 +506,10 @@ export class NightlyAnalysisCron {
         .find({ date: new Date(tomorrowDate) })
         .exec()
       const savedCombos = await this.bettingComboModel
-        .find({ createdAt: { $gte: new Date(tomorrowDate) } })
+        .find({ date: new Date(tomorrowDate) })
         .exec()
+
+      this.logger.log(`Sending Telegram alert: ${savedPicks.length} picks, ${savedCombos.length} combos`)
 
       await this.telegramService.sendNightlyAnalysisAlert(
         new Date(tomorrowDate),
@@ -268,7 +522,7 @@ export class NightlyAnalysisCron {
       const duration = Date.now() - startTime
       this.logger.log(
         `Nightly analysis completed in ${duration}ms: ` +
-          `${pickDocuments.length} picks, ${comboDocuments.length} combos`
+          `${topPickDocs.length} picks, ${comboDocuments.length} combos`
       )
     } catch (error) {
       this.logger.error(`Nightly analysis failed: ${error}`)
@@ -290,14 +544,20 @@ export class NightlyAnalysisCron {
       // Get fixtures for this league
       const fixtures = await this.apiFootballService.getFixtures(
         date,
-        league.apiFootballId
+        league.apiFootballId,
+        league.season || '2025'
       )
 
       if (!fixtures || fixtures.length === 0) {
+        this.logger.debug(`No fixtures found for ${league.name} on ${date}`)
         return picks
       }
 
+      this.logger.log(`Found ${fixtures.length} fixtures for ${league.name}`)
+
       for (const fixture of fixtures) {
+        this.logger.debug(`Analyzing: ${fixture.homeTeamName} vs ${fixture.awayTeamName}`)
+
         // Get team stats
         const [teamAStats, teamBStats, h2h] = await Promise.all([
           this.apiFootballService.getTeamStats(
@@ -312,8 +572,11 @@ export class NightlyAnalysisCron {
         ])
 
         if (!teamAStats || !teamBStats) {
+          this.logger.debug(`Missing team stats for ${fixture.homeTeamName} vs ${fixture.awayTeamName}`)
           continue
         }
+
+        this.logger.debug(`Team stats OK for ${fixture.homeTeamName} vs ${fixture.awayTeamName}`)
 
         // Get match context (pass null for weather in nightly analysis)
         const context = this.contextService.getMatchContext(
@@ -327,6 +590,10 @@ export class NightlyAnalysisCron {
         // Get odds
         const odds = await this.apiFootballService.getOdds(fixture.fixtureId)
 
+        this.logger.debug(
+          `Odds for ${fixture.homeTeamName} vs ${fixture.awayTeamName}: ${odds ? 'available' : 'NOT AVAILABLE'}`
+        )
+
         // Score goals 1H
         const goalsResult = this.scoringGoalsService.scoreGoals1H(
           fixture,
@@ -334,6 +601,11 @@ export class NightlyAnalysisCron {
           teamBStats,
           h2h,
           league.tier as 1 | 2 | 3 | 4
+        )
+
+        this.logger.debug(
+          `Goals scoring: probOver05_1H=${(goalsResult.probOver05_1H * 100).toFixed(1)}%, ` +
+            `probOver15_1H=${(goalsResult.probOver15_1H * 100).toFixed(1)}%`
         )
 
         // Score corners
@@ -348,12 +620,18 @@ export class NightlyAnalysisCron {
         // Detect value for Over 0.5 1H
         if (goalsResult.probOver05_1H > 0 && odds) {
           const over05Odds = this.findOddsForMarket(odds, 'over_05_1h')
+          this.logger.debug(`Over 0.5 1H odds: ${over05Odds}`)
+
           if (over05Odds > 1.0) {
             const valueResult = this.valueDetectionService.detectValueGoals(
               goalsResult,
               'over_05_1h',
               over05Odds,
               'API-Football'
+            )
+
+            this.logger.debug(
+              `Value detection Over 0.5 1H: hasValue=${valueResult.hasValue}, edge=${(valueResult.edge * 100).toFixed(1)}%`
             )
 
             if (valueResult.hasValue) {
@@ -373,7 +651,7 @@ export class NightlyAnalysisCron {
                   odds: over05Odds,
                   probOwn: goalsResult.probOver05_1H,
                   edge: valueResult.edge,
-                  confidenceScore: Math.round(valueResult.edge * 1000),
+                  confidenceScore: Math.min(100, Math.round(valueResult.edge * 500 + 40)),
                   teamAStats,
                   teamBStats,
                 },
@@ -402,10 +680,19 @@ export class NightlyAnalysisCron {
                   probOwn: goalsResult.probOver05_1H,
                   probImplied: valueResult.probImplied,
                   edge: valueResult.edge,
-                  confidenceScore: Math.round(valueResult.edge * 1000),
+                  confidenceScore: Math.min(100, Math.round(valueResult.edge * 500 + 40)),
                   oddsAtDetection: over05Odds,
                   bestBookmaker: 'API-Football',
                   status: PickStatus.PENDING,
+                  stars: this.calculateStars(valueResult.edge),
+                  reasons: this.generateGoalsReasons(
+                    'over_05_1h',
+                    teamAStats,
+                    teamBStats,
+                    h2h,
+                    league,
+                    goalsResult
+                  ),
                   modelInputs: {
                     contextFlags: context.flags,
                   },
@@ -443,7 +730,7 @@ export class NightlyAnalysisCron {
                   odds: over15Odds,
                   probOwn: goalsResult.probOver15_1H,
                   edge: valueResult.edge,
-                  confidenceScore: Math.round(valueResult.edge * 1000),
+                  confidenceScore: Math.min(100, Math.round(valueResult.edge * 500 + 40)),
                   teamAStats,
                   teamBStats,
                 },
@@ -472,10 +759,19 @@ export class NightlyAnalysisCron {
                   probOwn: goalsResult.probOver15_1H,
                   probImplied: valueResult.probImplied,
                   edge: valueResult.edge,
-                  confidenceScore: Math.round(valueResult.edge * 1000),
+                  confidenceScore: Math.min(100, Math.round(valueResult.edge * 500 + 40)),
                   oddsAtDetection: over15Odds,
                   bestBookmaker: 'API-Football',
                   status: PickStatus.PENDING,
+                  stars: this.calculateStars(valueResult.edge),
+                  reasons: this.generateGoalsReasons(
+                    'over_15_1h',
+                    teamAStats,
+                    teamBStats,
+                    h2h,
+                    league,
+                    goalsResult
+                  ),
                   modelInputs: {
                     contextFlags: context.flags,
                     expectedGoals1H: goalsResult.expectedGoals1H,
@@ -521,7 +817,7 @@ export class NightlyAnalysisCron {
                     odds: valueResult.bestOdds,
                     probOwn: valueResult.probOwn,
                     edge: valueResult.edge,
-                    confidenceScore: Math.round(valueResult.edge * 1000),
+                    confidenceScore: Math.min(100, Math.round(valueResult.edge * 500 + 40)),
                     teamAStats,
                     teamBStats,
                   },
@@ -553,10 +849,19 @@ export class NightlyAnalysisCron {
                     probOwn: valueResult.probOwn,
                     probImplied: valueResult.probImplied,
                     edge: valueResult.edge,
-                    confidenceScore: Math.round(valueResult.edge * 1000),
+                    confidenceScore: Math.min(100, Math.round(valueResult.edge * 500 + 40)),
                     oddsAtDetection: valueResult.bestOdds,
                     bestBookmaker: 'API-Football',
                     status: PickStatus.PENDING,
+                    stars: this.calculateStars(valueResult.edge),
+                    reasons: this.generateCornersReasons(
+                      `corners_${line}`,
+                      teamAStats,
+                      teamBStats,
+                      h2h,
+                      league,
+                      cornersResult
+                    ),
                     modelInputs: {
                       contextFlags: context.flags,
                       cornersExpected: cornersResult.cornersExpected,
@@ -600,7 +905,7 @@ export class NightlyAnalysisCron {
                     odds: bestOdds,
                     probOwn: bestProb,
                     edge: bestEdge,
-                    confidenceScore: Math.round(bestEdge * 1000),
+                    confidenceScore: Math.min(100, Math.round(bestEdge * 500 + 40)),
                     teamAStats,
                     teamBStats,
                   },
@@ -635,10 +940,19 @@ export class NightlyAnalysisCron {
                         ? probImpliedOver
                         : probImpliedUnder,
                     edge: bestEdge,
-                    confidenceScore: Math.round(bestEdge * 1000),
+                    confidenceScore: Math.min(100, Math.round(bestEdge * 500 + 40)),
                     oddsAtDetection: bestOdds,
                     bestBookmaker: 'API-Football',
                     status: PickStatus.PENDING,
+                    stars: this.calculateStars(bestEdge),
+                    reasons: this.generateCornersReasons(
+                      'corners_1h_4.5',
+                      teamAStats,
+                      teamBStats,
+                      h2h,
+                      league,
+                      cornersResult
+                    ),
                     modelInputs: {
                       contextFlags: context.flags,
                       cornersExpected1H: cornersResult.cornersExpected1H,
@@ -674,7 +988,7 @@ export class NightlyAnalysisCron {
                   odds: handicapValue.bestOdds,
                   probOwn: handicapValue.probOwn,
                   edge: handicapValue.edge,
-                  confidenceScore: Math.round(handicapValue.edge * 1000),
+                  confidenceScore: Math.min(100, Math.round(handicapValue.edge * 500 + 40)),
                   teamAStats,
                   teamBStats,
                 },
@@ -706,10 +1020,19 @@ export class NightlyAnalysisCron {
                   probOwn: handicapValue.probOwn,
                   probImplied: handicapValue.probImplied,
                   edge: handicapValue.edge,
-                  confidenceScore: Math.round(handicapValue.edge * 1000),
+                  confidenceScore: Math.min(100, Math.round(handicapValue.edge * 500 + 40)),
                   oddsAtDetection: handicapValue.bestOdds,
                   bestBookmaker: 'API-Football',
                   status: PickStatus.PENDING,
+                  stars: this.calculateStars(handicapValue.edge),
+                  reasons: this.generateCornersReasons(
+                    'corners_handicap',
+                    teamAStats,
+                    teamBStats,
+                    h2h,
+                    league,
+                    cornersResult
+                  ),
                   modelInputs: {
                     contextFlags: context.flags,
                     cornersExpected: cornersResult.cornersExpected,
@@ -729,18 +1052,47 @@ export class NightlyAnalysisCron {
 
   /**
    * Find odds for a specific market from API-Football response
+   * UPDATED: Added logging for debugging
    */
   private findOddsForMarket(
     odds: any,
     marketName: string
   ): number {
-    if (!odds?.bookmakers) return 0
+    if (!odds?.bookmakers) {
+      this.logger.debug(`No bookmakers found in odds response`)
+      return 0
+    }
 
     // Determine which line we're looking for
     const isOver05 = marketName === 'over_05_1h'
     const isOver15 = marketName === 'over_15_1h'
     const targetLine = isOver05 ? '0.5' : isOver15 ? '1.5' : '0.5'
 
+    // First, try exact match on "Goals Over/Under First Half" market
+    for (const bookmaker of odds.bookmakers) {
+      for (const market of bookmaker.markets) {
+        const marketNameLower = market.marketName.toLowerCase()
+
+        // Match "Goals Over/Under First Half" specifically
+        if (
+          (marketNameLower.includes('goals') && marketNameLower.includes('first half')) ||
+          (marketNameLower.includes('goals') && marketNameLower.includes('1st half')) ||
+          (marketNameLower === 'goals over/under first half')
+        ) {
+          for (const value of market.values) {
+            const valueName = String(value.name).toLowerCase()
+            if (valueName.includes('over') && valueName.includes(targetLine)) {
+              this.logger.debug(
+                `Found ${marketName}: "${market.marketName}" -> "${value.name}" @${value.odds}`
+              )
+              return value.odds
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: Try broader matching (original logic)
     for (const bookmaker of odds.bookmakers) {
       for (const market of bookmaker.markets) {
         if (
@@ -748,16 +1100,30 @@ export class NightlyAnalysisCron {
           market.marketName.toLowerCase().includes('half')
         ) {
           for (const value of market.values) {
-            if (
-              value.name.toLowerCase().includes('over') &&
-              value.name.includes(targetLine)
-            ) {
+            const valueName = String(value.name).toLowerCase()
+            if (valueName.includes('over') && valueName.includes(targetLine)) {
+              this.logger.debug(
+                `Found ${marketName} (fallback): "${market.marketName}" -> "${value.name}" @${value.odds}`
+              )
               return value.odds
             }
           }
         }
       }
     }
+
+    // Log available markets for debugging
+    const availableMarkets = odds.bookmakers
+      .flatMap((b: any) => b.markets || [])
+      .map((m: any) => m.marketName)
+      .filter((name: string, idx: number, arr: string[]) => arr.indexOf(name) === idx)
+      .filter((name: string) =>
+        name.toLowerCase().includes('goal') || name.toLowerCase().includes('half')
+      )
+
+    this.logger.warn(
+      `${marketName} NOT FOUND. Available goal/half markets: ${availableMarkets.join(', ')}`
+    )
 
     return 0
   }
@@ -923,21 +1289,32 @@ export class NightlyAnalysisCron {
 
   /**
    * Manual trigger for testing
+   * @param testDate Optional date override for testing (YYYY-MM-DD format)
    */
-  async triggerManualAnalysis(): Promise<{
+  async triggerManualAnalysis(testDate?: string): Promise<{
     picks: number
     combos: number
     leagues: number
   }> {
-    this.logger.log('Manual nightly analysis triggered')
-    await this.runNightlyAnalysis()
+    this.logger.log(`Manual nightly analysis triggered${testDate ? ` for date: ${testDate}` : ''}`)
 
-    const today = new Date().toISOString().split('T')[0]
+    // If testDate provided, temporarily override getTomorrowDateString
+    if (testDate) {
+      const originalMethod = this.getTomorrowDateString.bind(this)
+      this.getTomorrowDateString = () => testDate
+      await this.runNightlyAnalysis('Manual')
+      this.getTomorrowDateString = originalMethod
+    } else {
+      await this.runNightlyAnalysis('Manual')
+    }
+
+    // Count picks for the specific target date only
+    const targetDate = testDate || this.getTomorrowDateString()
     const picks = await this.bettingPickModel.countDocuments({
-      date: { $gte: new Date(today) },
+      date: new Date(targetDate),
     })
     const combos = await this.bettingComboModel.countDocuments({
-      createdAt: { $gte: new Date(today) },
+      date: new Date(targetDate),
     })
     const leagues = await this.bettingLeagueModel.countDocuments({
       isActive: true,

@@ -1048,84 +1048,155 @@ const LEAGUES_SEED_DATA = [
   },
 ]
 
-async function seedBettingLeagues() {
+async function seedBettingLeagues(db: any) {
+  const collection = db.collection('betting_leagues')
+
+  console.log(`\n⚽ Seeding ${LEAGUES_SEED_DATA.length} betting leagues...`)
+
+  let inserted = 0
+  let updated = 0
+
+  for (const league of LEAGUES_SEED_DATA) {
+    const result = await collection.updateOne(
+      { apiFootballId: league.apiFootballId },
+      {
+        $set: {
+          ...league,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          createdAt: new Date(),
+        },
+      },
+      { upsert: true },
+    )
+
+    if (result.upsertedCount > 0) {
+      inserted++
+      console.log(`  ✓ Inserted: ${league.name} (${league.country})`)
+    } else if (result.modifiedCount > 0) {
+      updated++
+      console.log(`  ↻ Updated: ${league.name} (${league.country})`)
+    } else {
+      console.log(`  - Unchanged: ${league.name} (${league.country})`)
+    }
+  }
+
+  // Create indexes
+  console.log('\nCreating indexes...')
+  await collection.createIndex({ apiFootballId: 1 }, { unique: true })
+  await collection.createIndex({ isActive: 1, tier: 1 })
+  await collection.createIndex({ country: 1 })
+  await collection.createIndex(
+    { oddsApiSportKey: 1 },
+    { sparse: true },
+  )
+
+  console.log('\n✅ Leagues seed completed!')
+  console.log(`   Inserted: ${inserted}`)
+  console.log(`   Updated: ${updated}`)
+  console.log(`   Total leagues: ${LEAGUES_SEED_DATA.length}`)
+
+  // Summary by tier
+  const tierCounts = LEAGUES_SEED_DATA.reduce(
+    (acc, l) => {
+      acc[l.tier] = (acc[l.tier] || 0) + 1
+      return acc
+    },
+    {} as Record<number, number>,
+  )
+  console.log('\n   By tier:')
+  Object.entries(tierCounts)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .forEach(([tier, count]) => {
+      console.log(`     Tier ${tier}: ${count} leagues`)
+    })
+
+  // Active vs inactive
+  const activeCount = LEAGUES_SEED_DATA.filter((l) => l.isActive).length
+  const inactiveCount = LEAGUES_SEED_DATA.filter((l) => !l.isActive).length
+  console.log(`\n   Active: ${activeCount} | Inactive (summer): ${inactiveCount}`)
+}
+
+async function seedBettingSettings(db: any) {
+  console.log('\n📊 Checking BettingSettings...')
+  const settingsCollection = db.collection('betting_settings')
+
+  const existing = await settingsCollection.findOne({})
+  if (existing) {
+    console.log('  ✓ BettingSettings already exists')
+    console.log(`    - Bankroll: $${existing.bankroll}`)
+    console.log(`    - Active: ${existing.isActive}`)
+    return
+  }
+
+  const defaultSettings = {
+    adminId: 'system',
+    bankroll: 100,
+    isActive: true,
+    telegramAlertsOn: true,
+    thresholds: {
+      minEdge: 0.05,
+      minComboEV: 0.05,
+      minScore: 40,
+      minGamesPlayed: 8,
+    },
+    stakes: {
+      kellyFraction: 0.2,
+      maxStakeIndividualPct: 0.03,
+      maxStakeComboPct: 0.02,
+      maxDailyExposurePct: 0.15,
+      maxPicksPerDay: 5,
+      maxCombosPerDay: 3,
+    },
+    antiTilt: {
+      stopLossDailyPct: 0.1,
+      maxConsecutiveLosses: 7,
+    },
+    cronSchedule: {
+      nightlyAnalysis: '0 21 * * 5',
+      preMatchCheck: '30 6 * * 6',
+      resultCollection: '0 15 * * 6',
+      leagueSync: '0 6 * * 1',
+      statsUpdater: '30 8 * * 1',
+    },
+    activeLeagues: [],
+    currentStreak: 0,
+    maxWinStreak: 0,
+    maxLoseStreak: 0,
+    consecutiveLosses: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
+  await settingsCollection.insertOne(defaultSettings)
+  console.log('  ✓ Created default BettingSettings')
+  console.log(`    - Bankroll: $${defaultSettings.bankroll}`)
+  console.log(`    - Min Edge: ${defaultSettings.thresholds.minEdge * 100}%`)
+  console.log(`    - Max Stake: ${defaultSettings.stakes.maxStakeIndividualPct * 100}%`)
+}
+
+async function main() {
   const mongoUri =
     process.env.MONGODB_URI || 'mongodb://localhost:27017/futbolify'
   const client = new MongoClient(mongoUri)
 
   try {
+    console.log('🚀 Betting System Seed Script')
+    console.log('━'.repeat(40))
     console.log('Connecting to MongoDB...')
     await client.connect()
     const db = client.db()
-    const collection = db.collection('betting_leagues')
 
-    console.log(`Seeding ${LEAGUES_SEED_DATA.length} betting leagues...`)
+    // Seed leagues
+    await seedBettingLeagues(db)
 
-    let inserted = 0
-    let updated = 0
+    // Seed settings
+    await seedBettingSettings(db)
 
-    for (const league of LEAGUES_SEED_DATA) {
-      const result = await collection.updateOne(
-        { apiFootballId: league.apiFootballId },
-        {
-          $set: {
-            ...league,
-            updatedAt: new Date(),
-          },
-          $setOnInsert: {
-            createdAt: new Date(),
-          },
-        },
-        { upsert: true },
-      )
-
-      if (result.upsertedCount > 0) {
-        inserted++
-        console.log(`  ✓ Inserted: ${league.name} (${league.country})`)
-      } else if (result.modifiedCount > 0) {
-        updated++
-        console.log(`  ↻ Updated: ${league.name} (${league.country})`)
-      } else {
-        console.log(`  - Unchanged: ${league.name} (${league.country})`)
-      }
-    }
-
-    // Create indexes
-    console.log('\nCreating indexes...')
-    await collection.createIndex({ apiFootballId: 1 }, { unique: true })
-    await collection.createIndex({ isActive: 1, tier: 1 })
-    await collection.createIndex({ country: 1 })
-    await collection.createIndex(
-      { oddsApiSportKey: 1 },
-      { sparse: true },
-    )
-
-    console.log('\n✅ Seed completed!')
-    console.log(`   Inserted: ${inserted}`)
-    console.log(`   Updated: ${updated}`)
-    console.log(`   Total leagues: ${LEAGUES_SEED_DATA.length}`)
-
-    // Summary by tier
-    const tierCounts = LEAGUES_SEED_DATA.reduce(
-      (acc, l) => {
-        acc[l.tier] = (acc[l.tier] || 0) + 1
-        return acc
-      },
-      {} as Record<number, number>,
-    )
-    console.log('\n   By tier:')
-    Object.entries(tierCounts)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .forEach(([tier, count]) => {
-        console.log(`     Tier ${tier}: ${count} leagues`)
-      })
-
-    // Active vs inactive
-    const activeCount = LEAGUES_SEED_DATA.filter((l) => l.isActive).length
-    const inactiveCount = LEAGUES_SEED_DATA.filter((l) => !l.isActive).length
-    console.log(`\n   Active: ${activeCount} | Inactive (summer): ${inactiveCount}`)
+    console.log('\n🎉 All done!')
   } catch (error) {
-    console.error('Error seeding leagues:', error)
+    console.error('Error:', error)
     process.exit(1)
   } finally {
     await client.close()
@@ -1133,4 +1204,4 @@ async function seedBettingLeagues() {
   }
 }
 
-seedBettingLeagues()
+main()

@@ -14,12 +14,14 @@ function formatConfidenceBar(score: number): string {
 
 /**
  * Format date for display (Spanish format)
+ * Uses UTC to avoid timezone issues when date was created from ISO string
  */
 function formatDate(date: Date): string {
   return date.toLocaleDateString('es-ES', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
+    timeZone: 'UTC',
   }).toUpperCase()
 }
 
@@ -126,21 +128,25 @@ export class BettingTelegramFormatters {
       message += '\u2501\u2501\u2501 PICKS INDIVIDUALES \u2501\u2501\u2501\n\n'
 
       picks.forEach((pick, index) => {
-        const prob = (pick.probOwn * 100).toFixed(0)
-        const edge = (pick.edge * 100).toFixed(1)
         const odds = (pick.oddsAtDetection || 0).toFixed(2)
         const stake = (pick.stake || 0).toFixed(2)
         const kickoffTime = formatTime(pick.kickoff)
-        const windowLabel = formatTimeWindow(pick.timeWindow)
+        const stars = '\u2b50'.repeat(pick.stars || 3)
+        const reasons = pick.reasons || []
 
-        message += `${index + 1}\ufe0f\u20e3 ${pick.teamHome.name} vs ${pick.teamAway.name} \u2014 ${pick.league.name}\n`
-        message += `   ${formatMarket(pick.market)}\n`
-        message += `   Prob: ${prob}% | Cuota: @${odds} | Edge: ${edge}%\n`
-        message += `   Confianza: ${pick.confidenceScore}/100\n`
-        message += `   \u23f0 ${kickoffTime} | Stake sugerido: $${stake}\n`
-        if (windowLabel) {
-          message += `   \ud83c\udff7\ufe0f ${windowLabel}\n`
+        message += `${index + 1}\ufe0f\u20e3 ${pick.teamHome.name} vs ${pick.teamAway.name}\n`
+        message += `   ${pick.league.name}\n`
+        message += `   \u26bd ${formatMarket(pick.market)} @${odds} ${stars}\n`
+
+        // Show reasons (human-readable)
+        if (reasons.length > 0) {
+          message += `   \ud83d\udca1 ${reasons[0]}\n`
+          if (reasons.length > 1) {
+            message += `   \ud83d\udca1 ${reasons[1]}\n`
+          }
         }
+
+        message += `   \u23f0 ${kickoffTime}\n`
         message += '\n'
       })
     }
@@ -159,7 +165,11 @@ export class BettingTelegramFormatters {
         message += `\ud83d\udd17 ${comboType}\n`
 
         combo.legs.forEach((leg: any, legIndex: number) => {
-          message += `   Pata ${legIndex + 1}: ${leg.homeTeam || 'TBD'} ${leg.market} @${(leg.odds || 0).toFixed(2)}\n`
+          const teamName = leg.homeTeam && leg.awayTeam
+            ? `${leg.homeTeam} vs ${leg.awayTeam}`
+            : 'TBD'
+          message += `   Pata ${legIndex + 1}: ${teamName}\n`
+          message += `      ${formatMarket(leg.market)} @${(leg.odds || 0).toFixed(2)}\n`
         })
 
         message += `   Cuota combinada: @${(combo.combinedOdds || 0).toFixed(2)}\n`

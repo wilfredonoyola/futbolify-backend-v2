@@ -282,6 +282,16 @@ export class BettingPick {
   @Field(() => ID, { nullable: true })
   comboId?: Types.ObjectId
 
+  // Human-readable reasons for the pick (shown in Telegram)
+  @Prop({ type: [String], default: [] })
+  @Field(() => [String])
+  reasons: string[]
+
+  // Star rating 1-5 based on edge and confidence
+  @Prop({ min: 1, max: 5, default: 3 })
+  @Field(() => Int)
+  stars: number
+
   @Field()
   createdAt: Date
 

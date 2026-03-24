@@ -39,20 +39,24 @@ export interface BestOddsResult {
 
 /**
  * Minimum edge thresholds
+ * UPDATED: Increased minimum to 5% for more conservative betting
  */
 const EDGE_THRESHOLDS = {
-  ALTA: 0.10, // 10%+ edge
-  MEDIA: 0.05, // 5-10% edge
-  BAJA: 0.02, // 2-5% edge
+  ALTA: 0.12, // 12%+ edge - very strong
+  MEDIA: 0.08, // 8-12% edge - solid
+  BAJA: 0.05, // 5-8% edge - minimum acceptable
 }
 
 /**
  * Minimum probability thresholds
+ * UPDATED:
+ * - Reduced Over 0.5 1H from 78% to 65% (allows finding value in this market)
+ * - Increased Over 1.5 1H from 40% to 55% (avoids "coin flip" bets)
  */
 const PROB_THRESHOLDS = {
-  OVER_05_1H: 0.78,
-  OVER_15_1H: 0.40,
-  CORNERS: 0.52,
+  OVER_05_1H: 0.65, // Reduced: 65% min probability (was 78%)
+  OVER_15_1H: 0.55, // Increased: 55% min probability (was 40%)
+  CORNERS: 0.55, // Slightly increased from 52%
 }
 
 @Injectable()

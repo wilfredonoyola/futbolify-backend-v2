@@ -56,6 +56,8 @@ import {
   BettingLeaguesResolver,
 } from './resolvers'
 
+import { BettingTestController } from './betting-test.controller'
+
 @Module({
   imports: [
     ScheduleModule.forRoot(),
@@ -69,6 +71,7 @@ import {
     // Phase 6: Telegram Integration
     BettingTelegramModule,
   ],
+  controllers: [BettingTestController],
   providers: [
     // Phase 2: API Wrappers
     ApiFootballBettingService,

@@ -81,7 +81,10 @@ export class StatsUpdaterCron {
     league: BettingLeagueDocument
   ): Promise<void> {
     // Get league statistics from API-Football
-    const leagueStats = await this.fetchLeagueStats(league.apiFootballId)
+    const leagueStats = await this.fetchLeagueStats(
+      league.apiFootballId,
+      league.season || '2025'
+    )
 
     if (!leagueStats) {
       this.logger.warn(`No stats available for ${league.name}`)
@@ -114,7 +117,10 @@ export class StatsUpdaterCron {
   /**
    * Fetch league statistics from API-Football
    */
-  private async fetchLeagueStats(leagueId: number): Promise<{
+  private async fetchLeagueStats(
+    leagueId: number,
+    season: string = '2025'
+  ): Promise<{
     avgGoals1H: number
     over05_1H_pct: number
     over15_1H_pct: number
@@ -127,7 +133,8 @@ export class StatsUpdaterCron {
       // Get recent fixtures with statistics
       const fixtures = await this.apiFootballService.getFixtures(
         this.getPastDateString(30), // Last 30 days
-        leagueId
+        leagueId,
+        season
       )
 
       if (!fixtures || fixtures.length < 5) {
