@@ -66,6 +66,10 @@ export class BettingPicksResolver {
       query.confidenceScore = { $gte: filters.minConfidence }
     }
 
+    if (filters?.betPlaced !== undefined) {
+      query.betPlaced = filters.betPlaced
+    }
+
     const limit = filters?.limit || 50
     const offset = filters?.offset || 0
 
@@ -184,6 +188,89 @@ export class BettingPicksResolver {
     return this.mapPickToOutput(updatedPick)
   }
 
+  @Mutation(() => BettingPickOutput, {
+    name: 'placeBet',
+    description: 'Mark a pick as actually bet (user placed the bet)',
+  })
+  async placeBet(
+    @Args('pickId', { type: () => ID }) pickId: string
+  ): Promise<BettingPickOutput> {
+    const pick = await this.bettingPickModel.findById(pickId).exec()
+    if (!pick) {
+      throw new Error('Pick not found')
+    }
+
+    // Get stake from settings for default bet amount
+    const settings = await this.bettingSettingsModel.findOne().exec()
+    const defaultBetAmount = pick.stake || 0
+
+    const updatedPick = await this.bettingPickModel
+      .findByIdAndUpdate(
+        pickId,
+        {
+          $set: {
+            betPlaced: true,
+            betPlacedAt: new Date(),
+            betAmount: defaultBetAmount,
+            updatedAt: new Date(),
+          },
+        },
+        { new: true }
+      )
+      .exec()
+
+    return this.mapPickToOutput(updatedPick!)
+  }
+
+  @Mutation(() => BettingPickOutput, {
+    name: 'unplaceBet',
+    description: 'Unmark a pick as bet (toggle off)',
+  })
+  async unplaceBet(
+    @Args('pickId', { type: () => ID }) pickId: string
+  ): Promise<BettingPickOutput> {
+    const pick = await this.bettingPickModel.findById(pickId).exec()
+    if (!pick) {
+      throw new Error('Pick not found')
+    }
+
+    const updatedPick = await this.bettingPickModel
+      .findByIdAndUpdate(
+        pickId,
+        {
+          $set: {
+            betPlaced: false,
+            betPlacedAt: null,
+            betAmount: null,
+            updatedAt: new Date(),
+          },
+        },
+        { new: true }
+      )
+      .exec()
+
+    return this.mapPickToOutput(updatedPick!)
+  }
+
+  @Mutation(() => BettingPickOutput, {
+    name: 'toggleBetPlaced',
+    description: 'Toggle betPlaced status on a pick',
+  })
+  async toggleBetPlaced(
+    @Args('pickId', { type: () => ID }) pickId: string
+  ): Promise<BettingPickOutput> {
+    const pick = await this.bettingPickModel.findById(pickId).exec()
+    if (!pick) {
+      throw new Error('Pick not found')
+    }
+
+    if (pick.betPlaced) {
+      return this.unplaceBet(pickId)
+    } else {
+      return this.placeBet(pickId)
+    }
+  }
+
   private mapPickToOutput(pick: BettingPickDocument): BettingPickOutput {
     return {
       id: pick._id.toString(),
@@ -202,6 +289,8 @@ export class BettingPicksResolver {
       edge: pick.edge,
       confidenceScore: pick.confidenceScore,
       modelInputs: pick.modelInputs as ModelInputs,
+      reasons: pick.reasons,
+      stars: pick.stars,
       oddsAtDetection: pick.oddsAtDetection,
       oddsAtBet: pick.oddsAtBet,
       oddsAtClose: pick.oddsAtClose,
@@ -212,6 +301,9 @@ export class BettingPicksResolver {
       profit: pick.profit,
       clv: pick.clv,
       matchResult: pick.matchResult as MatchResult,
+      betPlaced: pick.betPlaced || false,
+      betPlacedAt: pick.betPlacedAt,
+      betAmount: pick.betAmount,
       createdAt: pick.createdAt,
       updatedAt: pick.updatedAt,
     }

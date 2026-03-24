@@ -2628,6 +2628,15 @@ type BettingPickOutput {
   profit: Float
   clv: Float
   matchResult: MatchResult
+
+  """Whether the user actually placed this bet"""
+  betPlaced: Boolean!
+
+  """When the bet was marked as placed"""
+  betPlacedAt: DateTime
+
+  """Amount actually wagered by user"""
+  betAmount: Float
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -2782,6 +2791,48 @@ type BettingAnalytics {
   totalProfit: Float!
   bestDay: Float!
   worstDay: Float!
+}
+
+"""Statistics for system or personal betting performance"""
+type CredibilityStats {
+  """Win rate as decimal (0.67 = 67%)"""
+  winRate: Float!
+
+  """Return on investment as decimal"""
+  roi: Float!
+
+  """Total profit/loss in currency"""
+  totalProfit: Float!
+
+  """Total number of picks"""
+  totalPicks: Int!
+
+  """Number of winning picks"""
+  wins: Int!
+
+  """Number of losing picks"""
+  losses: Int!
+
+  """Total amount staked"""
+  totalStaked: Float!
+}
+
+"""Dashboard comparing system picks vs personally bet picks"""
+type CredibilityDashboard {
+  """Stats for ALL system-generated picks"""
+  systemStats: CredibilityStats!
+
+  """Stats for only picks where betPlaced=true"""
+  personalStats: CredibilityStats!
+
+  """Current personal bankroll"""
+  personalBankroll: Float!
+
+  """Personal bankroll change today"""
+  todayProfit: Float!
+
+  """Current winning streak for personal bets"""
+  personalStreak: Int!
 }
 
 type LeaguePerformance {
@@ -3160,6 +3211,9 @@ type Query {
   bettingPerformanceByComboType: [ComboTypePerformance!]!
   bettingBankrollHistory(days: Int = 30): [BankrollDataPoint!]!
   bettingCLVHistory: [CLVDataPoint!]!
+
+  """Compare system picks performance vs personally placed bets"""
+  bettingCredibilityDashboard: CredibilityDashboard!
   bettingSettings: BettingSettingsOutput!
   bettingLeagues(activeOnly: Boolean = false, tier: Int): [BettingLeagueOutput!]!
   bettingLeague(apiFootballId: Int!): BettingLeagueOutput
@@ -3248,6 +3302,9 @@ input PickFiltersInput {
   market: MarketType
   status: PickStatus
   minConfidence: Int
+
+  """Filter by betPlaced status (true = only bets I placed)"""
+  betPlaced: Boolean
   limit: Int
   offset: Int
 }
@@ -3441,6 +3498,15 @@ type Mutation {
   adminUpdateReportStatus(reportId: String!, status: ReportStatus!, resolution: String): ReportOutput!
   updatePickResult(id: ID!, result: PickResult!): BettingPickOutput!
   cancelPick(id: ID!, reason: String): BettingPickOutput!
+
+  """Mark a pick as actually bet (user placed the bet)"""
+  placeBet(pickId: ID!): BettingPickOutput!
+
+  """Unmark a pick as bet (toggle off)"""
+  unplaceBet(pickId: ID!): BettingPickOutput!
+
+  """Toggle betPlaced status on a pick"""
+  toggleBetPlaced(pickId: ID!): BettingPickOutput!
   updateComboResult(id: ID!, result: ComboResult!): BettingComboOutput!
   updateBettingSettings(input: BettingSettingsInput!): BettingSettingsOutput!
   updateBankroll(amount: Float!): BettingSettingsOutput!

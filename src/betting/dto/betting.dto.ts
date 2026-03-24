@@ -263,6 +263,16 @@ export class BettingPickOutput {
   @Field(() => MatchResult, { nullable: true })
   matchResult?: MatchResult
 
+  // Bet tracking fields
+  @Field({ description: 'Whether the user actually placed this bet' })
+  betPlaced: boolean
+
+  @Field({ nullable: true, description: 'When the bet was marked as placed' })
+  betPlacedAt?: Date
+
+  @Field(() => Float, { nullable: true, description: 'Amount actually wagered by user' })
+  betAmount?: number
+
   @Field()
   createdAt: Date
 
@@ -475,6 +485,50 @@ export class BettingAnalytics {
 
   @Field(() => Float)
   worstDay: number
+}
+
+// ============ CREDIBILITY DASHBOARD TYPES ============
+
+@ObjectType({ description: 'Statistics for system or personal betting performance' })
+export class CredibilityStats {
+  @Field(() => Float, { description: 'Win rate as decimal (0.67 = 67%)' })
+  winRate: number
+
+  @Field(() => Float, { description: 'Return on investment as decimal' })
+  roi: number
+
+  @Field(() => Float, { description: 'Total profit/loss in currency' })
+  totalProfit: number
+
+  @Field(() => Int, { description: 'Total number of picks' })
+  totalPicks: number
+
+  @Field(() => Int, { description: 'Number of winning picks' })
+  wins: number
+
+  @Field(() => Int, { description: 'Number of losing picks' })
+  losses: number
+
+  @Field(() => Float, { description: 'Total amount staked' })
+  totalStaked: number
+}
+
+@ObjectType({ description: 'Dashboard comparing system picks vs personally bet picks' })
+export class CredibilityDashboard {
+  @Field(() => CredibilityStats, { description: 'Stats for ALL system-generated picks' })
+  systemStats: CredibilityStats
+
+  @Field(() => CredibilityStats, { description: 'Stats for only picks where betPlaced=true' })
+  personalStats: CredibilityStats
+
+  @Field(() => Float, { description: 'Current personal bankroll' })
+  personalBankroll: number
+
+  @Field(() => Float, { description: 'Personal bankroll change today' })
+  todayProfit: number
+
+  @Field(() => Int, { description: 'Current winning streak for personal bets' })
+  personalStreak: number
 }
 
 @ObjectType()
@@ -715,6 +769,9 @@ export class PickFiltersInput {
 
   @Field(() => Int, { nullable: true })
   minConfidence?: number
+
+  @Field({ nullable: true, description: 'Filter by betPlaced status (true = only bets I placed)' })
+  betPlaced?: boolean
 
   @Field(() => Int, { nullable: true })
   limit?: number

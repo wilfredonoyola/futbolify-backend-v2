@@ -369,6 +369,19 @@ export class BettingPick {
   @Field(() => ID, { nullable: true })
   comboId?: Types.ObjectId
 
+  // Bet tracking - did the user actually place this bet?
+  @Prop({ default: false })
+  @Field()
+  betPlaced: boolean
+
+  @Prop()
+  @Field({ nullable: true })
+  betPlacedAt?: Date
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  betAmount?: number
+
   // Human-readable reasons for the pick (shown in Telegram)
   @Prop({ type: [String], default: [] })
   @Field(() => [String])
@@ -396,3 +409,4 @@ BettingPickSchema.index({ market: 1 })
 BettingPickSchema.index({ kickoff: 1 })
 BettingPickSchema.index({ createdAt: -1 })
 BettingPickSchema.index({ inCombo: 1, comboId: 1 })
+BettingPickSchema.index({ betPlaced: 1, status: 1 })

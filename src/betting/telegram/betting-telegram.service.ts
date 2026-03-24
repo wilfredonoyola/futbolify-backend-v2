@@ -351,7 +351,7 @@ export class BettingTelegramService implements OnModuleInit {
   }
 
   /**
-   * Send result registration buttons for a pick
+   * Send result registration buttons for a pick (legacy - for manual result entry)
    */
   async sendResultButtons(pick: BettingPickDocument): Promise<void> {
     const adminChatId = this.guard.getAdminChatId()
@@ -382,6 +382,107 @@ export class BettingTelegramService implements OnModuleInit {
       })
     } catch (error) {
       this.logger.error(`Failed to send result buttons: ${error}`)
+    }
+  }
+
+  /**
+   * Send pick alert with APOSTÉ button for tracking real bets
+   */
+  async sendPickWithBetButton(pick: BettingPickDocument): Promise<void> {
+    const adminChatId = this.guard.getAdminChatId()
+    if (!adminChatId || !this.bot) {
+      return
+    }
+
+    try {
+      const settings = await this.bettingSettingsModel.findOne().exec()
+      if (!settings?.telegramAlertsOn) {
+        return
+      }
+
+      const odds = (pick.oddsAtBet || pick.oddsAtDetection || 0).toFixed(2)
+      const stake = pick.stake ? `$${pick.stake.toFixed(2)}` : ''
+      const starsEmoji = '\u2b50'.repeat(pick.stars || 3)
+      const reasons = pick.reasons?.length > 0 ? pick.reasons.join('\n• ') : ''
+
+      let message = `\ud83d\udea8 *NUEVO PICK*\n`
+      message += '\u2501'.repeat(20) + '\n\n'
+      message += `\u26bd *${pick.teamHome.name}* vs *${pick.teamAway.name}*\n`
+      message += `\ud83c\udfc6 ${pick.league.name}\n`
+      message += `\ud83d\udcca ${pick.market} ${pick.direction} ${pick.line}\n`
+      message += `\ud83d\udcb0 @${odds} ${stake ? `| Stake: ${stake}` : ''}\n`
+      message += `${starsEmoji} Confianza: ${pick.confidenceScore}%\n`
+      if (reasons) {
+        message += `\n\ud83d\udcdd *Razones:*\n• ${reasons}\n`
+      }
+      message += `\n\u23f0 Kickoff: ${pick.kickoff.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`
+
+      const buttonText = pick.betPlaced ? '\u2705 APOSTADO' : '\ud83d\udcb0 APOSTE'
+      const buttons = Markup.inlineKeyboard([
+        [Markup.button.callback(buttonText, `bet_placed:${pick._id}`)],
+      ])
+
+      await this.bot.telegram.sendMessage(adminChatId, message, {
+        parse_mode: 'Markdown',
+        ...buttons,
+      })
+
+      this.logger.log(`Pick alert with bet button sent: ${pick.teamHome.name} vs ${pick.teamAway.name}`)
+    } catch (error) {
+      this.logger.error(`Failed to send pick with bet button: ${error}`)
+    }
+  }
+
+  /**
+   * Send personal result notification (when user actually bet)
+   */
+  async sendPersonalResultNotification(
+    pick: BettingPickDocument,
+    profit: number
+  ): Promise<void> {
+    const adminChatId = this.guard.getAdminChatId()
+    if (!adminChatId || !this.bot) {
+      return
+    }
+
+    try {
+      const settings = await this.bettingSettingsModel.findOne().exec()
+      if (!settings?.telegramAlertsOn) {
+        return
+      }
+
+      const isWin = profit > 0
+      const emoji = isWin ? '\u2705' : '\u274c'
+      const resultText = isWin ? 'GANASTE' : 'Perdiste'
+      const profitText = profit >= 0 ? `+$${profit.toFixed(2)}` : `-$${Math.abs(profit).toFixed(2)}`
+
+      let message = `${emoji} *${resultText}* ${profitText}\n`
+      message += '\u2501'.repeat(20) + '\n\n'
+      message += `\u26bd ${pick.teamHome.name} vs ${pick.teamAway.name}\n`
+      message += `\ud83d\udcca ${pick.market} ${pick.direction} ${pick.line}\n`
+
+      if (pick.matchResult) {
+        message += `\n\ud83d\udcca *Resultado:*\n`
+        if (pick.matchResult.scoreFT) {
+          message += `• FT: ${pick.matchResult.scoreFT}\n`
+        }
+        if (pick.matchResult.scoreHT) {
+          message += `• HT: ${pick.matchResult.scoreHT}\n`
+        }
+        if (pick.matchResult.cornersTotal !== undefined) {
+          message += `• Corners: ${pick.matchResult.cornersTotal}\n`
+        }
+      }
+
+      message += `\n\ud83d\udcb0 *Bankroll:* $${settings.bankroll.toFixed(2)}`
+
+      await this.bot.telegram.sendMessage(adminChatId, message, {
+        parse_mode: 'Markdown',
+      })
+
+      this.logger.log(`Personal result notification sent: ${pick.teamHome.name} vs ${pick.teamAway.name} - ${resultText}`)
+    } catch (error) {
+      this.logger.error(`Failed to send personal result notification: ${error}`)
     }
   }
 

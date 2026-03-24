@@ -26,6 +26,8 @@ import {
   CLVDataPoint,
   BettingPickOutput,
   BettingComboOutput,
+  CredibilityDashboard,
+  CredibilityStats,
 } from '../dto/betting.dto'
 import { PickStatus, ComboStatus, ComboType, MarketType, ComboScoreLevel } from '../enums/betting.enums'
 
@@ -430,6 +432,94 @@ export class BettingAnalyticsResolver {
     }))
   }
 
+  @Query(() => CredibilityDashboard, {
+    name: 'bettingCredibilityDashboard',
+    description: 'Compare system picks performance vs personally placed bets',
+  })
+  async getCredibilityDashboard(): Promise<CredibilityDashboard> {
+    // Get settings for bankroll
+    const settings = await this.bettingSettingsModel.findOne().exec()
+    const personalBankroll = settings?.bankroll || 100
+
+    // Get all settled picks
+    const allPicks = await this.bettingPickModel
+      .find({ status: { $in: [PickStatus.WON, PickStatus.LOST] } })
+      .exec()
+
+    // Calculate system stats (ALL picks)
+    const systemStats = this.calculateStats(allPicks)
+
+    // Calculate personal stats (only betPlaced=true)
+    const personalPicks = allPicks.filter((p) => p.betPlaced === true)
+    const personalStats = this.calculateStats(personalPicks)
+
+    // Calculate today's personal profit
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    const todayPicks = await this.bettingPickModel
+      .find({
+        kickoff: { $gte: today, $lt: tomorrow },
+        status: { $in: [PickStatus.WON, PickStatus.LOST] },
+        betPlaced: true,
+      })
+      .exec()
+
+    const todayProfit = todayPicks.reduce((sum, p) => sum + (p.profit || 0), 0)
+
+    // Calculate personal streak (consecutive wins on betPlaced picks)
+    const recentPersonalPicks = await this.bettingPickModel
+      .find({
+        status: { $in: [PickStatus.WON, PickStatus.LOST] },
+        betPlaced: true,
+      })
+      .sort({ kickoff: -1 })
+      .limit(20)
+      .exec()
+
+    let personalStreak = 0
+    for (const pick of recentPersonalPicks) {
+      if (pick.status === PickStatus.WON) {
+        personalStreak++
+      } else {
+        break
+      }
+    }
+
+    return {
+      systemStats,
+      personalStats,
+      personalBankroll,
+      todayProfit,
+      personalStreak,
+    }
+  }
+
+  /**
+   * Calculate stats for a set of picks
+   */
+  private calculateStats(picks: BettingPickDocument[]): CredibilityStats {
+    const totalPicks = picks.length
+    const wins = picks.filter((p) => p.status === PickStatus.WON).length
+    const losses = picks.filter((p) => p.status === PickStatus.LOST).length
+    const totalStaked = picks.reduce((sum, p) => sum + (p.stake || 0), 0)
+    const totalProfit = picks.reduce((sum, p) => sum + (p.profit || 0), 0)
+    const winRate = totalPicks > 0 ? wins / totalPicks : 0
+    const roi = totalStaked > 0 ? totalProfit / totalStaked : 0
+
+    return {
+      winRate,
+      roi,
+      totalProfit,
+      totalPicks,
+      wins,
+      losses,
+      totalStaked,
+    }
+  }
+
   private getScoreLevel(score: number): ComboScoreLevel {
     if (score >= 80) return ComboScoreLevel.ELITE
     if (score >= 65) return ComboScoreLevel.FUERTE
@@ -456,6 +546,8 @@ export class BettingAnalyticsResolver {
       edge: pick.edge,
       confidenceScore: pick.confidenceScore,
       modelInputs: pick.modelInputs as any,
+      reasons: pick.reasons,
+      stars: pick.stars,
       oddsAtDetection: pick.oddsAtDetection,
       oddsAtBet: pick.oddsAtBet,
       oddsAtClose: pick.oddsAtClose,
@@ -466,6 +558,9 @@ export class BettingAnalyticsResolver {
       profit: pick.profit,
       clv: pick.clv,
       matchResult: pick.matchResult as any,
+      betPlaced: pick.betPlaced || false,
+      betPlacedAt: pick.betPlacedAt,
+      betAmount: pick.betAmount,
       createdAt: pick.createdAt,
       updatedAt: pick.updatedAt,
     }

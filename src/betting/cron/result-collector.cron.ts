@@ -78,7 +78,8 @@ export class ResultCollectorCron {
       let won = 0
       let lost = 0
       let voided = 0
-      let totalProfit = 0
+      let totalProfit = 0 // System total profit (all picks)
+      let personalProfit = 0 // Personal profit (only betPlaced=true)
 
       for (const pick of activePicks) {
         try {
@@ -93,6 +94,20 @@ export class ResultCollectorCron {
           } else if (result.status === PickStatus.VOID) {
             voided++
           }
+
+          // Track personal profit and send notification only for bets user actually placed
+          if (pick.betPlaced && result.status !== PickStatus.VOID) {
+            personalProfit += result.profit
+
+            // Get the updated pick with match result
+            const updatedPick = await this.bettingPickModel.findById(pick._id).exec()
+            if (updatedPick) {
+              await this.telegramService.sendPersonalResultNotification(
+                updatedPick,
+                result.profit
+              )
+            }
+          }
         } catch (error) {
           this.logger.error(`Failed to settle pick ${pick._id}: ${error}`)
         }
@@ -101,17 +116,21 @@ export class ResultCollectorCron {
       // Settle combos
       const comboResults = await this.settleCombos()
 
-      // Update bankroll
-      if (totalProfit !== 0) {
-        const newBankroll = settings.bankroll + totalProfit
+      // Update bankroll ONLY with personal profit (bets user actually placed)
+      if (personalProfit !== 0) {
+        const newBankroll = settings.bankroll + personalProfit
         await this.bettingSettingsModel.updateOne(
           { _id: settings._id },
           { $set: { bankroll: newBankroll } }
         )
         this.logger.log(
-          `Bankroll updated: $${settings.bankroll.toFixed(2)} → $${newBankroll.toFixed(2)}`
+          `Bankroll updated (personal bets only): $${settings.bankroll.toFixed(2)} → $${newBankroll.toFixed(2)}`
         )
       }
+
+      this.logger.log(
+        `System profit: $${totalProfit.toFixed(2)}, Personal profit: $${personalProfit.toFixed(2)}`
+      )
 
       // Send Telegram Alert 3: Daily Results
       const settledPicks = await this.bettingPickModel
@@ -132,7 +151,7 @@ export class ResultCollectorCron {
       const duration = Date.now() - startTime
       this.logger.log(
         `Result collection completed in ${duration}ms: ` +
-          `${won}W ${lost}L ${voided}V, profit: $${totalProfit.toFixed(2)}`
+          `${won}W ${lost}L ${voided}V, system profit: $${totalProfit.toFixed(2)}, personal profit: $${personalProfit.toFixed(2)}`
       )
     } catch (error) {
       this.logger.error(`Result collection failed: ${error}`)
@@ -338,7 +357,8 @@ export class ResultCollectorCron {
   async triggerManualCollection(): Promise<{
     picks: { won: number; lost: number; voided: number }
     combos: { won: number; lost: number; partial: number }
-    profit: number
+    systemProfit: number
+    personalProfit: number
   }> {
     this.logger.log('Manual result collection triggered')
 
@@ -347,7 +367,8 @@ export class ResultCollectorCron {
       return {
         picks: { won: 0, lost: 0, voided: 0 },
         combos: { won: 0, lost: 0, partial: 0 },
-        profit: 0,
+        systemProfit: 0,
+        personalProfit: 0,
       }
     }
 
@@ -366,22 +387,46 @@ export class ResultCollectorCron {
     let won = 0
     let lost = 0
     let voided = 0
-    let totalProfit = 0
+    let systemProfit = 0
+    let personalProfit = 0
 
     for (const pick of activePicks) {
       const result = await this.settlePick(pick, settings.bankroll)
       if (result.status === PickStatus.WON) won++
       else if (result.status === PickStatus.LOST) lost++
       else if (result.status === PickStatus.VOID) voided++
-      totalProfit += result.profit
+      systemProfit += result.profit
+
+      // Track personal profit and send notification only for bets user actually placed
+      if (pick.betPlaced && result.status !== PickStatus.VOID) {
+        personalProfit += result.profit
+
+        const updatedPick = await this.bettingPickModel.findById(pick._id).exec()
+        if (updatedPick) {
+          await this.telegramService.sendPersonalResultNotification(
+            updatedPick,
+            result.profit
+          )
+        }
+      }
     }
 
     const comboResults = await this.settleCombos()
 
+    // Update bankroll only with personal profit
+    if (personalProfit !== 0) {
+      const newBankroll = settings.bankroll + personalProfit
+      await this.bettingSettingsModel.updateOne(
+        { _id: settings._id },
+        { $set: { bankroll: newBankroll } }
+      )
+    }
+
     return {
       picks: { won, lost, voided },
       combos: comboResults,
-      profit: totalProfit,
+      systemProfit,
+      personalProfit,
     }
   }
 }

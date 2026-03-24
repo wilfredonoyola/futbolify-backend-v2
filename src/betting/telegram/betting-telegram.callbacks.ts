@@ -16,6 +16,7 @@ import { BettingTelegramGuard } from './betting-telegram.guards'
  * combo_result:{comboId}:{result} - For combo results (won/lost/partial)
  * bet_confirm:{pickId} - Confirm a pending pick as active
  * bet_cancel:{pickId} - Cancel a pending pick
+ * bet_placed:{pickId} - Toggle betPlaced status (user marked they bet)
  */
 @Injectable()
 export class BettingTelegramCallbacks {
@@ -35,7 +36,7 @@ export class BettingTelegramCallbacks {
    * Parse callback data
    */
   parseCallback(data: string): {
-    type: 'bet_result' | 'combo_result' | 'bet_confirm' | 'bet_cancel' | 'unknown'
+    type: 'bet_result' | 'combo_result' | 'bet_confirm' | 'bet_cancel' | 'bet_placed' | 'unknown'
     id: string
     value?: string
   } {
@@ -52,6 +53,9 @@ export class BettingTelegramCallbacks {
     }
     if (parts[0] === 'bet_cancel' && parts.length === 2) {
       return { type: 'bet_cancel', id: parts[1] }
+    }
+    if (parts[0] === 'bet_placed' && parts.length === 2) {
+      return { type: 'bet_placed', id: parts[1] }
     }
 
     return { type: 'unknown', id: '' }
@@ -87,6 +91,8 @@ export class BettingTelegramCallbacks {
         return this.handlePickConfirm(parsed.id, ctx)
       case 'bet_cancel':
         return this.handlePickCancel(parsed.id, ctx)
+      case 'bet_placed':
+        return this.handleBetPlacedToggle(parsed.id, ctx)
       default:
         return 'Accion no reconocida'
     }
@@ -328,6 +334,69 @@ export class BettingTelegramCallbacks {
     } catch (error) {
       this.logger.error(`Error cancelling pick: ${error}`)
       return 'Error al cancelar pick'
+    }
+  }
+
+  /**
+   * Handle bet placed toggle (user marks they placed a bet)
+   */
+  private async handleBetPlacedToggle(pickId: string, ctx: any): Promise<string> {
+    try {
+      const pick = await this.bettingPickModel.findById(pickId).exec()
+      if (!pick) {
+        return 'Pick no encontrado'
+      }
+
+      // Toggle the betPlaced status
+      const newBetPlaced = !pick.betPlaced
+      const updateData: Record<string, unknown> = {
+        betPlaced: newBetPlaced,
+      }
+
+      if (newBetPlaced) {
+        updateData.betPlacedAt = new Date()
+        updateData.betAmount = pick.stake || 0
+      } else {
+        updateData.betPlacedAt = null
+        updateData.betAmount = null
+      }
+
+      await this.bettingPickModel.updateOne(
+        { _id: pickId },
+        { $set: updateData }
+      )
+
+      // Update button text to show current state
+      const odds = (pick.oddsAtBet || pick.oddsAtDetection || 0).toFixed(2)
+      const stake = pick.stake ? `$${pick.stake.toFixed(2)}` : ''
+      const buttonText = newBetPlaced ? '\u2705 APOSTADO' : '\ud83d\udcb0 APOSTE'
+
+      try {
+        const { Markup } = await import('telegraf')
+        await ctx.editMessageText(
+          `\u26bd ${pick.teamHome.name} vs ${pick.teamAway.name}\n` +
+            `\ud83c\udfc6 ${pick.league.name}\n` +
+            `\ud83d\udcca ${pick.market} ${pick.direction} ${pick.line}\n` +
+            `\ud83d\udcb0 @${odds} ${stake}\n` +
+            `${newBetPlaced ? '\u2705 Marcado como APOSTADO' : '\u23f3 No apostado'}`,
+          {
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback(buttonText, `bet_placed:${pickId}`)],
+            ]),
+          }
+        )
+      } catch {
+        // Message might already be edited
+      }
+
+      this.logger.log(
+        `Pick ${pickId} betPlaced toggled to ${newBetPlaced}`
+      )
+
+      return newBetPlaced ? '\u2705 Marcado como apostado' : '\u23f3 Desmarcado'
+    } catch (error) {
+      this.logger.error(`Error toggling betPlaced: ${error}`)
+      return 'Error al cambiar estado'
     }
   }
 
