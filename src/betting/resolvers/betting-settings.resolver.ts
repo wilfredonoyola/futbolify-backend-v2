@@ -11,6 +11,8 @@ import {
   BettingSettingsDocument,
 } from '../schemas/betting-settings.schema'
 import { BettingLeague, BettingLeagueDocument } from '../schemas/betting-league.schema'
+import { BettingPick, BettingPickDocument } from '../schemas/betting-pick.schema'
+import { PickStatus } from '../enums/betting.enums'
 import {
   BettingSettingsOutput,
   BettingSettingsInput,
@@ -31,6 +33,8 @@ export class BettingSettingsResolver {
     private bettingSettingsModel: Model<BettingSettingsDocument>,
     @InjectModel(BettingLeague.name)
     private bettingLeagueModel: Model<BettingLeagueDocument>,
+    @InjectModel(BettingPick.name)
+    private bettingPickModel: Model<BettingPickDocument>,
     private nightlyAnalysisCron: NightlyAnalysisCron
   ) {}
 
@@ -206,6 +210,49 @@ export class BettingSettingsResolver {
       combosGenerated: result.combos,
       leagues: [],
     }
+  }
+
+  @Mutation(() => BettingSettingsOutput, {
+    name: 'recalculateBankroll',
+    description: 'Recalculate bankroll from initial amount plus all profits from betPlaced picks',
+  })
+  async recalculateBankroll(
+    @Args('initialBankroll', { type: () => Float, description: 'Your starting bankroll amount' })
+    initialBankroll: number
+  ): Promise<BettingSettingsOutput> {
+    // Get all resolved picks where user actually bet
+    const betPlacedPicks = await this.bettingPickModel
+      .find({
+        betPlaced: true,
+        status: { $in: [PickStatus.WON, PickStatus.LOST] },
+      })
+      .exec()
+
+    // Sum all profits
+    const totalProfit = betPlacedPicks.reduce((sum, pick) => sum + (pick.profit || 0), 0)
+
+    // Calculate new bankroll
+    const newBankroll = initialBankroll + totalProfit
+
+    // Update settings
+    const settings = await this.bettingSettingsModel
+      .findOneAndUpdate(
+        {},
+        { $set: { bankroll: newBankroll, updatedAt: new Date() } },
+        { new: true }
+      )
+      .exec()
+
+    if (!settings) {
+      throw new Error('Settings not found')
+    }
+
+    const activeLeagues = await this.bettingLeagueModel
+      .find({ isActive: true })
+      .sort({ tier: 1, name: 1 })
+      .exec()
+
+    return this.mapSettingsToOutput(settings, activeLeagues)
   }
 
   private mapSettingsToOutput(
