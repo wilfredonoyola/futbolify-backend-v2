@@ -41,10 +41,10 @@ export class ResultCollectorCron {
   ) {}
 
   /**
-   * Saturday 3:00 PM El Salvador - Collect results
-   * Also runs Sunday at 3:00 PM for Sunday games
+   * Daily at 11:00 PM El Salvador - Collect results
+   * Runs every day to catch all matches (weekday and weekend)
    */
-  @Cron('0 15 * * 6,0', {
+  @Cron('0 23 * * *', {
     name: 'betting-result-collector',
     timeZone: 'America/El_Salvador',
   })
