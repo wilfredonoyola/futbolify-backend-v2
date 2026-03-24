@@ -752,7 +752,26 @@ export class NightlyAnalysisCron {
                     goalsResult
                   ),
                   modelInputs: {
+                    dataSource: 'API-Football',
                     contextFlags: context.flags,
+                    expectedGoals1H: goalsResult.expectedGoals1H,
+                    teamAStats: {
+                      name: fixture.homeTeamName,
+                      avgGoals1H: teamAStats.avg_goals_1h,
+                      avgConceded1H: teamAStats.avg_conceded_1h,
+                      over05_1h_pct: teamAStats.over05_1h_pct,
+                      gamesPlayed: teamAStats.gamesPlayed,
+                      dataQuality: teamAStats.dataQuality?.form_goals_1h || 'estimated',
+                    },
+                    teamBStats: {
+                      name: fixture.awayTeamName,
+                      avgGoals1H: teamBStats.avg_goals_1h,
+                      avgConceded1H: teamBStats.avg_conceded_1h,
+                      over05_1h_pct: teamBStats.over05_1h_pct,
+                      gamesPlayed: teamBStats.gamesPlayed,
+                      dataQuality: teamBStats.dataQuality?.form_goals_1h || 'estimated',
+                    },
+                    calculationExplanation: `Probabilidad calculada usando stats de ${teamAStats.gamesPlayed} partidos del local y ${teamBStats.gamesPlayed} del visitante. xG 1H: ${goalsResult.expectedGoals1H?.toFixed(2) || 'N/A'}.`,
                   },
                 },
               })
@@ -831,8 +850,26 @@ export class NightlyAnalysisCron {
                     goalsResult
                   ),
                   modelInputs: {
+                    dataSource: 'API-Football',
                     contextFlags: context.flags,
                     expectedGoals1H: goalsResult.expectedGoals1H,
+                    teamAStats: {
+                      name: fixture.homeTeamName,
+                      avgGoals1H: teamAStats.avg_goals_1h,
+                      avgConceded1H: teamAStats.avg_conceded_1h,
+                      over05_1h_pct: teamAStats.over05_1h_pct,
+                      gamesPlayed: teamAStats.gamesPlayed,
+                      dataQuality: teamAStats.dataQuality?.form_goals_1h || 'estimated',
+                    },
+                    teamBStats: {
+                      name: fixture.awayTeamName,
+                      avgGoals1H: teamBStats.avg_goals_1h,
+                      avgConceded1H: teamBStats.avg_conceded_1h,
+                      over05_1h_pct: teamBStats.over05_1h_pct,
+                      gamesPlayed: teamBStats.gamesPlayed,
+                      dataQuality: teamBStats.dataQuality?.form_goals_1h || 'estimated',
+                    },
+                    calculationExplanation: `Over 1.5 1H requiere que ambos equipos marquen. Local promedia ${teamAStats.avg_goals_1h?.toFixed(2)} goles/1H, visitante ${teamBStats.avg_goals_1h?.toFixed(2)}. xG combinado: ${goalsResult.expectedGoals1H?.toFixed(2) || 'N/A'}.`,
                   },
                 },
               })
@@ -921,8 +958,24 @@ export class NightlyAnalysisCron {
                       cornersResult
                     ),
                     modelInputs: {
+                      dataSource: 'API-Football',
                       contextFlags: context.flags,
                       cornersExpected: cornersResult.cornersExpected,
+                      teamAStats: {
+                        name: fixture.homeTeamName,
+                        cornersForAvg: teamAStats.avg_corners_for,
+                        cornersAgainstAvg: teamAStats.avg_corners_against,
+                        gamesPlayed: teamAStats.gamesPlayed,
+                        dataQuality: teamAStats.dataQuality?.corners || 'league_average',
+                      },
+                      teamBStats: {
+                        name: fixture.awayTeamName,
+                        cornersForAvg: teamBStats.avg_corners_for,
+                        cornersAgainstAvg: teamBStats.avg_corners_against,
+                        gamesPlayed: teamBStats.gamesPlayed,
+                        dataQuality: teamBStats.dataQuality?.corners || 'league_average',
+                      },
+                      calculationExplanation: `Corners esperados (${cornersResult.cornersExpected?.toFixed(1)}) calculados sumando: Local gana ${teamAStats.avg_corners_for?.toFixed(1)} + Visitante gana ${teamBStats.avg_corners_for?.toFixed(1)} corners/partido.`,
                     },
                   },
                 })
@@ -1012,8 +1065,25 @@ export class NightlyAnalysisCron {
                       cornersResult
                     ),
                     modelInputs: {
+                      dataSource: 'API-Football',
                       contextFlags: context.flags,
                       cornersExpected1H: cornersResult.cornersExpected1H,
+                      cornersExpected: cornersResult.cornersExpected,
+                      teamAStats: {
+                        name: fixture.homeTeamName,
+                        cornersForAvg: teamAStats.avg_corners_for,
+                        cornersAgainstAvg: teamAStats.avg_corners_against,
+                        gamesPlayed: teamAStats.gamesPlayed,
+                        dataQuality: teamAStats.dataQuality?.corners || 'league_average',
+                      },
+                      teamBStats: {
+                        name: fixture.awayTeamName,
+                        cornersForAvg: teamBStats.avg_corners_for,
+                        cornersAgainstAvg: teamBStats.avg_corners_against,
+                        gamesPlayed: teamBStats.gamesPlayed,
+                        dataQuality: teamBStats.dataQuality?.corners || 'league_average',
+                      },
+                      calculationExplanation: `Corners 1H esperados: ${cornersResult.cornersExpected1H?.toFixed(1)} (aprox 45% del total ${cornersResult.cornersExpected?.toFixed(1)}). Basado en promedios de ${teamAStats.gamesPlayed} y ${teamBStats.gamesPlayed} partidos.`,
                     },
                   },
                 })
@@ -1095,10 +1165,26 @@ export class NightlyAnalysisCron {
                     teamBStats
                   ),
                   modelInputs: {
+                    dataSource: 'API-Football',
                     contextFlags: context.flags,
                     cornersExpected: cornersResult.cornersExpected,
                     handicapLineExpected: cornersResult.handicapLine,
                     handicapLineBookmaker: handicapOdds.line,
+                    teamAStats: {
+                      name: fixture.homeTeamName,
+                      cornersForAvg: teamAStats.avg_corners_for,
+                      cornersAgainstAvg: teamAStats.avg_corners_against,
+                      gamesPlayed: teamAStats.gamesPlayed,
+                      dataQuality: teamAStats.dataQuality?.corners || 'league_average',
+                    },
+                    teamBStats: {
+                      name: fixture.awayTeamName,
+                      cornersForAvg: teamBStats.avg_corners_for,
+                      cornersAgainstAvg: teamBStats.avg_corners_against,
+                      gamesPlayed: teamBStats.gamesPlayed,
+                      dataQuality: teamBStats.dataQuality?.corners || 'league_average',
+                    },
+                    calculationExplanation: `Handicap modelo: ${cornersResult.handicapLine >= 0 ? '+' : ''}${cornersResult.handicapLine?.toFixed(1)} (${fixture.homeTeamName} ${teamAStats.avg_corners_for?.toFixed(1)} - ${fixture.awayTeamName} ${teamBStats.avg_corners_for?.toFixed(1)} = diferencia esperada). Casa ofrece ${handicapOdds.line >= 0 ? '+' : ''}${handicapOdds.line}. Discrepancia de ${Math.abs(cornersResult.handicapLine - handicapOdds.line).toFixed(1)} corners = valor.`,
                   },
                 },
               })

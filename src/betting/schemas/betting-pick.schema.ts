@@ -50,10 +50,53 @@ export class PickTeamInfo {
 
 export const PickTeamInfoSchema = SchemaFactory.createForClass(PickTeamInfo)
 
+// Team stats subdocument for model inputs
+@Schema({ _id: false })
+@ObjectType()
+export class PickTeamStats {
+  @Prop()
+  @Field({ nullable: true })
+  name?: string
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  cornersForAvg?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  cornersAgainstAvg?: number
+
+  @Prop()
+  @Field(() => Int, { nullable: true })
+  gamesPlayed?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  avgGoals1H?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  avgConceded1H?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  over05_1h_pct?: number
+
+  @Prop()
+  @Field({ nullable: true })
+  dataQuality?: string
+}
+
+export const PickTeamStatsSchema = SchemaFactory.createForClass(PickTeamStats)
+
 // Model inputs subdocument (for debugging/analysis)
 @Schema({ _id: false })
 @ObjectType()
 export class PickModelInputs {
+  @Prop()
+  @Field({ nullable: true })
+  dataSource?: string
+
   @Prop()
   @Field(() => Float, { nullable: true })
   probBase?: number
@@ -78,6 +121,15 @@ export class PickModelInputs {
   @Field(() => [String])
   contextFlags: string[]
 
+  // Team stats for admin detail view
+  @Prop({ type: PickTeamStatsSchema })
+  @Field(() => PickTeamStats, { nullable: true })
+  teamAStats?: PickTeamStats
+
+  @Prop({ type: PickTeamStatsSchema })
+  @Field(() => PickTeamStats, { nullable: true })
+  teamBStats?: PickTeamStats
+
   // Goals 1H specific
   @Prop()
   @Field(() => Float, { nullable: true })
@@ -100,6 +152,11 @@ export class PickModelInputs {
   @Prop()
   @Field(() => Float, { nullable: true })
   handicapLineBookmaker?: number // Línea que ofrece el bookmaker
+
+  // Calculation explanation for admin
+  @Prop()
+  @Field({ nullable: true })
+  calculationExplanation?: string
 }
 
 export const PickModelInputsSchema =

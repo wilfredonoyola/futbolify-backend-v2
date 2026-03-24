@@ -2486,13 +2486,52 @@ type SteamMoveInfo {
   timestamp: DateTime
 }
 
+"""Statistics for a single team used in model calculations"""
+type TeamStatsInput {
+  """Team name"""
+  name: String!
+
+  """Average corners won per match"""
+  cornersForAvg: Float
+
+  """Average corners conceded per match"""
+  cornersAgainstAvg: Float
+
+  """Number of matches played (sample size)"""
+  gamesPlayed: Int
+
+  """Average goals scored in first half"""
+  avgGoals1H: Float
+
+  """Average goals conceded in first half"""
+  avgConceded1H: Float
+
+  """Percentage of matches with Over 0.5 1H"""
+  over05_1h_pct: Float
+
+  """Data quality indicator (real or estimated)"""
+  dataQuality: String
+}
+
+"""Model inputs and data sources used for pick calculation"""
 type ModelInputs {
+  """Data source used for stats (e.g., API-Football)"""
+  dataSource: String
+
   probBase: Float
   formAdjustment: Float
   h2hAdjustment: Float
   leagueAdjustment: Float
   contextMultiplier: Float
+
+  """Context flags applied (e.g., DERBY, TOP_CLASH)"""
   contextFlags: [String!]
+
+  """Home team statistics used in calculation"""
+  teamAStats: TeamStatsInput
+
+  """Away team statistics used in calculation"""
+  teamBStats: TeamStatsInput
 
   """Expected goals in first half"""
   expectedGoals1H: Float
@@ -2508,6 +2547,9 @@ type ModelInputs {
 
   """Handicap line offered by bookmaker"""
   handicapLineBookmaker: Float
+
+  """Human-readable explanation of how the model calculated this pick"""
+  calculationExplanation: String
 }
 
 type MatchResult {

@@ -60,8 +60,38 @@ export class SteamMoveInfo {
   timestamp?: Date
 }
 
-@ObjectType()
+@ObjectType({ description: 'Statistics for a single team used in model calculations' })
+export class TeamStatsInput {
+  @Field({ description: 'Team name' })
+  name: string
+
+  @Field(() => Float, { nullable: true, description: 'Average corners won per match' })
+  cornersForAvg?: number
+
+  @Field(() => Float, { nullable: true, description: 'Average corners conceded per match' })
+  cornersAgainstAvg?: number
+
+  @Field(() => Int, { nullable: true, description: 'Number of matches played (sample size)' })
+  gamesPlayed?: number
+
+  @Field(() => Float, { nullable: true, description: 'Average goals scored in first half' })
+  avgGoals1H?: number
+
+  @Field(() => Float, { nullable: true, description: 'Average goals conceded in first half' })
+  avgConceded1H?: number
+
+  @Field(() => Float, { nullable: true, description: 'Percentage of matches with Over 0.5 1H' })
+  over05_1h_pct?: number
+
+  @Field({ nullable: true, description: 'Data quality indicator (real or estimated)' })
+  dataQuality?: string
+}
+
+@ObjectType({ description: 'Model inputs and data sources used for pick calculation' })
 export class ModelInputs {
+  @Field({ nullable: true, description: 'Data source used for stats (e.g., API-Football)' })
+  dataSource?: string
+
   @Field(() => Float, { nullable: true })
   probBase?: number
 
@@ -77,8 +107,15 @@ export class ModelInputs {
   @Field(() => Float, { nullable: true })
   contextMultiplier?: number
 
-  @Field(() => [String], { nullable: true })
+  @Field(() => [String], { nullable: true, description: 'Context flags applied (e.g., DERBY, TOP_CLASH)' })
   contextFlags?: string[]
+
+  // Team stats for admin detail view
+  @Field(() => TeamStatsInput, { nullable: true, description: 'Home team statistics used in calculation' })
+  teamAStats?: TeamStatsInput
+
+  @Field(() => TeamStatsInput, { nullable: true, description: 'Away team statistics used in calculation' })
+  teamBStats?: TeamStatsInput
 
   // Goals 1H specific
   @Field(() => Float, { nullable: true, description: 'Expected goals in first half' })
@@ -97,6 +134,10 @@ export class ModelInputs {
 
   @Field(() => Float, { nullable: true, description: 'Handicap line offered by bookmaker' })
   handicapLineBookmaker?: number
+
+  // Calculation explanation
+  @Field({ nullable: true, description: 'Human-readable explanation of how the model calculated this pick' })
+  calculationExplanation?: string
 }
 
 @ObjectType()
