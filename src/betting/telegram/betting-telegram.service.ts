@@ -150,13 +150,20 @@ export class BettingTelegramService implements OnModuleInit {
   /**
    * Send Alert 1: Nightly Analysis
    * Called by nightly-analysis.cron.ts
+   *
+   * @param alertType 'initial' = first alert of the day, 'update' = new picks added
+   * @param totalPicks Total picks for the day (for context in updates)
+   * @param totalCombos Total combos for the day
    */
   async sendNightlyAnalysisAlert(
     date: Date,
     picks: BettingPickDocument[],
     combos: BettingComboDocument[],
     fixturesAnalyzed: number,
-    leaguesAnalyzed: number
+    leaguesAnalyzed: number,
+    alertType: 'initial' | 'update' = 'initial',
+    totalPicks?: number,
+    totalCombos?: number
   ): Promise<void> {
     const adminChatId = this.guard.getAdminChatId()
     if (!adminChatId || !this.bot) {
@@ -184,14 +191,17 @@ export class BettingTelegramService implements OnModuleInit {
         bankroll,
         totalExposure,
         fixturesAnalyzed,
-        leaguesAnalyzed
+        leaguesAnalyzed,
+        alertType,
+        totalPicks,
+        totalCombos
       )
 
       await this.bot.telegram.sendMessage(adminChatId, message, {
         parse_mode: 'Markdown',
       })
 
-      this.logger.log('Nightly analysis alert sent successfully')
+      this.logger.log(`Nightly analysis alert (${alertType}) sent successfully`)
     } catch (error) {
       this.logger.error(`Failed to send nightly analysis alert: ${error}`)
     }

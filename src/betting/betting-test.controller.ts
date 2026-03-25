@@ -115,10 +115,9 @@ export class BettingTestController {
       return { error: 'Date required (format: YYYY-MM-DD)' }
     }
 
-    const startOfDay = new Date(date)
-    startOfDay.setHours(0, 0, 0, 0)
-    const endOfDay = new Date(date)
-    endOfDay.setHours(23, 59, 59, 999)
+    // Use UTC dates to avoid timezone issues
+    const startOfDay = new Date(`${date}T00:00:00.000Z`)
+    const endOfDay = new Date(`${date}T23:59:59.999Z`)
 
     // Delete picks for this date
     const picksResult = await this.bettingPickModel.deleteMany({

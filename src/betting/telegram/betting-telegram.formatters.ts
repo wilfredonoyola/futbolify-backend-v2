@@ -113,7 +113,9 @@ function getScoreBadge(score: number): string {
 export class BettingTelegramFormatters {
   /**
    * Format Alert 1: Nightly Analysis
-   * Sent Friday 9 PM with Saturday picks
+   * Supports two modes:
+   * - 'initial': First alert of the day with full summary
+   * - 'update': Incremental alert when new picks are detected
    */
   formatNightlyAnalysisAlert(
     date: Date,
@@ -122,16 +124,35 @@ export class BettingTelegramFormatters {
     bankroll: number,
     totalExposure: number,
     fixturesAnalyzed: number,
-    leaguesAnalyzed: number
+    leaguesAnalyzed: number,
+    alertType: 'initial' | 'update' = 'initial',
+    totalPicks?: number,
+    totalCombos?: number
   ): string {
     const dateStr = formatDate(date)
 
-    let message = `\ud83c\udfaf ANALISIS ${dateStr}\n`
-    message += '\u2501'.repeat(23) + '\n\n'
+    let message: string
 
-    // Summary
-    message += `\ud83d\udcca ${fixturesAnalyzed} partidos analizados | ${leaguesAnalyzed} ligas\n`
-    message += `\u2705 ${picks.length} picks con value | ${combos.length} combinadas\n\n`
+    if (alertType === 'update') {
+      // Incremental update - new picks detected
+      message = `🆕 NUEVOS PICKS DETECTADOS\n`
+      message += '━'.repeat(23) + '\n\n'
+      message += `📊 ${picks.length} nuevo${picks.length !== 1 ? 's' : ''} pick${picks.length !== 1 ? 's' : ''}`
+      if (combos.length > 0) {
+        message += ` | ${combos.length} combinada${combos.length !== 1 ? 's' : ''}`
+      }
+      message += '\n'
+      if (totalPicks) {
+        message += `📈 Total para ${dateStr}: ${totalPicks} picks\n`
+      }
+      message += '\n'
+    } else {
+      // Initial alert - full summary
+      message = `🎯 ANÁLISIS ${dateStr}\n`
+      message += '━'.repeat(23) + '\n\n'
+      message += `📊 ${fixturesAnalyzed} partidos analizados | ${leaguesAnalyzed} ligas\n`
+      message += `✅ ${picks.length} picks con value | ${combos.length} combinadas\n\n`
+    }
 
     // Individual picks
     if (picks.length > 0) {
