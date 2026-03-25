@@ -270,72 +270,80 @@ export class NightlyAnalysisCron {
   }
 
   /**
-   * Friday 9:00 PM El Salvador - Analyze Saturday matches
+   * Smart Analysis Cron - Runs every 30 minutes
+   *
+   * Logic:
+   * - 6:00 AM to 6:00 PM: Scan TODAY's matches (markets appear 12-24h before)
+   * - 6:00 PM to 6:00 AM: Scan TOMORROW's matches (prepare for next day)
+   *
+   * Benefits:
+   * - Catches markets as soon as they become available
+   * - No duplicate picks (checks before creating)
+   * - Continuous monitoring for best odds
    */
-  @Cron('0 21 * * 5', {
-    name: 'betting-nightly-analysis-friday',
+  @Cron('*/30 * * * *', {
+    name: 'betting-smart-analysis',
     timeZone: 'America/El_Salvador',
   })
-  async runFridayNightlyAnalysis(): Promise<void> {
-    this.logger.log('Starting Friday nightly analysis for Saturday matches...')
-    await this.runNightlyAnalysis('Saturday')
+  async runSmartAnalysis(): Promise<void> {
+    const { targetDate, isToday, hour } = this.getSmartTargetDate()
+    const dayLabel = isToday ? 'HOY' : 'MAÑANA'
+
+    this.logger.log(
+      `Smart analysis triggered at ${hour}:00 - Scanning ${dayLabel} (${targetDate})`
+    )
+
+    await this.runNightlyAnalysis(dayLabel, targetDate)
   }
 
   /**
-   * Saturday 9:00 PM El Salvador - Analyze Sunday matches (VENTANA C)
+   * Determine which date to scan based on current hour (El Salvador time)
+   *
+   * 6 AM - 6 PM: Scan today (markets for today's matches are available)
+   * 6 PM - 6 AM: Scan tomorrow (prepare for next day)
    */
-  @Cron('0 21 * * 6', {
-    name: 'betting-nightly-analysis-saturday',
-    timeZone: 'America/El_Salvador',
-  })
-  async runSaturdayNightlyAnalysis(): Promise<void> {
-    this.logger.log('Starting Saturday nightly analysis for Sunday matches...')
-    await this.runNightlyAnalysis('Sunday')
+  private getSmartTargetDate(): { targetDate: string; isToday: boolean; hour: number } {
+    const now = new Date()
+    const elSalvadorTime = new Date(
+      now.toLocaleString('en-US', { timeZone: 'America/El_Salvador' })
+    )
+
+    const hour = elSalvadorTime.getHours()
+    const isToday = hour >= 6 && hour < 18 // 6 AM to 6 PM = scan today
+
+    if (isToday) {
+      // Return today's date
+      const year = elSalvadorTime.getFullYear()
+      const month = String(elSalvadorTime.getMonth() + 1).padStart(2, '0')
+      const day = String(elSalvadorTime.getDate()).padStart(2, '0')
+      return { targetDate: `${year}-${month}-${day}`, isToday: true, hour }
+    } else {
+      // Return tomorrow's date
+      elSalvadorTime.setDate(elSalvadorTime.getDate() + 1)
+      const year = elSalvadorTime.getFullYear()
+      const month = String(elSalvadorTime.getMonth() + 1).padStart(2, '0')
+      const day = String(elSalvadorTime.getDate()).padStart(2, '0')
+      return { targetDate: `${year}-${month}-${day}`, isToday: false, hour }
+    }
   }
 
   /**
-   * Monday 9:00 PM El Salvador - Analyze Tuesday matches
-   * (Champions League, Championship midweek)
+   * Check if a pick already exists for this fixture and market
    */
-  @Cron('0 21 * * 1', {
-    name: 'betting-nightly-analysis-monday',
-    timeZone: 'America/El_Salvador',
-  })
-  async runMondayNightlyAnalysis(): Promise<void> {
-    this.logger.log('Starting Monday nightly analysis for Tuesday matches...')
-    await this.runNightlyAnalysis('Tuesday')
-  }
-
-  /**
-   * Tuesday 9:00 PM El Salvador - Analyze Wednesday matches
-   * (Champions League, Championship midweek)
-   */
-  @Cron('0 21 * * 2', {
-    name: 'betting-nightly-analysis-tuesday',
-    timeZone: 'America/El_Salvador',
-  })
-  async runTuesdayNightlyAnalysis(): Promise<void> {
-    this.logger.log('Starting Tuesday nightly analysis for Wednesday matches...')
-    await this.runNightlyAnalysis('Wednesday')
-  }
-
-  /**
-   * Wednesday 9:00 PM El Salvador - Analyze Thursday matches
-   * (Europa League, Conference League)
-   */
-  @Cron('0 21 * * 3', {
-    name: 'betting-nightly-analysis-wednesday',
-    timeZone: 'America/El_Salvador',
-  })
-  async runWednesdayNightlyAnalysis(): Promise<void> {
-    this.logger.log('Starting Wednesday nightly analysis for Thursday matches...')
-    await this.runNightlyAnalysis('Thursday')
+  private async pickExists(fixtureId: number, market: MarketType): Promise<boolean> {
+    const existing = await this.bettingPickModel.findOne({
+      fixtureId,
+      market,
+    }).exec()
+    return !!existing
   }
 
   /**
    * Core nightly analysis logic
+   * @param dayLabel Label for logging (e.g., "HOY", "MAÑANA")
+   * @param overrideDate Optional date to analyze (YYYY-MM-DD format)
    */
-  private async runNightlyAnalysis(dayLabel: string): Promise<void> {
+  private async runNightlyAnalysis(dayLabel: string, overrideDate?: string): Promise<void> {
     this.logger.log(`Starting nightly analysis for ${dayLabel} matches...`)
     const startTime = Date.now()
 
@@ -347,8 +355,8 @@ export class NightlyAnalysisCron {
         return
       }
 
-      // Get tomorrow's date
-      const tomorrowDate = this.getTomorrowDateString()
+      // Get target date (use override if provided, otherwise tomorrow)
+      const tomorrowDate = overrideDate || this.getTomorrowDateString()
       this.logger.log(`Analyzing fixtures for ${dayLabel}: ${tomorrowDate}`)
 
       // Get active leagues
@@ -817,6 +825,11 @@ export class NightlyAnalysisCron {
             )
 
             if (valueResult.hasValue) {
+              // Check if pick already exists for this fixture+market
+              const alreadyExists = await this.pickExists(fixture.fixtureId, MarketType.OVER_05_1H)
+              if (alreadyExists) {
+                this.logger.debug(`Skip duplicate: ${fixture.homeTeamName} vs ${fixture.awayTeamName} - OVER_05_1H`)
+              } else {
               const timeWindow = this.determineTimeWindow(
                 new Date(fixture.kickoff)
               )
@@ -900,6 +913,7 @@ export class NightlyAnalysisCron {
                   },
                 },
               })
+              } // end else (not duplicate)
             }
           }
         }
@@ -916,6 +930,11 @@ export class NightlyAnalysisCron {
             )
 
             if (valueResult.hasValue) {
+              // Check if pick already exists for this fixture+market
+              const alreadyExists = await this.pickExists(fixture.fixtureId, MarketType.OVER_15_1H)
+              if (alreadyExists) {
+                this.logger.debug(`Skip duplicate: ${fixture.homeTeamName} vs ${fixture.awayTeamName} - OVER_15_1H`)
+              } else {
               const timeWindow = this.determineTimeWindow(
                 new Date(fixture.kickoff)
               )
@@ -999,6 +1018,7 @@ export class NightlyAnalysisCron {
                   },
                 },
               })
+              } // end else (not duplicate)
             }
           }
         }
@@ -1026,6 +1046,11 @@ export class NightlyAnalysisCron {
                   valueResult.direction
                 )
 
+                // Check if pick already exists for this fixture+market
+                const alreadyExists = await this.pickExists(fixture.fixtureId, market)
+                if (alreadyExists) {
+                  this.logger.debug(`Skip duplicate: ${fixture.homeTeamName} vs ${fixture.awayTeamName} - ${market}`)
+                } else {
                 picks.push({
                   leg: {
                     fixtureId: fixture.fixtureId,
@@ -1106,6 +1131,7 @@ export class NightlyAnalysisCron {
                     },
                   },
                 })
+                } // end else (not duplicate)
               }
             }
           }
@@ -1131,6 +1157,11 @@ export class NightlyAnalysisCron {
                 bestDirection === 'OVER' ? probs1H.over : probs1H.under
 
               if (bestEdge >= 0.05) {
+                // Check if pick already exists for this fixture+market
+                const alreadyExists = await this.pickExists(fixture.fixtureId, MarketType.OVER_45_CORNERS_1H)
+                if (alreadyExists) {
+                  this.logger.debug(`Skip duplicate: ${fixture.homeTeamName} vs ${fixture.awayTeamName} - OVER_45_CORNERS_1H`)
+                } else {
                 picks.push({
                   leg: {
                     fixtureId: fixture.fixtureId,
@@ -1215,6 +1246,7 @@ export class NightlyAnalysisCron {
                     },
                   },
                 })
+                } // end else (not duplicate)
               }
             }
           }
@@ -1232,6 +1264,11 @@ export class NightlyAnalysisCron {
               )
 
             if (handicapValue.hasValue) {
+              // Check if pick already exists for this fixture+market
+              const alreadyExists = await this.pickExists(fixture.fixtureId, MarketType.CORNERS_HANDICAP)
+              if (alreadyExists) {
+                this.logger.debug(`Skip duplicate: ${fixture.homeTeamName} vs ${fixture.awayTeamName} - ASIAN_CORNERS_HANDICAP`)
+              } else {
               picks.push({
                 leg: {
                   fixtureId: fixture.fixtureId,
@@ -1317,6 +1354,7 @@ export class NightlyAnalysisCron {
                   },
                 },
               })
+              } // end else (not duplicate)
             }
           }
         }

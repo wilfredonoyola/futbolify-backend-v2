@@ -106,6 +106,39 @@ export class BettingTestController {
   }
 
   /**
+   * Delete picks by date
+   * GET /betting/test/delete-picks?date=2026-03-24
+   */
+  @Get('delete-picks')
+  async deletePicks(@Query('date') date: string) {
+    if (!date) {
+      return { error: 'Date required (format: YYYY-MM-DD)' }
+    }
+
+    const startOfDay = new Date(date)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(date)
+    endOfDay.setHours(23, 59, 59, 999)
+
+    // Delete picks for this date
+    const picksResult = await this.bettingPickModel.deleteMany({
+      kickoff: { $gte: startOfDay, $lte: endOfDay }
+    })
+
+    // Delete combos created for this date
+    const combosResult = await this.bettingComboModel.deleteMany({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    })
+
+    return {
+      success: true,
+      date,
+      picksDeleted: picksResult.deletedCount,
+      combosDeleted: combosResult.deletedCount,
+    }
+  }
+
+  /**
    * Get tomorrow's picks
    * GET /betting/test/tomorrow-picks
    */
@@ -135,7 +168,6 @@ export class BettingTestController {
         match: `${p.teamHome.name} vs ${p.teamAway.name}`,
         league: p.league.name,
         market: p.market,
-        marketLabel: p.marketLabel,
         odds: p.oddsAtDetection?.toFixed(2),
         edge: `${(p.edge * 100).toFixed(1)}%`,
         score: p.confidenceScore,
@@ -321,6 +353,67 @@ export class BettingTestController {
           impliedProb: over05Odds > 0 ? 1 / over05Odds : 0,
         },
         valueDetection: valueResult,
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
+   * Get available bookmakers for a fixture
+   * GET /betting/test/bookmakers?fixtureId=1391116
+   */
+  @Get('bookmakers')
+  async getBookmakers(@Query('fixtureId') fixtureId: string) {
+    try {
+      const fId = parseInt(fixtureId)
+      const odds = await this.apiFootball.getOdds(fId)
+
+      if (!odds || !odds.bookmakers) {
+        return { error: 'No odds data available', fixtureId: fId }
+      }
+
+      // Extract bookmaker names and their markets
+      const bookmakers = odds.bookmakers.map(bk => ({
+        id: bk.bookmakerId,
+        name: bk.bookmakerName,
+        markets: bk.markets.map(m => m.marketName),
+      }))
+
+      // Check if Bet365 is available
+      const bet365 = odds.bookmakers.find(
+        bk => bk.bookmakerName.toLowerCase().includes('bet365')
+      )
+
+      // Get Over 0.5 1H odds from each bookmaker
+      const over05OddsByBookmaker = odds.bookmakers
+        .map(bk => {
+          for (const market of bk.markets) {
+            if (
+              market.marketName.toLowerCase().includes('goals') &&
+              market.marketName.toLowerCase().includes('half')
+            ) {
+              for (const v of market.values) {
+                const valueName = String(v.name).toLowerCase()
+                if (valueName.includes('over') && valueName.includes('0.5')) {
+                  return {
+                    bookmaker: bk.bookmakerName,
+                    odds: v.odds,
+                  }
+                }
+              }
+            }
+          }
+          return null
+        })
+        .filter(Boolean)
+
+      return {
+        fixtureId: fId,
+        totalBookmakers: bookmakers.length,
+        bet365Available: !!bet365,
+        bookmakers: bookmakers.map(b => b.name),
+        over05_1h_odds: over05OddsByBookmaker,
       }
     } catch (error) {
       return { error: String(error) }
