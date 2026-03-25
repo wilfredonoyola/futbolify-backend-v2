@@ -262,6 +262,49 @@ export class BettingTestController {
   }
 
   /**
+   * Update league market strengths
+   * GET /betting/test/update-league-markets?id=78&markets=goals_1h,over25,btts&notes=High%20scoring
+   */
+  @Get('update-league-markets')
+  async updateLeagueMarkets(
+    @Query('id') apiFootballId: string,
+    @Query('markets') markets: string,
+    @Query('notes') notes?: string
+  ) {
+    const id = parseInt(apiFootballId)
+    if (isNaN(id)) {
+      return { error: 'Invalid league ID' }
+    }
+
+    const marketStrengths = markets ? markets.split(',').map(m => m.trim()) : []
+
+    const league = await this.bettingLeagueModel.findOneAndUpdate(
+      { apiFootballId: id },
+      {
+        $set: {
+          marketStrengths,
+          ...(notes && { notes })
+        }
+      },
+      { new: true }
+    ).exec()
+
+    if (!league) {
+      return { error: 'League not found', id }
+    }
+
+    return {
+      success: true,
+      league: {
+        id: league.apiFootballId,
+        name: league.name,
+        marketStrengths: league.marketStrengths,
+        notes: league.notes,
+      }
+    }
+  }
+
+  /**
    * Diagnostic endpoint to analyze a specific fixture
    * GET /betting/test/diagnose?fixtureId=1391110&leagueId=140
    */
