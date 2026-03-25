@@ -10,7 +10,6 @@ import { ApiFootballBettingService } from './services/api-football-betting.servi
 import { ScoringGoalsService } from './services/scoring-goals.service'
 import { ValueDetectionService } from './services/value-detection.service'
 import { BettingTelegramService } from './telegram/betting-telegram.service'
-import { BettingTelegramGuard } from './telegram/betting-telegram.guards'
 import { BettingLeague, BettingLeagueDocument } from './schemas/betting-league.schema'
 import { BettingPick, BettingPickDocument } from './schemas/betting-pick.schema'
 import { BettingCombo, BettingComboDocument } from './schemas/betting-combo.schema'
@@ -31,7 +30,6 @@ export class BettingTestController {
     private scoringGoals: ScoringGoalsService,
     private valueDetection: ValueDetectionService,
     private telegramService: BettingTelegramService,
-    private telegramGuard: BettingTelegramGuard,
     private configService: ConfigService,
     @InjectModel(BettingLeague.name)
     private bettingLeagueModel: Model<BettingLeagueDocument>,
@@ -370,7 +368,7 @@ export class BettingTestController {
    */
   @Get('telegram')
   async testTelegram() {
-    const adminChatId = this.telegramGuard.getAdminChatId()
+    const adminChatId = this.configService.get<string>('ADMIN_TELEGRAM_ID')
     const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN')
 
     const config = {
