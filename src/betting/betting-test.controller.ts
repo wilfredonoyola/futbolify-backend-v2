@@ -9,6 +9,8 @@ import { ApiFootballBettingService } from './services/api-football-betting.servi
 import { ScoringGoalsService } from './services/scoring-goals.service'
 import { ValueDetectionService } from './services/value-detection.service'
 import { BettingLeague, BettingLeagueDocument } from './schemas/betting-league.schema'
+import { BettingPick, BettingPickDocument } from './schemas/betting-pick.schema'
+import { BettingCombo, BettingComboDocument } from './schemas/betting-combo.schema'
 
 /**
  * Test endpoints for betting module
@@ -26,7 +28,11 @@ export class BettingTestController {
     private scoringGoals: ScoringGoalsService,
     private valueDetection: ValueDetectionService,
     @InjectModel(BettingLeague.name)
-    private bettingLeagueModel: Model<BettingLeagueDocument>
+    private bettingLeagueModel: Model<BettingLeagueDocument>,
+    @InjectModel(BettingPick.name)
+    private bettingPickModel: Model<BettingPickDocument>,
+    @InjectModel(BettingCombo.name)
+    private bettingComboModel: Model<BettingComboDocument>
   ) {}
 
   /**
@@ -96,6 +102,55 @@ export class BettingTestController {
       status: 'ok',
       module: 'betting',
       timestamp: new Date().toISOString(),
+    }
+  }
+
+  /**
+   * Get tomorrow's picks
+   * GET /betting/test/tomorrow-picks
+   */
+  @Get('tomorrow-picks')
+  async getTomorrowPicks() {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(0, 0, 0, 0)
+    const dayAfter = new Date(tomorrow)
+    dayAfter.setDate(dayAfter.getDate() + 1)
+
+    const picks = await this.bettingPickModel
+      .find({ kickoff: { $gte: tomorrow, $lt: dayAfter } })
+      .sort({ confidenceScore: -1 })
+      .exec()
+
+    const combos = await this.bettingComboModel
+      .find({ createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } })
+      .sort({ score: -1 })
+      .exec()
+
+    return {
+      date: tomorrow.toISOString().split('T')[0],
+      picksCount: picks.length,
+      combosCount: combos.length,
+      picks: picks.map(p => ({
+        match: `${p.teamHome.name} vs ${p.teamAway.name}`,
+        league: p.league.name,
+        market: p.market,
+        marketLabel: p.marketLabel,
+        odds: p.oddsAtDetection?.toFixed(2),
+        edge: `${(p.edge * 100).toFixed(1)}%`,
+        score: p.confidenceScore,
+        stars: p.stars,
+        stake: p.stake?.toFixed(2),
+        kickoff: p.kickoff,
+      })),
+      combos: combos.map(c => ({
+        type: c.type,
+        legs: c.legs?.length || 0,
+        odds: c.combinedOdds?.toFixed(2),
+        ev: `${((c.evReal || 0) * 100).toFixed(1)}%`,
+        score: c.score,
+        stake: c.stake?.toFixed(2),
+      })),
     }
   }
 

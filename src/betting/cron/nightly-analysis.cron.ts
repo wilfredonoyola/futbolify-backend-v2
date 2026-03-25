@@ -22,6 +22,7 @@ import { OpenMeteoService, WeatherData } from '../services/open-meteo.service'
 import { ComboEngineService, ComboLeg } from '../services/combo-engine.service'
 import { PortfolioOptimizerService } from '../services/portfolio-optimizer.service'
 import { StakeCalculatorService } from '../services/stake-calculator.service'
+import { AntiPatternService, DailyPicksSummary } from '../services/anti-pattern.service'
 import { BettingTelegramService } from '../telegram/betting-telegram.service'
 import {
   PickStatus,
@@ -71,7 +72,8 @@ export class NightlyAnalysisCron {
     private portfolioOptimizerService: PortfolioOptimizerService,
     private stakeCalculatorService: StakeCalculatorService,
     private telegramService: BettingTelegramService,
-    private openMeteoService: OpenMeteoService
+    private openMeteoService: OpenMeteoService,
+    private antiPatternService: AntiPatternService
   ) {}
 
   /**
@@ -460,12 +462,72 @@ export class NightlyAnalysisCron {
       )
 
       // Generate combos from TOP picks only (so all combos reference saved picks)
-      const allCombos = this.comboEngineService.runComboEngine(
+      const rawCombos = this.comboEngineService.runComboEngine(
         topPicks,
         contexts
       )
 
-      this.logger.log(`Generated ${allCombos.length} combo candidates from top ${topPicks.length} picks`)
+      this.logger.log(`Generated ${rawCombos.length} raw combo candidates from top ${topPicks.length} picks`)
+
+      // ================================================
+      // ANTI-PATTERN VALIDATION (Phase 4)
+      // ================================================
+      // Validate combos against anti-patterns before portfolio optimization
+      // This filters out combos with critical issues and adjusts scores for warnings
+      const dailySummary: DailyPicksSummary = this.antiPatternService.createEmptyDailySummary()
+      const allCombos = []
+
+      for (const combo of rawCombos) {
+        // Build team contexts map from combo legs
+        const teamContexts = new Map()
+        for (const leg of combo.legs) {
+          // Create basic team context from leg stats
+          if (leg.teamAStats || leg.teamBStats) {
+            const cornersAvg = leg.teamAStats?.avg_corners_for || 5.0
+            teamContexts.set(leg.fixtureId, {
+              teamId: leg.fixtureId, // Use fixtureId as proxy
+              isChampion: false,
+              isRelegated: false,
+              coachChangedRecently: false,
+              gamesAfterCoachChange: 10, // Assume enough games
+              cornersStdDev: cornersAvg * 0.4, // Estimate std dev as 40% of avg
+              cornersAvg,
+              probFavorite: 0.5, // Default
+              remainingGames: 10,
+            })
+          }
+        }
+
+        // Check anti-patterns
+        const warnings = this.antiPatternService.checkAntiPatterns(
+          combo,
+          teamContexts,
+          dailySummary
+        )
+
+        // Discard combos with CRITICAL anti-patterns
+        if (this.antiPatternService.shouldDiscardCombo(warnings)) {
+          this.logger.warn(
+            `Combo ${combo.type} discarded: ${warnings.find(w => w.severity === 'CRITICAL')?.pattern}`
+          )
+          continue
+        }
+
+        // Apply score adjustments for non-critical warnings
+        const adjustedCombo = warnings.length > 0
+          ? this.antiPatternService.applyAntiPatternAdjustments(combo, warnings)
+          : combo
+
+        // Update daily summary for concentration tracking
+        this.antiPatternService.updateDailySummary(dailySummary, adjustedCombo)
+
+        allCombos.push(adjustedCombo)
+      }
+
+      this.logger.log(
+        `Anti-pattern validation: ${rawCombos.length} → ${allCombos.length} combos ` +
+        `(${rawCombos.length - allCombos.length} discarded)`
+      )
 
       // Optimize portfolio
       const maxCombos = settings.stakes?.maxCombosPerDay || 3
@@ -1495,12 +1557,21 @@ export class NightlyAnalysisCron {
   }
 
   /**
-   * Get tomorrow's date string
+   * Get tomorrow's date string in El Salvador timezone
    */
   private getTomorrowDateString(): string {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    return tomorrow.toISOString().split('T')[0]
+    // Get current date in El Salvador timezone
+    const now = new Date()
+    const elSalvadorTime = new Date(
+      now.toLocaleString('en-US', { timeZone: 'America/El_Salvador' })
+    )
+    // Add 1 day
+    elSalvadorTime.setDate(elSalvadorTime.getDate() + 1)
+    // Format as YYYY-MM-DD
+    const year = elSalvadorTime.getFullYear()
+    const month = String(elSalvadorTime.getMonth() + 1).padStart(2, '0')
+    const day = String(elSalvadorTime.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
   /**
