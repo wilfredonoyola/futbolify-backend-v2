@@ -530,13 +530,29 @@ export class StakeCalculatorService {
   /**
    * Calculate stake for individual pick using Kelly Criterion
    * Simpler version for single bets (not combos)
+   *
+   * @param probOwn Probability from our model
+   * @param odds Decimal odds
+   * @param edge Edge percentage
+   * @param bankroll Current bankroll
+   * @param options Optional settings for fixed stake
    */
   calculatePickStake(
     probOwn: number,
     odds: number,
     edge: number,
-    bankroll: number = DEFAULT_CONFIG.totalBankroll
+    bankroll: number = DEFAULT_CONFIG.totalBankroll,
+    options?: {
+      useFixedStake?: boolean
+      fixedStake?: number
+    }
   ): number {
+    // If fixed stake is configured and enabled, use it
+    if (options?.useFixedStake && options?.fixedStake && options.fixedStake > 0) {
+      this.logger.debug(`Using fixed stake: $${options.fixedStake}`)
+      return Math.round(options.fixedStake * 100) / 100
+    }
+
     // Kelly formula: (b * p - q) / b
     const b = odds - 1 // Net odds
     const q = 1 - probOwn

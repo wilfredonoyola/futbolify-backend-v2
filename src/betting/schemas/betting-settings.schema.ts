@@ -36,6 +36,16 @@ export class BettingStakesConfig {
   @Field(() => Float)
   kellyFraction: number
 
+  // Fixed stake amount (if set, overrides percentage calculation)
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  fixedStake?: number
+
+  // Use fixed stake instead of Kelly/percentage calculation
+  @Prop({ default: false })
+  @Field()
+  useFixedStake: boolean
+
   @Prop({ default: 0.03 })
   @Field(() => Float)
   maxStakeIndividualPct: number

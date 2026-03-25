@@ -652,6 +652,12 @@ export class StakesConfig {
   @Field(() => Float)
   kellyFraction: number
 
+  @Field(() => Float, { nullable: true, description: 'Fixed stake amount in dollars' })
+  fixedStake?: number
+
+  @Field({ description: 'Use fixed stake instead of Kelly calculation' })
+  useFixedStake: boolean
+
   @Field(() => Float)
   maxStakeIndividualPct: number
 
@@ -829,6 +835,12 @@ export class BettingSettingsInput {
 
   @Field(() => Float, { nullable: true })
   kellyFraction?: number
+
+  @Field(() => Float, { nullable: true, description: 'Fixed stake amount in dollars' })
+  fixedStake?: number
+
+  @Field({ nullable: true, description: 'Use fixed stake instead of Kelly calculation' })
+  useFixedStake?: boolean
 
   @Field(() => Float, { nullable: true })
   maxStakeIndividualPct?: number

@@ -567,7 +567,11 @@ export class NightlyAnalysisCron {
           pickDoc.probOwn || 0,
           pickDoc.oddsAtDetection || 1,
           pickDoc.edge || 0,
-          settings.bankroll
+          settings.bankroll,
+          {
+            useFixedStake: settings.stakes?.useFixedStake || false,
+            fixedStake: settings.stakes?.fixedStake,
+          }
         )
         pickDoc.stake = stake
       }

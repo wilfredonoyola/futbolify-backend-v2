@@ -98,6 +98,10 @@ export class BettingSettingsResolver {
     // Stakes
     if (input.kellyFraction !== undefined)
       updateData['stakes.kellyFraction'] = input.kellyFraction
+    if (input.fixedStake !== undefined)
+      updateData['stakes.fixedStake'] = input.fixedStake
+    if (input.useFixedStake !== undefined)
+      updateData['stakes.useFixedStake'] = input.useFixedStake
     if (input.maxStakeIndividualPct !== undefined)
       updateData['stakes.maxStakeIndividualPct'] = input.maxStakeIndividualPct
     if (input.maxStakeComboPct !== undefined)
@@ -272,6 +276,8 @@ export class BettingSettingsResolver {
       } as ThresholdsConfig,
       stakes: {
         kellyFraction: settings.stakes?.kellyFraction || 0.2,
+        fixedStake: settings.stakes?.fixedStake,
+        useFixedStake: settings.stakes?.useFixedStake || false,
         maxStakeIndividualPct: settings.stakes?.maxStakeIndividualPct || 0.03,
         maxStakeComboPct: settings.stakes?.maxStakeComboPct || 0.02,
         maxDailyExposurePct: settings.stakes?.maxDailyExposurePct || 0.15,
