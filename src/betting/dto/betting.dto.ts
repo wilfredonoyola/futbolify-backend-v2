@@ -917,3 +917,50 @@ export class ScanResult {
   @Field(() => [String])
   leagues: string[]
 }
+
+// ============ API QUOTA TYPES ============
+
+@ObjectType({ description: 'API Football subscription information' })
+export class ApiSubscription {
+  @Field({ description: 'Subscription plan name' })
+  plan: string
+
+  @Field({ description: 'End date of current subscription' })
+  end: string
+
+  @Field({ description: 'Whether subscription is active' })
+  active: boolean
+}
+
+@ObjectType({ description: 'API Football request quota information' })
+export class ApiQuotaRequests {
+  @Field(() => Int, { description: 'Current number of requests used today' })
+  current: number
+
+  @Field(() => Int, { description: 'Maximum daily requests allowed' })
+  limit_day: number
+}
+
+@ObjectType({ description: 'API Football quota status' })
+export class ApiQuotaOutput {
+  @Field({ description: 'Account email or identifier' })
+  account: string
+
+  @Field(() => ApiSubscription, { description: 'Subscription details' })
+  subscription: ApiSubscription
+
+  @Field(() => ApiQuotaRequests, { description: 'Request quota information' })
+  requests: ApiQuotaRequests
+
+  @Field(() => Float, { description: 'Percentage of daily quota used (0-100)' })
+  usagePercent: number
+
+  @Field(() => Int, { description: 'Remaining requests for today' })
+  remaining: number
+
+  @Field({ description: 'Warning message if quota is low', nullable: true })
+  warning?: string
+
+  @Field({ description: 'Error message if quota check failed', nullable: true })
+  error?: string
+}

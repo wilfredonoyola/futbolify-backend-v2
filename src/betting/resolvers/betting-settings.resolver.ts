@@ -21,8 +21,10 @@ import {
   AntiTiltConfig,
   ActiveLeagueInfo,
   ScanResult,
+  ApiQuotaOutput,
 } from '../dto/betting.dto'
 import { NightlyAnalysisCron } from '../cron/nightly-analysis.cron'
+import { ApiFootballBettingService } from '../services/api-football-betting.service'
 
 @Resolver()
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -35,7 +37,8 @@ export class BettingSettingsResolver {
     private bettingLeagueModel: Model<BettingLeagueDocument>,
     @InjectModel(BettingPick.name)
     private bettingPickModel: Model<BettingPickDocument>,
-    private nightlyAnalysisCron: NightlyAnalysisCron
+    private nightlyAnalysisCron: NightlyAnalysisCron,
+    private apiFootballService: ApiFootballBettingService
   ) {}
 
   @Query(() => BettingSettingsOutput, { name: 'bettingSettings' })
@@ -258,6 +261,64 @@ export class BettingSettingsResolver {
       .exec()
 
     return this.mapSettingsToOutput(settings, activeLeagues)
+  }
+
+  @Query(() => ApiQuotaOutput, {
+    name: 'apiQuota',
+    description: 'Get API-Football quota status and usage'
+  })
+  async getApiQuota(): Promise<ApiQuotaOutput> {
+    const quota = await this.apiFootballService.getQuotaStatus()
+
+    if (!quota) {
+      return {
+        account: 'unknown',
+        subscription: {
+          plan: 'unknown',
+          end: 'unknown',
+          active: false,
+        },
+        requests: {
+          current: 0,
+          limit_day: 0,
+        },
+        usagePercent: 0,
+        remaining: 0,
+        error: 'API key not configured or API unavailable',
+      }
+    }
+
+    if (quota.error) {
+      return {
+        account: quota.account,
+        subscription: quota.subscription,
+        requests: quota.requests,
+        usagePercent: 100,
+        remaining: 0,
+        error: quota.error,
+      }
+    }
+
+    const usagePercent = quota.requests.limit_day > 0
+      ? (quota.requests.current / quota.requests.limit_day) * 100
+      : 0
+    const remaining = Math.max(0, quota.requests.limit_day - quota.requests.current)
+
+    let warning: string | undefined
+    if (usagePercent >= 90) {
+      warning = '⚠️ Quota crítica: menos del 10% restante'
+    } else if (usagePercent >= 75) {
+      warning = '⚠️ Quota baja: menos del 25% restante'
+    }
+
+    return {
+      account: quota.account,
+      subscription: quota.subscription,
+      requests: quota.requests,
+      usagePercent: Math.round(usagePercent * 10) / 10,
+      remaining,
+      warning,
+    }
   }
 
   private mapSettingsToOutput(

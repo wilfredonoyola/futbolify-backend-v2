@@ -2,6 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { ConfigService } from '@nestjs/config'
 import { Model } from 'mongoose'
+import { RedisCacheService } from '../common/redis-cache.service'
 import { NightlyAnalysisCron } from './cron/nightly-analysis.cron'
 import { PreMatchCheckCron } from './cron/pre-match-check.cron'
 import { OddsMonitorCron } from './cron/odds-monitor.cron'
@@ -35,6 +36,7 @@ export class BettingTestController {
     private valueDetection: ValueDetectionService,
     private telegramService: BettingTelegramService,
     private configService: ConfigService,
+    private redisCache: RedisCacheService,
     @InjectModel(BettingLeague.name)
     private bettingLeagueModel: Model<BettingLeagueDocument>,
     @InjectModel(BettingPick.name)
@@ -1231,6 +1233,235 @@ export class BettingTestController {
         isActive: l.isActive,
         oddsApiSportKey: l.oddsApiSportKey,
       })),
+    }
+  }
+
+  /**
+   * Clear fixtures cache for a date and re-scan
+   * GET /betting/test/clear-cache-scan?date=2026-03-26
+   */
+  @Get('clear-cache-scan')
+  async clearCacheAndScan(@Query('date') date: string) {
+    if (!date) {
+      return { error: 'Date required (format: YYYY-MM-DD)' }
+    }
+
+    // Clear all fixtures cache for this date
+    const pattern = `betting:fixtures:${date}:*`
+    await this.redisCache.deletePattern(pattern)
+
+    // Also clear team stats and odds cache (they might be stale too)
+    await this.redisCache.deletePattern('betting:team-stats:*')
+    await this.redisCache.deletePattern('betting:odds:*')
+
+    // Now run scan
+    const result = await this.nightlyAnalysis.triggerManualAnalysis(date)
+
+    return {
+      success: true,
+      message: `Cache cleared and scan completed for ${date}`,
+      cacheCleared: pattern,
+      ...result,
+    }
+  }
+
+  /**
+   * Test fetching fixtures directly for a league (bypasses cache)
+   * GET /betting/test/test-fixtures?leagueId=39&date=2026-03-28
+   */
+  @Get('test-fixtures')
+  async testFixtures(
+    @Query('leagueId') leagueId: string,
+    @Query('date') date: string
+  ) {
+    const id = parseInt(leagueId)
+    if (isNaN(id)) {
+      return { error: 'Invalid leagueId' }
+    }
+
+    if (!date) {
+      // Default to tomorrow
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      date = tomorrow.toISOString().split('T')[0]
+    }
+
+    try {
+      // Clear cache for this specific league+date first
+      const cacheKey = `betting:fixtures:${date}:${id}`
+      await this.redisCache.delete(cacheKey)
+
+      // Fetch fresh fixtures
+      const league = await this.bettingLeagueModel.findOne({ apiFootballId: id }).exec()
+      if (!league) {
+        return { error: 'League not found', leagueId: id }
+      }
+
+      const fixtures = await this.apiFootball.getFixtures(date, id, league.season || '2025')
+
+      // Filter upcoming
+      const now = new Date()
+      const upcoming = fixtures.filter(f => new Date(f.kickoff) > now)
+
+      return {
+        league: {
+          id: league.apiFootballId,
+          name: league.name,
+          season: league.season,
+        },
+        date,
+        totalFixtures: fixtures.length,
+        upcomingFixtures: upcoming.length,
+        fixtures: upcoming.map(f => ({
+          id: f.fixtureId,
+          match: `${f.homeTeamName} vs ${f.awayTeamName}`,
+          kickoff: f.kickoff,
+          venue: f.venue,
+          status: f.status,
+        })),
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
+   * Check API configuration
+   * GET /betting/test/api-status
+   */
+  @Get('api-status')
+  async apiStatus() {
+    const apiKey = this.configService.get<string>('API_FOOTBALL_KEY')
+    const oddsApiKey = this.configService.get<string>('THE_ODDS_API_KEY')
+
+    return {
+      apiFootball: {
+        configured: !!apiKey,
+        keyLength: apiKey?.length || 0,
+        keyPreview: apiKey ? `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}` : null,
+      },
+      theOddsApi: {
+        configured: !!oddsApiKey,
+        keyLength: oddsApiKey?.length || 0,
+      },
+      redis: {
+        available: this.redisCache.isAvailable(),
+      },
+    }
+  }
+
+  /**
+   * Raw API test - checks API Football directly
+   * GET /betting/test/raw-api-test
+   */
+  @Get('raw-api-test')
+  async rawApiTest() {
+    const apiKey = this.configService.get<string>('API_FOOTBALL_KEY')
+    if (!apiKey) {
+      return { error: 'API_FOOTBALL_KEY not configured' }
+    }
+
+    try {
+      // Test /status endpoint
+      const statusRes = await fetch('https://v3.football.api-sports.io/status', {
+        headers: { 'x-apisports-key': apiKey },
+      })
+      const statusData = await statusRes.json()
+
+      // Test /leagues endpoint
+      const leaguesRes = await fetch('https://v3.football.api-sports.io/leagues?id=39', {
+        headers: { 'x-apisports-key': apiKey },
+      })
+      const leaguesData = await leaguesRes.json()
+
+      // Test /fixtures endpoint for Premier League
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      const dateStr = tomorrow.toISOString().split('T')[0]
+
+      const fixturesRes = await fetch(
+        `https://v3.football.api-sports.io/fixtures?date=${dateStr}&league=39&season=2025`,
+        { headers: { 'x-apisports-key': apiKey } }
+      )
+      const fixturesData = await fixturesRes.json()
+
+      return {
+        status: {
+          httpStatus: statusRes.status,
+          response: statusData.response || statusData,
+          errors: statusData.errors,
+        },
+        leagues: {
+          httpStatus: leaguesRes.status,
+          count: leaguesData.response?.length || 0,
+          errors: leaguesData.errors,
+          sample: leaguesData.response?.[0] || null,
+        },
+        fixtures: {
+          httpStatus: fixturesRes.status,
+          date: dateStr,
+          count: fixturesData.response?.length || 0,
+          errors: fixturesData.errors,
+        },
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
+   * Full diagnostics: check all active leagues for fixtures
+   * GET /betting/test/diagnose-all?date=2026-03-28
+   */
+  @Get('diagnose-all')
+  async diagnoseAll(@Query('date') date: string) {
+    if (!date) {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      date = tomorrow.toISOString().split('T')[0]
+    }
+
+    const leagues = await this.bettingLeagueModel
+      .find({ isActive: true })
+      .sort({ tier: 1, name: 1 })
+      .exec()
+
+    const results: any[] = []
+    let totalFixtures = 0
+
+    for (const league of leagues) {
+      // Clear cache
+      const cacheKey = `betting:fixtures:${date}:${league.apiFootballId}`
+      await this.redisCache.delete(cacheKey)
+
+      // Fetch fresh
+      const fixtures = await this.apiFootball.getFixtures(
+        date,
+        league.apiFootballId,
+        league.season || '2025'
+      )
+
+      const now = new Date()
+      const upcoming = fixtures.filter(f => new Date(f.kickoff) > now)
+
+      totalFixtures += upcoming.length
+
+      if (upcoming.length > 0) {
+        results.push({
+          id: league.apiFootballId,
+          name: league.name,
+          fixtures: upcoming.length,
+          matches: upcoming.slice(0, 3).map(f => `${f.homeTeamName} vs ${f.awayTeamName}`),
+        })
+      }
+    }
+
+    return {
+      date,
+      activeLeagues: leagues.length,
+      leaguesWithFixtures: results.length,
+      totalFixtures,
+      details: results,
     }
   }
 }

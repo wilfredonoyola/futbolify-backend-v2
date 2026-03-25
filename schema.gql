@@ -2967,6 +2967,51 @@ type ScanResult {
   leagues: [String!]!
 }
 
+"""API Football subscription information"""
+type ApiSubscription {
+  """Subscription plan name"""
+  plan: String!
+
+  """End date of current subscription"""
+  end: String!
+
+  """Whether subscription is active"""
+  active: Boolean!
+}
+
+"""API Football request quota information"""
+type ApiQuotaRequests {
+  """Current number of requests used today"""
+  current: Int!
+
+  """Maximum daily requests allowed"""
+  limit_day: Int!
+}
+
+"""API Football quota status"""
+type ApiQuotaOutput {
+  """Account email or identifier"""
+  account: String!
+
+  """Subscription details"""
+  subscription: ApiSubscription!
+
+  """Request quota information"""
+  requests: ApiQuotaRequests!
+
+  """Percentage of daily quota used (0-100)"""
+  usagePercent: Float!
+
+  """Remaining requests for today"""
+  remaining: Int!
+
+  """Warning message if quota is low"""
+  warning: String
+
+  """Error message if quota check failed"""
+  error: String
+}
+
 type ComboLeg {
   pickId: ID!
   fixtureId: Int!
@@ -3249,6 +3294,9 @@ type Query {
   """Compare system picks performance vs personally placed bets"""
   bettingCredibilityDashboard: CredibilityDashboard!
   bettingSettings: BettingSettingsOutput!
+
+  """Get API-Football quota status and usage"""
+  apiQuota: ApiQuotaOutput!
   bettingLeagues(activeOnly: Boolean = false, tier: Int): [BettingLeagueOutput!]!
   bettingLeague(apiFootballId: Int!): BettingLeagueOutput
 }

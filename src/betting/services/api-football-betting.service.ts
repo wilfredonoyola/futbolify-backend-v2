@@ -950,4 +950,77 @@ export class ApiFootballBettingService {
       return null
     }
   }
+
+  /**
+   * Get API quota status from API-Football /status endpoint
+   * Returns subscription and request quota information
+   */
+  async getQuotaStatus(): Promise<{
+    account: string
+    subscription: {
+      plan: string
+      end: string
+      active: boolean
+    }
+    requests: {
+      current: number
+      limit_day: number
+    }
+    error?: string
+  } | null> {
+    if (!this.apiKey) {
+      return null
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/status`, {
+        headers: { 'x-apisports-key': this.apiKey },
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      // Check for API errors
+      if (data.errors && Object.keys(data.errors).length > 0) {
+        const errorMsg = Object.values(data.errors).join(', ')
+        return {
+          account: 'unknown',
+          subscription: {
+            plan: 'unknown',
+            end: 'unknown',
+            active: false,
+          },
+          requests: {
+            current: 0,
+            limit_day: 0,
+          },
+          error: errorMsg,
+        }
+      }
+
+      const status = data.response
+      if (!status) {
+        throw new Error('Invalid response structure')
+      }
+
+      return {
+        account: status.account?.email || 'unknown',
+        subscription: {
+          plan: status.subscription?.plan || 'unknown',
+          end: status.subscription?.end || 'unknown',
+          active: status.subscription?.active ?? false,
+        },
+        requests: {
+          current: status.requests?.current ?? 0,
+          limit_day: status.requests?.limit_day ?? 0,
+        },
+      }
+    } catch (error) {
+      this.logger.error(`Failed to get API quota status: ${error}`)
+      return null
+    }
+  }
 }
