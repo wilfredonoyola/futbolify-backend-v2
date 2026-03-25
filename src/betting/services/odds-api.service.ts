@@ -395,4 +395,67 @@ export class OddsApiService {
       return []
     }
   }
+
+  /**
+   * Check API status and get usage info from headers
+   * The Odds API returns quota info in response headers:
+   * - x-requests-remaining
+   * - x-requests-used
+   */
+  async getApiStatus(): Promise<{
+    configured: boolean
+    available: boolean
+    requestsUsed?: number
+    requestsRemaining?: number
+    message?: string
+  }> {
+    if (!this.apiKey) {
+      return {
+        configured: false,
+        available: false,
+        message: 'API key not configured (ODDS_API_KEY)',
+      }
+    }
+
+    try {
+      // Make a simple request to check status - sports endpoint is cheap
+      const url = new URL(`${this.baseUrl}/sports`)
+      url.searchParams.set('apiKey', this.apiKey)
+
+      const response = await fetch(url.toString())
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        return {
+          configured: true,
+          available: false,
+          message: `API error: ${response.status} - ${errorText}`,
+        }
+      }
+
+      // Extract quota from headers
+      const requestsUsed = parseInt(response.headers.get('x-requests-used') || '0')
+      const requestsRemaining = parseInt(response.headers.get('x-requests-remaining') || '0')
+
+      return {
+        configured: true,
+        available: true,
+        requestsUsed,
+        requestsRemaining,
+      }
+    } catch (error) {
+      return {
+        configured: true,
+        available: false,
+        message: `Connection error: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Check if API key is configured
+   */
+  isConfigured(): boolean {
+    return !!this.apiKey
+  }
 }

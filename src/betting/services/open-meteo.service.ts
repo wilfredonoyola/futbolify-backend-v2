@@ -426,4 +426,43 @@ export class OpenMeteoService {
       flags: ['WEATHER_UNAVAILABLE'],
     }
   }
+
+  /**
+   * Check if Open-Meteo API is available
+   * Open-Meteo is free and doesn't require authentication
+   */
+  async getApiStatus(): Promise<{
+    configured: boolean
+    available: boolean
+    message?: string
+  }> {
+    try {
+      // Make a simple request to verify API is reachable
+      const url = new URL(this.baseUrl)
+      url.searchParams.set('latitude', '52.52')
+      url.searchParams.set('longitude', '13.41')
+      url.searchParams.set('current', 'temperature_2m')
+
+      const response = await fetch(url.toString())
+
+      if (!response.ok) {
+        return {
+          configured: true,
+          available: false,
+          message: `API error: ${response.status}`,
+        }
+      }
+
+      return {
+        configured: true, // No key needed, always "configured"
+        available: true,
+      }
+    } catch (error) {
+      return {
+        configured: true,
+        available: false,
+        message: `Connection error: ${error.message}`,
+      }
+    }
+  }
 }

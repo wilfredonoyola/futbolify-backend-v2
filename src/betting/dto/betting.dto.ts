@@ -964,3 +964,50 @@ export class ApiQuotaOutput {
   @Field({ description: 'Error message if quota check failed', nullable: true })
   error?: string
 }
+
+// ============ ALL APIS STATUS ============
+
+@ObjectType({ description: 'Status of a single API service' })
+export class ApiServiceStatus {
+  @Field({ description: 'Name of the API service' })
+  name: string
+
+  @Field({ description: 'Whether API key is configured' })
+  configured: boolean
+
+  @Field({ description: 'Whether the API is currently available' })
+  available: boolean
+
+  @Field(() => Int, { nullable: true, description: 'Requests used today' })
+  requestsUsed?: number
+
+  @Field(() => Int, { nullable: true, description: 'Daily request limit' })
+  requestsLimit?: number
+
+  @Field(() => Float, { nullable: true, description: 'Usage percentage (0-100)' })
+  usagePercent?: number
+
+  @Field({ nullable: true, description: 'Plan or tier name' })
+  plan?: string
+
+  @Field({ nullable: true, description: 'Error or warning message' })
+  message?: string
+}
+
+@ObjectType({ description: 'Status of all API services used by betting system' })
+export class AllApisStatusOutput {
+  @Field(() => ApiServiceStatus, { description: 'API-Football status (fixtures, stats, odds)' })
+  apiFootball: ApiServiceStatus
+
+  @Field(() => ApiServiceStatus, { description: 'The Odds API status (Pinnacle sharp lines)' })
+  theOddsApi: ApiServiceStatus
+
+  @Field(() => ApiServiceStatus, { description: 'Open-Meteo status (weather data)' })
+  openMeteo: ApiServiceStatus
+
+  @Field({ description: 'Overall system health: all APIs operational' })
+  allOperational: boolean
+
+  @Field(() => [String], { description: 'List of warnings or issues' })
+  warnings: string[]
+}

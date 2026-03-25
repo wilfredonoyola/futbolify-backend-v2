@@ -22,9 +22,13 @@ import {
   ActiveLeagueInfo,
   ScanResult,
   ApiQuotaOutput,
+  AllApisStatusOutput,
+  ApiServiceStatus,
 } from '../dto/betting.dto'
 import { NightlyAnalysisCron } from '../cron/nightly-analysis.cron'
 import { ApiFootballBettingService } from '../services/api-football-betting.service'
+import { OddsApiService } from '../services/odds-api.service'
+import { OpenMeteoService } from '../services/open-meteo.service'
 
 @Resolver()
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -38,7 +42,9 @@ export class BettingSettingsResolver {
     @InjectModel(BettingPick.name)
     private bettingPickModel: Model<BettingPickDocument>,
     private nightlyAnalysisCron: NightlyAnalysisCron,
-    private apiFootballService: ApiFootballBettingService
+    private apiFootballService: ApiFootballBettingService,
+    private oddsApiService: OddsApiService,
+    private openMeteoService: OpenMeteoService
   ) {}
 
   @Query(() => BettingSettingsOutput, { name: 'bettingSettings' })
@@ -318,6 +324,79 @@ export class BettingSettingsResolver {
       usagePercent: Math.round(usagePercent * 10) / 10,
       remaining,
       warning,
+    }
+  }
+
+  @Query(() => AllApisStatusOutput, {
+    name: 'allApisStatus',
+    description: 'Get status of all API services used by betting system'
+  })
+  async getAllApisStatus(): Promise<AllApisStatusOutput> {
+    const warnings: string[] = []
+
+    // Check API-Football
+    const apiFootballQuota = await this.apiFootballService.getQuotaStatus()
+    const apiFootball: ApiServiceStatus = {
+      name: 'API-Football',
+      configured: !!apiFootballQuota,
+      available: apiFootballQuota ? !apiFootballQuota.error : false,
+      requestsUsed: apiFootballQuota?.requests.current,
+      requestsLimit: apiFootballQuota?.requests.limit_day,
+      usagePercent: apiFootballQuota?.requests.limit_day
+        ? (apiFootballQuota.requests.current / apiFootballQuota.requests.limit_day) * 100
+        : undefined,
+      plan: apiFootballQuota?.subscription.plan,
+      message: apiFootballQuota?.error,
+    }
+
+    if (apiFootballQuota?.error) {
+      warnings.push(`API-Football: ${apiFootballQuota.error}`)
+    } else if (apiFootball.usagePercent && apiFootball.usagePercent >= 90) {
+      warnings.push('API-Football: Quota crítica (>90%)')
+    }
+
+    // Check The Odds API
+    const oddsApiStatus = await this.oddsApiService.getApiStatus()
+    const theOddsApi: ApiServiceStatus = {
+      name: 'The Odds API',
+      configured: oddsApiStatus.configured,
+      available: oddsApiStatus.available,
+      requestsUsed: oddsApiStatus.requestsUsed,
+      requestsLimit: oddsApiStatus.requestsRemaining !== undefined
+        ? (oddsApiStatus.requestsUsed || 0) + oddsApiStatus.requestsRemaining
+        : undefined,
+      usagePercent: oddsApiStatus.requestsRemaining !== undefined && oddsApiStatus.requestsUsed !== undefined
+        ? (oddsApiStatus.requestsUsed / ((oddsApiStatus.requestsUsed || 0) + oddsApiStatus.requestsRemaining)) * 100
+        : undefined,
+      message: oddsApiStatus.message,
+    }
+
+    if (!oddsApiStatus.configured) {
+      warnings.push('The Odds API: No configurada (ODDS_API_KEY)')
+    } else if (!oddsApiStatus.available) {
+      warnings.push(`The Odds API: ${oddsApiStatus.message}`)
+    }
+
+    // Check Open-Meteo
+    const openMeteoStatus = await this.openMeteoService.getApiStatus()
+    const openMeteo: ApiServiceStatus = {
+      name: 'Open-Meteo',
+      configured: true, // No key needed
+      available: openMeteoStatus.available,
+      plan: 'Free (no key required)',
+      message: openMeteoStatus.message,
+    }
+
+    if (!openMeteoStatus.available) {
+      warnings.push(`Open-Meteo: ${openMeteoStatus.message}`)
+    }
+
+    return {
+      apiFootball,
+      theOddsApi,
+      openMeteo,
+      allOperational: apiFootball.available && theOddsApi.available && openMeteo.available,
+      warnings,
     }
   }
 

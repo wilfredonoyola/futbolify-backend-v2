@@ -3012,6 +3012,51 @@ type ApiQuotaOutput {
   error: String
 }
 
+"""Status of a single API service"""
+type ApiServiceStatus {
+  """Name of the API service"""
+  name: String!
+
+  """Whether API key is configured"""
+  configured: Boolean!
+
+  """Whether the API is currently available"""
+  available: Boolean!
+
+  """Requests used today"""
+  requestsUsed: Int
+
+  """Daily request limit"""
+  requestsLimit: Int
+
+  """Usage percentage (0-100)"""
+  usagePercent: Float
+
+  """Plan or tier name"""
+  plan: String
+
+  """Error or warning message"""
+  message: String
+}
+
+"""Status of all API services used by betting system"""
+type AllApisStatusOutput {
+  """API-Football status (fixtures, stats, odds)"""
+  apiFootball: ApiServiceStatus!
+
+  """The Odds API status (Pinnacle sharp lines)"""
+  theOddsApi: ApiServiceStatus!
+
+  """Open-Meteo status (weather data)"""
+  openMeteo: ApiServiceStatus!
+
+  """Overall system health: all APIs operational"""
+  allOperational: Boolean!
+
+  """List of warnings or issues"""
+  warnings: [String!]!
+}
+
 type ComboLeg {
   pickId: ID!
   fixtureId: Int!
@@ -3297,6 +3342,9 @@ type Query {
 
   """Get API-Football quota status and usage"""
   apiQuota: ApiQuotaOutput!
+
+  """Get status of all API services used by betting system"""
+  allApisStatus: AllApisStatusOutput!
   bettingLeagues(activeOnly: Boolean = false, tier: Int): [BettingLeagueOutput!]!
   bettingLeague(apiFootballId: Int!): BettingLeagueOutput
 }
