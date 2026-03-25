@@ -254,9 +254,26 @@ export class BettingAnalyticsResolver {
   }
 
   @Query(() => [LeaguePerformance], { name: 'bettingPerformanceByLeague' })
-  async getPerformanceByLeague(): Promise<LeaguePerformance[]> {
+  async getPerformanceByLeague(
+    @Args('dateFrom', { nullable: true }) dateFrom?: string,
+    @Args('dateTo', { nullable: true }) dateTo?: string
+  ): Promise<LeaguePerformance[]> {
+    const query: Record<string, unknown> = {
+      status: { $in: [PickStatus.WON, PickStatus.LOST] },
+    }
+
+    if (dateFrom || dateTo) {
+      query.date = {}
+      if (dateFrom) {
+        (query.date as Record<string, Date>).$gte = new Date(dateFrom)
+      }
+      if (dateTo) {
+        (query.date as Record<string, Date>).$lte = new Date(dateTo)
+      }
+    }
+
     const picks = await this.bettingPickModel
-      .find({ status: { $in: [PickStatus.WON, PickStatus.LOST] } })
+      .find(query)
       .exec()
 
     const byLeague = new Map<number, {
@@ -302,9 +319,26 @@ export class BettingAnalyticsResolver {
   }
 
   @Query(() => [MarketPerformance], { name: 'bettingPerformanceByMarket' })
-  async getPerformanceByMarket(): Promise<MarketPerformance[]> {
+  async getPerformanceByMarket(
+    @Args('dateFrom', { nullable: true }) dateFrom?: string,
+    @Args('dateTo', { nullable: true }) dateTo?: string
+  ): Promise<MarketPerformance[]> {
+    const query: Record<string, unknown> = {
+      status: { $in: [PickStatus.WON, PickStatus.LOST] },
+    }
+
+    if (dateFrom || dateTo) {
+      query.date = {}
+      if (dateFrom) {
+        (query.date as Record<string, Date>).$gte = new Date(dateFrom)
+      }
+      if (dateTo) {
+        (query.date as Record<string, Date>).$lte = new Date(dateTo)
+      }
+    }
+
     const picks = await this.bettingPickModel
-      .find({ status: { $in: [PickStatus.WON, PickStatus.LOST] } })
+      .find(query)
       .exec()
 
     const byMarket = new Map<MarketType, {
@@ -348,9 +382,26 @@ export class BettingAnalyticsResolver {
   }
 
   @Query(() => [ComboTypePerformance], { name: 'bettingPerformanceByComboType' })
-  async getPerformanceByComboType(): Promise<ComboTypePerformance[]> {
+  async getPerformanceByComboType(
+    @Args('dateFrom', { nullable: true }) dateFrom?: string,
+    @Args('dateTo', { nullable: true }) dateTo?: string
+  ): Promise<ComboTypePerformance[]> {
+    const query: Record<string, unknown> = {
+      status: { $in: [ComboStatus.WON, ComboStatus.LOST, ComboStatus.PARTIAL] },
+    }
+
+    if (dateFrom || dateTo) {
+      query.createdAt = {}
+      if (dateFrom) {
+        (query.createdAt as Record<string, Date>).$gte = new Date(dateFrom)
+      }
+      if (dateTo) {
+        (query.createdAt as Record<string, Date>).$lte = new Date(dateTo)
+      }
+    }
+
     const combos = await this.bettingComboModel
-      .find({ status: { $in: [ComboStatus.WON, ComboStatus.LOST, ComboStatus.PARTIAL] } })
+      .find(query)
       .exec()
 
     const byType = new Map<ComboType, {
@@ -398,14 +449,35 @@ export class BettingAnalyticsResolver {
 
   @Query(() => [BankrollDataPoint], { name: 'bettingBankrollHistory' })
   async getBankrollHistory(
-    @Args('days', { type: () => Int, nullable: true, defaultValue: 30 }) days: number
+    @Args('days', { type: () => Int, nullable: true }) days?: number,
+    @Args('dateFrom', { nullable: true }) dateFrom?: string,
+    @Args('dateTo', { nullable: true }) dateTo?: string
   ): Promise<BankrollDataPoint[]> {
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - days)
-    startDate.setHours(0, 0, 0, 0)
+    const query: Record<string, unknown> = {}
+
+    if (dateFrom || dateTo) {
+      query.date = {}
+      if (dateFrom) {
+        (query.date as Record<string, Date>).$gte = new Date(dateFrom)
+      }
+      if (dateTo) {
+        (query.date as Record<string, Date>).$lte = new Date(dateTo)
+      }
+    } else if (days) {
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - days)
+      startDate.setHours(0, 0, 0, 0)
+      query.date = { $gte: startDate }
+    } else {
+      // Default to last 30 days
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 30)
+      startDate.setHours(0, 0, 0, 0)
+      query.date = { $gte: startDate }
+    }
 
     const summaries = await this.dailySummaryModel
-      .find({ date: { $gte: startDate } })
+      .find(query)
       .sort({ date: 1 })
       .exec()
 
@@ -417,12 +489,27 @@ export class BettingAnalyticsResolver {
   }
 
   @Query(() => [CLVDataPoint], { name: 'bettingCLVHistory' })
-  async getCLVHistory(): Promise<CLVDataPoint[]> {
+  async getCLVHistory(
+    @Args('dateFrom', { nullable: true }) dateFrom?: string,
+    @Args('dateTo', { nullable: true }) dateTo?: string
+  ): Promise<CLVDataPoint[]> {
+    const query: Record<string, unknown> = {
+      status: { $in: [PickStatus.WON, PickStatus.LOST] },
+      clv: { $exists: true },
+    }
+
+    if (dateFrom || dateTo) {
+      query.date = {}
+      if (dateFrom) {
+        (query.date as Record<string, Date>).$gte = new Date(dateFrom)
+      }
+      if (dateTo) {
+        (query.date as Record<string, Date>).$lte = new Date(dateTo)
+      }
+    }
+
     const picks = await this.bettingPickModel
-      .find({
-        status: { $in: [PickStatus.WON, PickStatus.LOST] },
-        clv: { $exists: true },
-      })
+      .find(query)
       .sort({ kickoff: 1 })
       .limit(100)
       .exec()

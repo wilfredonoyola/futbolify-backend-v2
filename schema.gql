@@ -3212,11 +3212,11 @@ type Query {
   bettingTodayCombos: [BettingComboOutput!]!
   bettingDashboard(date: String): BettingDashboard!
   bettingAnalytics(dateFrom: String, dateTo: String): BettingAnalytics!
-  bettingPerformanceByLeague: [LeaguePerformance!]!
-  bettingPerformanceByMarket: [MarketPerformance!]!
-  bettingPerformanceByComboType: [ComboTypePerformance!]!
-  bettingBankrollHistory(days: Int = 30): [BankrollDataPoint!]!
-  bettingCLVHistory: [CLVDataPoint!]!
+  bettingPerformanceByLeague(dateFrom: String, dateTo: String): [LeaguePerformance!]!
+  bettingPerformanceByMarket(dateFrom: String, dateTo: String): [MarketPerformance!]!
+  bettingPerformanceByComboType(dateFrom: String, dateTo: String): [ComboTypePerformance!]!
+  bettingBankrollHistory(days: Int, dateFrom: String, dateTo: String): [BankrollDataPoint!]!
+  bettingCLVHistory(dateFrom: String, dateTo: String): [CLVDataPoint!]!
 
   """Compare system picks performance vs personally placed bets"""
   bettingCredibilityDashboard: CredibilityDashboard!
@@ -3519,6 +3519,14 @@ type Mutation {
   toggleBettingActive(active: Boolean!): BettingSettingsOutput!
   toggleLeague(leagueId: Int!, active: Boolean!): BettingSettingsOutput!
   forceScan(date: String!): ScanResult!
+
+  """
+  Recalculate bankroll from initial amount plus all profits from betPlaced picks
+  """
+  recalculateBankroll(
+    """Your starting bankroll amount"""
+    initialBankroll: Float!
+  ): BettingSettingsOutput!
   toggleBettingLeague(apiFootballId: Int!, active: Boolean!): BettingLeagueOutput!
   updateLeagueTier(apiFootballId: Int!, tier: Int!): BettingLeagueOutput!
 }
