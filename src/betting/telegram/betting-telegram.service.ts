@@ -445,6 +445,7 @@ export class BettingTelegramService implements OnModuleInit {
 
   /**
    * Send personal result notification (when user actually bet)
+   * Called by result-collector when a pick with betPlaced=true is settled
    */
   async sendPersonalResultNotification(
     pick: BettingPickDocument,
@@ -462,35 +463,48 @@ export class BettingTelegramService implements OnModuleInit {
       }
 
       const isWin = profit > 0
-      const emoji = isWin ? '\u2705' : '\u274c'
-      const resultText = isWin ? 'GANASTE' : 'Perdiste'
+      const emoji = isWin ? '✅' : '❌'
+      const resultText = isWin ? 'GANASTE' : 'PERDISTE'
       const profitText = profit >= 0 ? `+$${profit.toFixed(2)}` : `-$${Math.abs(profit).toFixed(2)}`
+      const stake = pick.stake || pick.betAmount || 0
+
+      // Format market label nicely
+      const marketLabel = this.formatters.formatMarketLabel(pick.market, pick.line, pick.direction)
 
       let message = `${emoji} *${resultText}* ${profitText}\n`
-      message += '\u2501'.repeat(20) + '\n\n'
-      message += `\u26bd ${pick.teamHome.name} vs ${pick.teamAway.name}\n`
-      message += `\ud83d\udcca ${pick.market} ${pick.direction} ${pick.line}\n`
+      message += '━'.repeat(22) + '\n\n'
 
+      // Match info
+      message += `⚽ *${pick.teamHome.name}* vs *${pick.teamAway.name}*\n`
+      message += `🏆 ${pick.league.name}\n\n`
+
+      // Bet details
+      message += `📊 *Apuesta:* ${marketLabel}\n`
+      message += `💵 *Stake:* $${stake.toFixed(2)} @ ${(pick.oddsAtDetection || 0).toFixed(2)}\n`
+
+      // Match result
       if (pick.matchResult) {
-        message += `\n\ud83d\udcca *Resultado:*\n`
-        if (pick.matchResult.scoreFT) {
-          message += `• FT: ${pick.matchResult.scoreFT}\n`
-        }
+        message += '\n📋 *Resultado del partido:*\n'
         if (pick.matchResult.scoreHT) {
-          message += `• HT: ${pick.matchResult.scoreHT}\n`
+          message += `   HT: ${pick.matchResult.scoreHT}\n`
+        }
+        if (pick.matchResult.scoreFT) {
+          message += `   FT: ${pick.matchResult.scoreFT}\n`
         }
         if (pick.matchResult.cornersTotal !== undefined) {
-          message += `• Corners: ${pick.matchResult.cornersTotal}\n`
+          message += `   Corners: ${pick.matchResult.cornersTotal}\n`
         }
       }
 
-      message += `\n\ud83d\udcb0 *Bankroll:* $${settings.bankroll.toFixed(2)}`
+      // Updated bankroll
+      const newBankroll = settings.bankroll + profit
+      message += `\n💰 *Bankroll:* $${settings.bankroll.toFixed(2)} → $${newBankroll.toFixed(2)}`
 
       await this.bot.telegram.sendMessage(adminChatId, message, {
         parse_mode: 'Markdown',
       })
 
-      this.logger.log(`Personal result notification sent: ${pick.teamHome.name} vs ${pick.teamAway.name} - ${resultText}`)
+      this.logger.log(`Personal result notification sent: ${pick.teamHome.name} vs ${pick.teamAway.name} - ${resultText} ${profitText}`)
     } catch (error) {
       this.logger.error(`Failed to send personal result notification: ${error}`)
     }

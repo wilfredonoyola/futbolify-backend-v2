@@ -588,4 +588,36 @@ export class BettingTelegramFormatters {
     }
     return icons[status] || '\u2753'
   }
+
+  /**
+   * Format market label for personal result notification
+   */
+  formatMarketLabel(market: MarketType, line?: number, direction?: string): string {
+    const marketNames: Record<string, string> = {
+      'over_05_1h': 'Over 0.5 Goles 1H',
+      'over_15_1h': 'Over 1.5 Goles 1H',
+      'over_75_corners': 'Over 7.5 Corners',
+      'over_85_corners': 'Over 8.5 Corners',
+      'over_95_corners': 'Over 9.5 Corners',
+      'over_105_corners': 'Over 10.5 Corners',
+      'over_115_corners': 'Over 11.5 Corners',
+      'over_45_corners_1h': 'Over 4.5 Corners 1H',
+      'under_85_corners': 'Under 8.5 Corners',
+      'under_95_corners': 'Under 9.5 Corners',
+      'under_105_corners': 'Under 10.5 Corners',
+      'corners_handicap': 'Corners Handicap',
+    }
+
+    const marketStr = String(market).toLowerCase()
+    let label = marketNames[marketStr] || market
+
+    // For corners handicap, add line and direction
+    if (marketStr === 'corners_handicap' && line !== undefined) {
+      const lineStr = line >= 0 ? `+${line}` : `${line}`
+      const side = direction === 'OVER' ? 'Local' : 'Visitante'
+      label = `Corners Hcap ${side} (${lineStr})`
+    }
+
+    return label
+  }
 }
