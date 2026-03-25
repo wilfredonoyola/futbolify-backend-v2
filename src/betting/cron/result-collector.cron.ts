@@ -148,6 +148,32 @@ export class ResultCollectorCron {
 
       await this.telegramService.sendResultsAlert(today, settledPicks, settledCombos)
 
+      // ================================================
+      // MODEL CALIBRATION VALIDATION (Phase 5)
+      // ================================================
+      // Analyze all historical settled picks for CLV validation
+      // This helps determine if our model is generating real edge
+      const allHistoricalPicks = await this.bettingPickModel
+        .find({
+          status: { $in: [PickStatus.WON, PickStatus.LOST] },
+        })
+        .sort({ kickoff: -1 })
+        .limit(100) // Last 100 picks for calibration
+        .exec()
+
+      if (allHistoricalPicks.length >= 20) {
+        const calibration = await this.validateModelCalibration(allHistoricalPicks)
+        this.logger.log(`Model Calibration: ${calibration.recommendation}`)
+
+        // If model is invalid, log a critical warning
+        if (!calibration.isModelValid && allHistoricalPicks.length >= 50) {
+          this.logger.error(
+            `CRITICAL: Model calibration FAILED. avgCLV=${(calibration.avgCLV * 100).toFixed(2)}%. ` +
+            `Recommendation: ${calibration.recommendation}`
+          )
+        }
+      }
+
       const duration = Date.now() - startTime
       this.logger.log(
         `Result collection completed in ${duration}ms: ` +
@@ -349,6 +375,117 @@ export class ResultCollectorCron {
     )
 
     return status
+  }
+
+  /**
+   * Validate model calibration using CLV data
+   * This analyzes settled picks to determine if our model is generating real edge
+   *
+   * CLV (Closing Line Value) measures if we're betting on the right side:
+   * - Positive CLV = we got better odds than closing line = good bets
+   * - Negative CLV = we got worse odds than closing line = chasing bad lines
+   *
+   * @param settledPicks Array of picks that have been settled
+   */
+  async validateModelCalibration(settledPicks: BettingPickDocument[]): Promise<{
+    avgCLV: number
+    clvPositiveRate: number
+    isModelValid: boolean
+    recommendation: string
+    details: {
+      totalPicks: number
+      picksWithCLV: number
+      avgEdgeAtBet: number
+      actualWinRate: number
+      expectedWinRate: number
+    }
+  }> {
+    // Filter picks that have CLV data
+    const picksWithCLV = settledPicks.filter(
+      (p) => p.clv !== undefined && p.clv !== null
+    )
+
+    if (picksWithCLV.length === 0) {
+      return {
+        avgCLV: 0,
+        clvPositiveRate: 0,
+        isModelValid: false,
+        recommendation: 'Insufficient data - no CLV values recorded',
+        details: {
+          totalPicks: settledPicks.length,
+          picksWithCLV: 0,
+          avgEdgeAtBet: 0,
+          actualWinRate: 0,
+          expectedWinRate: 0,
+        },
+      }
+    }
+
+    // Calculate average CLV
+    const clvValues = picksWithCLV.map((p) => p.clv || 0)
+    const avgCLV = clvValues.reduce((a, b) => a + b, 0) / clvValues.length
+
+    // Calculate CLV positive rate (% of picks with positive CLV)
+    const positiveCLVCount = clvValues.filter((c) => c > 0).length
+    const clvPositiveRate = positiveCLVCount / clvValues.length
+
+    // Calculate actual win rate
+    const wonPicks = settledPicks.filter((p) => p.status === PickStatus.WON)
+    const actualWinRate = settledPicks.length > 0
+      ? wonPicks.length / settledPicks.length
+      : 0
+
+    // Calculate expected win rate (average probOwn)
+    const avgProbOwn = settledPicks.reduce((sum, p) => sum + (p.probOwn || 0), 0) /
+      settledPicks.length
+
+    // Calculate average edge at bet time
+    const avgEdgeAtBet = settledPicks.reduce((sum, p) => sum + (p.edge || 0), 0) /
+      settledPicks.length
+
+    // Determine model validity and recommendation
+    let isModelValid: boolean
+    let recommendation: string
+
+    if (picksWithCLV.length < 30) {
+      isModelValid = avgCLV > -0.01 // Allow slight negative CLV with small sample
+      recommendation = avgCLV > 0
+        ? 'Early indicators positive. Continue data collection (need 50+ picks)'
+        : 'Early indicators neutral/negative. Monitor closely'
+    } else if (avgCLV > 0.02) {
+      isModelValid = true
+      recommendation = 'Model VALID. Strong positive CLV indicates real edge. Continue betting'
+    } else if (avgCLV > 0) {
+      isModelValid = true
+      recommendation = 'Model MARGINAL. Positive CLV but low. Consider reducing stakes or reviewing edge thresholds'
+    } else if (avgCLV > -0.01) {
+      isModelValid = false
+      recommendation = 'Model BORDERLINE. CLV near zero. Pause and recalibrate before continuing'
+    } else {
+      isModelValid = false
+      recommendation = 'Model INVALID. Negative CLV indicates chasing bad lines. STOP betting and recalibrate'
+    }
+
+    // Log the analysis
+    this.logger.log(
+      `Model Calibration: avgCLV=${(avgCLV * 100).toFixed(2)}%, ` +
+      `CLV+ rate=${(clvPositiveRate * 100).toFixed(1)}%, ` +
+      `actual win=${(actualWinRate * 100).toFixed(1)}% vs expected=${(avgProbOwn * 100).toFixed(1)}%`
+    )
+
+    return {
+      avgCLV,
+      clvPositiveRate,
+      isModelValid,
+      recommendation,
+      details: {
+        totalPicks: settledPicks.length,
+        picksWithCLV: picksWithCLV.length,
+        avgEdgeAtBet,
+        actualWinRate,
+        expectedWinRate: avgProbOwn,
+      },
+    }
   }
 
   /**

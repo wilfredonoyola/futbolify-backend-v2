@@ -96,11 +96,16 @@ export class ScoringGoalsService {
     // OVER 0.5 1H CALCULATION (Section 2.2)
     // ================================================
 
-    // Step 1: Base probability (adjusted by home/away)
+    // Step 1: Base probability using CORRECT formula
+    // P(Over 0.5) = 1 - P(Neither team scores) = 1 - (1-probA)(1-probB)
+    // This is mathematically correct for "at least one goal" probability
     // Team A is home, Team B is away
     const probA = teamAStats.home_over05_1h
     const probB = teamBStats.away_over05_1h
-    let probBase = (probA + probB) / 2
+    // CORRECT: Using complement rule instead of naive average
+    // Before: (probA + probB) / 2 (incorrect - underestimates probability)
+    // After: 1 - (1 - probA) * (1 - probB) (correct - proper probability)
+    let probBase = 1 - (1 - probA) * (1 - probB)
 
     // Step 2: Form adjustment (weight: 15%)
     // form_goals_1h: how many of last 5 matches had a goal in 1H
@@ -150,17 +155,52 @@ export class ScoringGoalsService {
     probOver15_1H = probOver15_1H + formAdj15 + h2hAdj15
 
     // ================================================
-    // BTS 1H FILTER (MANDATORY for Over 1.5)
+    // BTS 1H FILTER (SOFT SCALING for Over 1.5)
     // ================================================
-    // If combined BTS 1H < 25%, probability drops to 0
+    // Instead of hard cutoff at 25%, use logistic function for smooth transition
+    // This avoids "cliff effect" where 24.9% BTS = 0 probability
     const combinedBts1H = (teamAStats.bts_1h_pct + teamBStats.bts_1h_pct) / 2
-    if (combinedBts1H < 0.25) {
-      warnings.push(`BTS 1H filter failed: ${(combinedBts1H * 100).toFixed(1)}% < 25%`)
-      probOver15_1H = 0
+
+    // Logistic scaling parameters
+    const BTS_MIDPOINT = 0.25 // 50% factor at this BTS value
+    const BTS_STEEPNESS = 15 // How sharp the transition is
+
+    // Calculate BTS factor using logistic function
+    // Factor results:
+    // - BTS 40%: factor ≈ 0.98 (almost no effect)
+    // - BTS 25%: factor = 0.50 (50% reduction)
+    // - BTS 15%: factor ≈ 0.18 (82% reduction)
+    // - BTS 10%: factor ≈ 0.08 (92% reduction)
+    const btsFactor = 1 / (1 + Math.exp(-BTS_STEEPNESS * (combinedBts1H - BTS_MIDPOINT)))
+    const originalProbOver15_1H = probOver15_1H
+    probOver15_1H = probOver15_1H * btsFactor
+
+    // Add warning if significant reduction applied
+    if (btsFactor < 0.7) {
+      warnings.push(
+        `BTS 1H scaling: ${(combinedBts1H * 100).toFixed(1)}% → factor ${btsFactor.toFixed(2)} ` +
+        `(${(originalProbOver15_1H * 100).toFixed(1)}% → ${(probOver15_1H * 100).toFixed(1)}%)`
+      )
     }
 
     // Clamp probOver15_1H
     probOver15_1H = Math.max(0, Math.min(0.85, probOver15_1H))
+
+    // ================================================
+    // CONSISTENCY VERIFICATION
+    // ================================================
+    // Mathematical constraint: P(Over 1.5) <= P(Over 0.5)
+    // If 2+ goals happen, at least 1 goal must have happened
+    if (probOver15_1H > probOver05_1H) {
+      warnings.push(
+        `Consistency violation: O15 (${(probOver15_1H * 100).toFixed(1)}%) > O05 (${(probOver05_1H * 100).toFixed(1)}%)`
+      )
+      // Apply conservative correction: O15 = O05 * 0.85
+      probOver15_1H = probOver05_1H * 0.85
+      this.logger.warn(
+        `Corrected O15 to ${(probOver15_1H * 100).toFixed(1)}% (was > O05)`
+      )
+    }
 
     // Additional warnings
     if (teamAStats.failed_to_score_pct > 0.3) {

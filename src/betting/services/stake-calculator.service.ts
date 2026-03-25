@@ -37,20 +37,37 @@ export interface BankrollConfig {
 
 /**
  * Default bankroll config
+ * UPDATED: Kelly fraction reduced from 20% to 10% for parlays
+ * Professional standard is 10-15% Kelly for multi-leg bets
  */
 const DEFAULT_CONFIG: BankrollConfig = {
   totalBankroll: 100,
   maxStakePercent: 0.02, // 2% max per combo
   minStake: 1.0,
-  kellyFraction: 0.20, // 20% of Kelly (conservative for combos)
+  kellyFraction: 0.10, // 10% of Kelly - professional standard for parlays
   maxDailyExposure: 0.15, // 15% of bankroll per day
 }
 
 /**
- * Legs penalty multipliers
- * More legs = more conservative staking
+ * Calculate variance-based legs penalty
+ * More legs = exponentially more variance = need smaller stakes
+ *
+ * Based on variance scaling: penalty = numLegs^(-exponent)
+ * - With correlation: exponent = 0.5 (less penalty due to correlated outcomes)
+ * - Without correlation: exponent = 0.6 (more penalty for independent legs)
+ *
+ * Results:
+ * - 2 legs: ~0.71 (before: 1.0) - 29% reduction
+ * - 3 legs: ~0.58 (before: 0.8) - 42% reduction
+ * - 4 legs: ~0.50 (before: 0.65) - 50% reduction
  */
-const LEGS_PENALTY: Record<number, number> = {
+function calculateLegsPenalty(numLegs: number, hasCorrelation: boolean = false): number {
+  const exponent = hasCorrelation ? 0.5 : 0.6
+  return Math.max(0.25, Math.pow(numLegs, -exponent))
+}
+
+// Keep legacy constant for reference/comparison (not used)
+const LEGS_PENALTY_LEGACY: Record<number, number> = {
   2: 1.0,
   3: 0.8,
   4: 0.65,
@@ -122,10 +139,9 @@ export class StakeCalculatorService {
     const typeLimit = TYPE_STAKE_LIMITS[combo.type] || 0.01
     const maxByType = cfg.totalBankroll * typeLimit
 
-    // Sharp combos get 25% boost
-    if (combo.sharpConfirmed) {
-      stake *= 1.25
-    }
+    // NOTE: Removed double sharp boost (was 1.25x)
+    // Sharp bonus is already included in type multiplier (1.1x for SHARP_GEMELA)
+    // Having both led to 1.1 * 1.25 = 1.375x which was too aggressive
 
     // Apply limits
     const maxStake = Math.min(
@@ -162,13 +178,19 @@ export class StakeCalculatorService {
     // Score multiplier
     const scoreMultiplier = this.getScoreMultiplier(combo.score)
 
-    // Legs multiplier (more legs = more conservative)
-    const legsMultiplier = LEGS_PENALTY[combo.legs.length] || 0.5
+    // Legs multiplier using variance-based formula
+    // Check if combo has correlation (from correlation field or type)
+    const hasCorrelation = (combo.correlation?.base || 0) > 0.1 ||
+      combo.type === ComboType.GEMELA ||
+      combo.type === ComboType.SHARP_GEMELA
+    const legsMultiplier = calculateLegsPenalty(combo.legs.length, hasCorrelation)
 
     // Type multiplier (some types are more reliable)
     const typeMultiplier = this.getTypeMultiplier(combo.type)
 
-    const finalMultiplier = scoreMultiplier * legsMultiplier * typeMultiplier
+    // Calculate final multiplier with safety cap to prevent over-betting
+    const rawMultiplier = scoreMultiplier * legsMultiplier * typeMultiplier
+    const finalMultiplier = Math.min(1.2, rawMultiplier) // Cap at 1.2x
 
     return {
       scoreMultiplier,
@@ -402,6 +424,107 @@ export class StakeCalculatorService {
     }
 
     return { valid: true }
+  }
+
+  /**
+   * Drawdown Protection Configuration
+   */
+  static readonly DRAWDOWN_CONFIG = {
+    maxDrawdownPct: 0.15, // 15% max drawdown before pause
+    maxConsecutiveLosses: 7, // Pause after 7 consecutive losses
+    lossesBeforeReduction: 3, // Start reducing stakes after 3 losses
+    stakeReductionOnLoss: 0.5, // 50% reduction per loss after threshold
+  }
+
+  /**
+   * Check if drawdown protection should be activated
+   * Returns whether to pause betting and/or adjust stake size
+   *
+   * This is a critical risk management function that:
+   * 1. Pauses betting if drawdown >= 15% of peak bankroll
+   * 2. Pauses betting after 7+ consecutive losses
+   * 3. Reduces stake size progressively after 3+ consecutive losses
+   *
+   * @param currentBankroll Current bankroll amount
+   * @param peakBankroll Highest bankroll reached (for drawdown calculation)
+   * @param consecutiveLosses Number of consecutive losses
+   * @param config Optional custom configuration
+   */
+  checkDrawdownProtection(
+    currentBankroll: number,
+    peakBankroll: number,
+    consecutiveLosses: number,
+    config: {
+      maxDrawdownPct?: number
+      maxConsecutiveLosses?: number
+      lossesBeforeReduction?: number
+      stakeReductionOnLoss?: number
+    } = {}
+  ): {
+    shouldPause: boolean
+    stakeAdjustment: number
+    reason?: string
+    severity: 'none' | 'warning' | 'critical'
+  } {
+    const cfg = { ...StakeCalculatorService.DRAWDOWN_CONFIG, ...config }
+
+    // Calculate current drawdown from peak
+    const drawdown = peakBankroll > 0
+      ? (peakBankroll - currentBankroll) / peakBankroll
+      : 0
+
+    // CRITICAL: Pause if drawdown >= 15%
+    if (drawdown >= cfg.maxDrawdownPct) {
+      this.logger.warn(
+        `CRITICAL: Drawdown ${(drawdown * 100).toFixed(1)}% >= ${cfg.maxDrawdownPct * 100}% threshold`
+      )
+      return {
+        shouldPause: true,
+        stakeAdjustment: 0,
+        reason: `Drawdown ${(drawdown * 100).toFixed(1)}% >= ${cfg.maxDrawdownPct * 100}% - pausing to protect bankroll`,
+        severity: 'critical',
+      }
+    }
+
+    // CRITICAL: Pause if 7+ consecutive losses
+    if (consecutiveLosses >= cfg.maxConsecutiveLosses) {
+      this.logger.warn(
+        `CRITICAL: ${consecutiveLosses} consecutive losses >= ${cfg.maxConsecutiveLosses} threshold`
+      )
+      return {
+        shouldPause: true,
+        stakeAdjustment: 0,
+        reason: `${consecutiveLosses} consecutive losses - pausing to break streak`,
+        severity: 'critical',
+      }
+    }
+
+    // WARNING: Reduce stake after 3+ consecutive losses
+    if (consecutiveLosses >= cfg.lossesBeforeReduction) {
+      // Each loss after threshold halves the stake
+      // 3 losses: 50%, 4 losses: 25%, 5 losses: 12.5%, 6 losses: 6.25%
+      const lossesOverThreshold = consecutiveLosses - cfg.lossesBeforeReduction + 1
+      const factor = Math.pow(cfg.stakeReductionOnLoss, lossesOverThreshold)
+      const adjustedFactor = Math.max(0.25, factor) // Never go below 25%
+
+      this.logger.warn(
+        `Reducing stake to ${(adjustedFactor * 100).toFixed(0)}% after ${consecutiveLosses} consecutive losses`
+      )
+
+      return {
+        shouldPause: false,
+        stakeAdjustment: adjustedFactor,
+        reason: `${consecutiveLosses} consecutive losses - stake reduced to ${(adjustedFactor * 100).toFixed(0)}%`,
+        severity: 'warning',
+      }
+    }
+
+    // No protection needed
+    return {
+      shouldPause: false,
+      stakeAdjustment: 1.0,
+      severity: 'none',
+    }
   }
 
   /**

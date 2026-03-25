@@ -21,6 +21,21 @@ export interface ValueResult {
   market: string
   direction: 'OVER' | 'UNDER'
   line?: number
+  vigInfo?: VigInfo
+  isStatisticallySignificant?: boolean
+  marginOfError?: number
+}
+
+/**
+ * VIG (Vigorish) information extracted from odds
+ * Used to calculate true probabilities by removing bookmaker margin
+ */
+export interface VigInfo {
+  totalImplied: number       // Sum of implied probabilities (e.g., 1.04)
+  vigPercent: number         // VIG as percentage (e.g., 0.04 = 4%)
+  trueProbOver: number       // True adjusted probability for Over
+  trueProbUnder: number      // True adjusted probability for Under
+  isValidMarket: boolean     // False if VIG > 10% (data error)
 }
 
 /**
@@ -39,13 +54,20 @@ export interface BestOddsResult {
 
 /**
  * Minimum edge thresholds
- * UPDATED: Increased minimum to 5% for more conservative betting
+ * UPDATED: Adjusted for VIG-extracted probabilities (real edges, not inflated)
+ * These are REAL edges after removing bookmaker margin
  */
 const EDGE_THRESHOLDS = {
-  ALTA: 0.12, // 12%+ edge - very strong
-  MEDIA: 0.08, // 8-12% edge - solid
-  BAJA: 0.05, // 5-8% edge - minimum acceptable
+  ALTA: 0.08, // 8%+ edge - very strong (real, not inflated)
+  MEDIA: 0.05, // 5-8% edge - solid
+  BAJA: 0.03, // 3-5% edge - minimum acceptable
 }
+
+/**
+ * Minimum edge to avoid statistical noise
+ * Edges below this are likely within margin of error
+ */
+const MIN_SIGNIFICANT_EDGE = 0.02
 
 /**
  * Minimum probability thresholds
@@ -64,24 +86,107 @@ export class ValueDetectionService {
   private readonly logger = new Logger(ValueDetectionService.name)
 
   /**
+   * Extract VIG (vigorish/margin) from bookmaker odds
+   * Returns true probabilities by removing the bookmaker's edge
+   *
+   * Example:
+   * - Odds Over 1.85, Under 2.00
+   * - Naive prob: 54.1% + 50% = 104.1% (4.1% VIG)
+   * - True prob Over: 54.1% / 104.1% = 51.9%
+   */
+  extractVig(oddsOver: number, oddsUnder: number): VigInfo {
+    const naiveProbOver = 1 / oddsOver
+    const naiveProbUnder = 1 / oddsUnder
+    const totalImplied = naiveProbOver + naiveProbUnder
+    const vigPercent = totalImplied - 1
+
+    return {
+      totalImplied,
+      vigPercent,
+      trueProbOver: naiveProbOver / totalImplied,
+      trueProbUnder: naiveProbUnder / totalImplied,
+      isValidMarket: vigPercent > 0 && vigPercent < 0.10,
+    }
+  }
+
+  /**
+   * Validate that the edge is statistically significant given sample size
+   * Uses confidence interval to determine if edge exceeds margin of error
+   *
+   * @param probOwn Our calculated probability
+   * @param probImplied Market implied probability (VIG-adjusted)
+   * @param sampleSize Number of historical games used for calculation
+   * @param confidenceLevel Z-score (1.645 = 90%, 1.96 = 95%)
+   */
+  isEdgeSignificant(
+    probOwn: number,
+    probImplied: number,
+    sampleSize: number,
+    confidenceLevel: number = 1.645 // 90% confidence
+  ): { isSignificant: boolean; marginOfError: number } {
+    // Require minimum sample size for any statistical validity
+    if (sampleSize < 10) {
+      return { isSignificant: false, marginOfError: 1 }
+    }
+
+    // Standard error of a proportion
+    const stdError = Math.sqrt((probOwn * (1 - probOwn)) / sampleSize)
+    const marginOfError = confidenceLevel * stdError
+    const edge = probOwn - probImplied
+
+    return {
+      isSignificant: edge > marginOfError && edge > MIN_SIGNIFICANT_EDGE,
+      marginOfError,
+    }
+  }
+
+  /**
    * Detect value for goals 1H markets
    * Implements detect_value_goals from ALGORITMOS doc section 4.1
+   *
+   * @param scoringResult Scoring result with probabilities
+   * @param market Market type
+   * @param oddsDecimal Decimal odds for Over
+   * @param bookmaker Bookmaker name
+   * @param oddsOpposite Optional: Under odds for VIG calculation
+   * @param sampleSize Optional: Sample size for significance testing
    */
   detectValueGoals(
     scoringResult: GoalsScoringResult,
     market: 'over_05_1h' | 'over_15_1h',
     oddsDecimal: number,
-    bookmaker: string = 'unknown'
+    bookmaker: string = 'unknown',
+    oddsOpposite?: number,
+    sampleSize?: number
   ): ValueResult {
     const probOwn =
       market === 'over_05_1h'
         ? scoringResult.probOver05_1H
         : scoringResult.probOver15_1H
 
-    // Implied probability from odds
-    const probImplied = 1 / oddsDecimal
+    // Extract VIG and get true implied probability
+    let probImplied: number
+    let vigInfo: VigInfo | undefined
 
-    // Calculate edge
+    if (oddsOpposite && oddsOpposite > 1) {
+      // We have both odds - extract VIG properly
+      vigInfo = this.extractVig(oddsDecimal, oddsOpposite)
+      probImplied = vigInfo.trueProbOver
+    } else {
+      // Estimate VIG as typical 4% when opposite odds not available
+      const estimatedVig = 0.04
+      const naiveProb = 1 / oddsDecimal
+      probImplied = naiveProb / (1 + estimatedVig)
+      vigInfo = {
+        totalImplied: 1 + estimatedVig,
+        vigPercent: estimatedVig,
+        trueProbOver: probImplied,
+        trueProbUnder: 1 - probImplied,
+        isValidMarket: true,
+      }
+    }
+
+    // Calculate edge using VIG-adjusted probability
     const edge = probOwn - probImplied
 
     // Classify confidence
@@ -116,10 +221,35 @@ export class ValueDetectionService {
       confidence = 'SIN_VALUE'
     }
 
+    // Check statistical significance if sample size provided
+    let isStatisticallySignificant = true
+    let marginOfError = 0
+    if (sampleSize) {
+      const significance = this.isEdgeSignificant(probOwn, probImplied, sampleSize)
+      isStatisticallySignificant = significance.isSignificant
+      marginOfError = significance.marginOfError
+
+      // Downgrade confidence if edge is not statistically significant
+      if (!isStatisticallySignificant && hasValue) {
+        this.logger.debug(
+          `Edge ${(edge * 100).toFixed(1)}% not significant (margin: ${(marginOfError * 100).toFixed(1)}%, n=${sampleSize})`
+        )
+        // Only allow in combos, not solo bets
+        if (confidence === 'BAJA') {
+          hasValue = false
+          confidence = 'SIN_VALUE'
+        } else if (confidence === 'ALTA') {
+          confidence = 'MEDIA'
+        } else if (confidence === 'MEDIA') {
+          confidence = 'BAJA'
+        }
+      }
+    }
+
     this.logger.debug(
       `Value detection ${market}: prob=${(probOwn * 100).toFixed(1)}%, ` +
-        `implied=${(probImplied * 100).toFixed(1)}%, edge=${(edge * 100).toFixed(1)}%, ` +
-        `confidence=${confidence}`
+        `implied=${(probImplied * 100).toFixed(1)}% (VIG=${(vigInfo?.vigPercent || 0) * 100}%), ` +
+        `edge=${(edge * 100).toFixed(1)}%, confidence=${confidence}`
     )
 
     return {
@@ -133,19 +263,30 @@ export class ValueDetectionService {
       bestBookmaker: bookmaker,
       market,
       direction: 'OVER',
+      vigInfo,
+      isStatisticallySignificant,
+      marginOfError,
     }
   }
 
   /**
    * Detect value for corners markets
    * Implements detect_value_corners from ALGORITMOS doc section 4.2
+   *
+   * @param scoringResult Corners scoring result with probabilities
+   * @param line The line (e.g., 9.5, 10.5)
+   * @param oddsOver Decimal odds for Over
+   * @param oddsUnder Decimal odds for Under
+   * @param bookmaker Bookmaker name
+   * @param sampleSize Optional: Sample size for significance testing
    */
   detectValueCorners(
     scoringResult: CornersScoringResult,
     line: number,
     oddsOver: number,
     oddsUnder: number,
-    bookmaker: string = 'unknown'
+    bookmaker: string = 'unknown',
+    sampleSize?: number
   ): ValueResult {
     // Get our probabilities for this line
     const probs = scoringResult.probByLine.get(line)
@@ -166,9 +307,19 @@ export class ValueDetectionService {
       }
     }
 
-    // Calculate edges for both directions
-    const probImpliedOver = 1 / oddsOver
-    const probImpliedUnder = 1 / oddsUnder
+    // Extract VIG and get true implied probabilities
+    const vigInfo = this.extractVig(oddsOver, oddsUnder)
+
+    // Validate market VIG - if > 10%, likely data error
+    if (!vigInfo.isValidMarket) {
+      this.logger.warn(
+        `Invalid corners market VIG ${(vigInfo.vigPercent * 100).toFixed(1)}% for line ${line}`
+      )
+    }
+
+    // Calculate edges using VIG-adjusted probabilities
+    const probImpliedOver = vigInfo.trueProbOver
+    const probImpliedUnder = vigInfo.trueProbUnder
 
     const edgeOver = probs.over - probImpliedOver
     const edgeUnder = probs.under - probImpliedUnder
@@ -215,9 +366,34 @@ export class ValueDetectionService {
       confidence = 'SIN_VALUE'
     }
 
+    // Check statistical significance if sample size provided
+    let isStatisticallySignificant = true
+    let marginOfError = 0
+    if (sampleSize) {
+      const significance = this.isEdgeSignificant(probOwn, probImplied, sampleSize)
+      isStatisticallySignificant = significance.isSignificant
+      marginOfError = significance.marginOfError
+
+      // Downgrade confidence if edge is not statistically significant
+      if (!isStatisticallySignificant && hasValue) {
+        this.logger.debug(
+          `Corners edge ${(edge * 100).toFixed(1)}% not significant (margin: ${(marginOfError * 100).toFixed(1)}%, n=${sampleSize})`
+        )
+        if (confidence === 'BAJA') {
+          hasValue = false
+          confidence = 'SIN_VALUE'
+        } else if (confidence === 'ALTA') {
+          confidence = 'MEDIA'
+        } else if (confidence === 'MEDIA') {
+          confidence = 'BAJA'
+        }
+      }
+    }
+
     this.logger.debug(
       `Value detection corners ${line} ${direction}: ` +
-        `prob=${(probOwn * 100).toFixed(1)}%, edge=${(edge * 100).toFixed(1)}%`
+        `prob=${(probOwn * 100).toFixed(1)}%, implied=${(probImplied * 100).toFixed(1)}% (VIG=${(vigInfo.vigPercent * 100).toFixed(1)}%), ` +
+        `edge=${(edge * 100).toFixed(1)}%`
     )
 
     return {
@@ -232,6 +408,9 @@ export class ValueDetectionService {
       market: `${direction.toLowerCase()}_${line}_corners`,
       direction,
       line,
+      vigInfo,
+      isStatisticallySignificant,
+      marginOfError,
     }
   }
 
@@ -478,9 +657,10 @@ export class ValueDetectionService {
     const probHomeCover = this.normalCDF(zScore)
     const probAwayCover = 1 - probHomeCover
 
-    // Calculate edges
-    const probImpliedHome = 1 / oddsHome
-    const probImpliedAway = 1 / oddsAway
+    // Extract VIG and get true implied probabilities
+    const vigInfo = this.extractVig(oddsHome, oddsAway)
+    const probImpliedHome = vigInfo.trueProbOver
+    const probImpliedAway = vigInfo.trueProbUnder
 
     const edgeHome = probHomeCover - probImpliedHome
     const edgeAway = probAwayCover - probImpliedAway
