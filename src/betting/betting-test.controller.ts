@@ -715,6 +715,106 @@ export class BettingTestController {
   }
 
   /**
+   * Add all women's leagues (Tier 4)
+   * GET /betting/test/add-women-leagues
+   */
+  @Get('add-women-leagues')
+  async addWomenLeagues() {
+    const womenLeagues = [
+      { id: 766, name: 'UEFA Women\'s Champions League' },
+      { id: 712, name: 'Women\'s Super League (England)' },
+      { id: 722, name: 'Liga F (Spain)' },
+      { id: 713, name: 'Division 1 Féminine (France)' },
+    ]
+
+    const results: any[] = []
+
+    for (const league of womenLeagues) {
+      try {
+        // Check if exists
+        const existing = await this.bettingLeagueModel.findOne({ apiFootballId: league.id }).exec()
+        if (existing) {
+          results.push({
+            id: league.id,
+            name: existing.name,
+            status: 'already_exists',
+            isActive: existing.isActive,
+          })
+          continue
+        }
+
+        // Fetch info from API-Football
+        const leagueInfo = await this.apiFootball.getLeagueInfo(league.id)
+        if (!leagueInfo) {
+          results.push({
+            id: league.id,
+            name: league.name,
+            status: 'not_found_in_api',
+          })
+          continue
+        }
+
+        const seasonInfo = await this.apiFootball.getLeagueSeasonInfo(league.id)
+
+        // Create league as Tier 4, inactive by default
+        const newLeague = await this.bettingLeagueModel.create({
+          apiFootballId: league.id,
+          name: leagueInfo.name,
+          country: leagueInfo.country || 'International',
+          division: 1,
+          tier: 4,
+          isActive: false, // Start inactive, activate manually
+          logo: leagueInfo.logo,
+          season: seasonInfo?.season?.toString(),
+          seasonStart: seasonInfo?.seasonStart ? new Date(seasonInfo.seasonStart) : undefined,
+          seasonEnd: seasonInfo?.seasonEnd ? new Date(seasonInfo.seasonEnd) : undefined,
+          coverage: seasonInfo?.coverage ? {
+            events: seasonInfo.coverage.fixtures?.events ?? false,
+            lineups: seasonInfo.coverage.fixtures?.lineups ?? false,
+            statisticsFixtures: seasonInfo.coverage.fixtures?.statistics_fixtures ?? false,
+            statisticsPlayers: seasonInfo.coverage.fixtures?.statistics_players ?? false,
+            standings: seasonInfo.coverage.standings ?? false,
+            players: seasonInfo.coverage.players ?? false,
+            topScorers: seasonInfo.coverage.top_scorers ?? false,
+            predictions: seasonInfo.coverage.predictions ?? false,
+            odds: seasonInfo.coverage.odds ?? false,
+          } : undefined,
+          stats: {},
+          modelConfig: {},
+          lastSynced: new Date(),
+        })
+
+        results.push({
+          id: league.id,
+          name: newLeague.name,
+          country: newLeague.country,
+          status: 'added',
+          tier: newLeague.tier,
+          isActive: newLeague.isActive,
+          hasOdds: seasonInfo?.coverage?.odds ?? false,
+        })
+      } catch (error) {
+        results.push({
+          id: league.id,
+          name: league.name,
+          status: 'error',
+          error: String(error),
+        })
+      }
+    }
+
+    const added = results.filter(r => r.status === 'added').length
+    const existing = results.filter(r => r.status === 'already_exists').length
+
+    return {
+      success: true,
+      message: `Added ${added} women's leagues (${existing} already existed)`,
+      results,
+      nextStep: 'Activate leagues in settings or use: /betting/test/add-league?id=XXX&active=true',
+    }
+  }
+
+  /**
    * Clean duplicate picks (keeps oldest or one with betPlaced=true)
    * GET /betting/test/clean-duplicates
    */
