@@ -766,7 +766,16 @@ export class NightlyAnalysisCron {
   ): Promise<Map<string, NormalizedOdds[]>> {
     const oddsMap = new Map<string, NormalizedOdds[]>()
 
+    // Only call The Odds API if league has "sharps" in marketStrengths
+    const hasSharps = league.marketStrengths?.includes('sharps') ?? false
+    if (!hasSharps) {
+      return oddsMap
+    }
+
     if (!league.hasOddsApi || !league.oddsApiSportKey) {
+      this.logger.debug(
+        `League ${league.name} has 'sharps' but no oddsApiSportKey configured`
+      )
       return oddsMap
     }
 
@@ -960,18 +969,33 @@ export class NightlyAnalysisCron {
       fixturesCount = upcomingFixtures.length
       this.logger.log(`Found ${upcomingFixtures.length} upcoming fixtures for ${league.name}`)
 
-      // Fetch The Odds API data for this league (if available)
-      // We fetch multiple markets: totals (full match) and totals_h1 (first half)
-      const [oddsApiTotals, oddsApiTotalsH1] = await Promise.all([
-        this.fetchOddsApiOdds(league, 'totals'),
-        this.fetchOddsApiOdds(league, 'totals_h1'),
-      ])
+      // Check if league uses Pinnacle/sharps strategy
+      const usesSharps = league.marketStrengths?.includes('sharps') ?? false
 
-      const hasOddsApiData = oddsApiTotals.size > 0 || oddsApiTotalsH1.size > 0
-      if (hasOddsApiData) {
-        this.logger.log(
-          `The Odds API data available for ${league.name}: ${oddsApiTotals.size} totals, ${oddsApiTotalsH1.size} 1H events`
-        )
+      // Fetch The Odds API data only for leagues with "sharps" in marketStrengths
+      // This saves API calls - only ~9 leagues use Pinnacle comparison
+      let oddsApiTotals = new Map<string, NormalizedOdds[]>()
+      let oddsApiTotalsH1 = new Map<string, NormalizedOdds[]>()
+
+      if (usesSharps) {
+        this.logger.log(`📊 ${league.name} uses SHARPS strategy - fetching Pinnacle lines...`)
+        const [totals, totalsH1] = await Promise.all([
+          this.fetchOddsApiOdds(league, 'totals'),
+          this.fetchOddsApiOdds(league, 'totals_h1'),
+        ])
+        oddsApiTotals = totals
+        oddsApiTotalsH1 = totalsH1
+
+        const hasOddsApiData = oddsApiTotals.size > 0 || oddsApiTotalsH1.size > 0
+        if (hasOddsApiData) {
+          this.logger.log(
+            `✅ Pinnacle data for ${league.name}: ${oddsApiTotals.size} totals, ${oddsApiTotalsH1.size} 1H events`
+          )
+        } else {
+          this.logger.debug(`⚠️ No Pinnacle data available for ${league.name}`)
+        }
+      } else {
+        this.logger.debug(`${league.name} uses MODEL-ONLY strategy (no sharps)`)
       }
 
       for (const fixture of upcomingFixtures) {
