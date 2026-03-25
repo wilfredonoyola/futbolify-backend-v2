@@ -1,5 +1,5 @@
 import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql'
-import { UseGuards } from '@nestjs/common'
+import { UseGuards, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { GqlAuthGuard } from '../../auth/gql-auth.guard'
@@ -8,14 +8,18 @@ import { Roles } from '../../auth/roles.decorator'
 import { UserRole } from '../../users/schemas/user.schema'
 import { BettingLeague, BettingLeagueDocument } from '../schemas/betting-league.schema'
 import { BettingLeagueOutput } from '../dto/betting.dto'
+import { ApiFootballBettingService } from '../services/api-football-betting.service'
 
 @Resolver()
 @UseGuards(GqlAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 export class BettingLeaguesResolver {
+  private readonly logger = new Logger(BettingLeaguesResolver.name)
+
   constructor(
     @InjectModel(BettingLeague.name)
-    private bettingLeagueModel: Model<BettingLeagueDocument>
+    private bettingLeagueModel: Model<BettingLeagueDocument>,
+    private apiFootballService: ApiFootballBettingService
   ) {}
 
   @Query(() => [BettingLeagueOutput], { name: 'bettingLeagues' })
@@ -95,6 +99,74 @@ export class BettingLeaguesResolver {
     }
 
     return this.mapLeagueToOutput(league)
+  }
+
+  @Mutation(() => BettingLeagueOutput, { name: 'addBettingLeague' })
+  async addBettingLeague(
+    @Args('apiFootballId', { type: () => Int }) apiFootballId: number,
+    @Args('tier', { type: () => Int, defaultValue: 3 }) tier: number,
+    @Args('isActive', { defaultValue: false }) isActive: boolean
+  ): Promise<BettingLeagueOutput> {
+    // Check if league already exists
+    const existing = await this.bettingLeagueModel.findOne({ apiFootballId }).exec()
+    if (existing) {
+      throw new Error(`League with API-Football ID ${apiFootballId} already exists: ${existing.name}`)
+    }
+
+    // Fetch league info from API-Football
+    const leagueInfo = await this.apiFootballService.getLeagueInfo(apiFootballId)
+    if (!leagueInfo) {
+      throw new Error(`League with API-Football ID ${apiFootballId} not found in API-Football`)
+    }
+
+    // Get season info
+    const seasonInfo = await this.apiFootballService.getLeagueSeasonInfo(apiFootballId)
+
+    // Create new league
+    const newLeague = await this.bettingLeagueModel.create({
+      apiFootballId,
+      name: leagueInfo.name,
+      country: leagueInfo.country || 'International',
+      division: 1,
+      tier,
+      isActive,
+      logo: leagueInfo.logo,
+      season: seasonInfo?.season?.toString(),
+      seasonStart: seasonInfo?.seasonStart ? new Date(seasonInfo.seasonStart) : undefined,
+      seasonEnd: seasonInfo?.seasonEnd ? new Date(seasonInfo.seasonEnd) : undefined,
+      coverage: seasonInfo?.coverage ? {
+        events: seasonInfo.coverage.fixtures?.events ?? false,
+        lineups: seasonInfo.coverage.fixtures?.lineups ?? false,
+        statisticsFixtures: seasonInfo.coverage.fixtures?.statistics_fixtures ?? false,
+        statisticsPlayers: seasonInfo.coverage.fixtures?.statistics_players ?? false,
+        standings: seasonInfo.coverage.standings ?? false,
+        players: seasonInfo.coverage.players ?? false,
+        topScorers: seasonInfo.coverage.top_scorers ?? false,
+        predictions: seasonInfo.coverage.predictions ?? false,
+        odds: seasonInfo.coverage.odds ?? false,
+      } : undefined,
+      stats: {},
+      modelConfig: {},
+      lastSynced: new Date(),
+    })
+
+    this.logger.log(`Added new league: ${newLeague.name} (ID: ${apiFootballId}, Tier: ${tier})`)
+
+    return this.mapLeagueToOutput(newLeague)
+  }
+
+  @Mutation(() => Boolean, { name: 'deleteBettingLeague' })
+  async deleteBettingLeague(
+    @Args('apiFootballId', { type: () => Int }) apiFootballId: number
+  ): Promise<boolean> {
+    const result = await this.bettingLeagueModel.deleteOne({ apiFootballId }).exec()
+
+    if (result.deletedCount === 0) {
+      throw new Error(`League with API-Football ID ${apiFootballId} not found`)
+    }
+
+    this.logger.log(`Deleted league with API-Football ID: ${apiFootballId}`)
+    return true
   }
 
   private mapLeagueToOutput(league: BettingLeagueDocument): BettingLeagueOutput {

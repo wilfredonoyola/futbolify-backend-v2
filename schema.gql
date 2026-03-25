@@ -3529,6 +3529,8 @@ type Mutation {
   ): BettingSettingsOutput!
   toggleBettingLeague(apiFootballId: Int!, active: Boolean!): BettingLeagueOutput!
   updateLeagueTier(apiFootballId: Int!, tier: Int!): BettingLeagueOutput!
+  addBettingLeague(apiFootballId: Int!, tier: Int! = 3, isActive: Boolean! = false): BettingLeagueOutput!
+  deleteBettingLeague(apiFootballId: Int!): Boolean!
 }
 
 input SigninInputDto {

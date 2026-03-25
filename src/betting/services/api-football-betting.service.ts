@@ -804,6 +804,51 @@ export class ApiFootballBettingService {
   }
 
   /**
+   * Get basic league information
+   * Used to add new leagues to the system
+   */
+  async getLeagueInfo(leagueId: number): Promise<{
+    id: number
+    name: string
+    country: string
+    logo: string
+    type: string
+  } | null> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/leagues?id=${leagueId}`,
+        {
+          headers: { 'x-apisports-key': this.apiKey },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (!data?.response?.[0]) {
+        return null
+      }
+
+      const leagueData = data.response[0]
+      return {
+        id: leagueData.league?.id,
+        name: leagueData.league?.name || 'Unknown',
+        country: leagueData.country?.name || 'International',
+        logo: leagueData.league?.logo || '',
+        type: leagueData.league?.type || 'League',
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to get league info for ${leagueId}: ${error}`
+      )
+      return null
+    }
+  }
+
+  /**
    * Get league season information
    * Used by league-sync cron to detect active seasons
    */
