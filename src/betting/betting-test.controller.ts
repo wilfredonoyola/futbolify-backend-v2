@@ -626,9 +626,17 @@ export class BettingTestController {
         },
       }
 
-      // Insert picks
-      const pick1 = await this.bettingPickModel.create(pick1Data)
-      const pick2 = await this.bettingPickModel.create(pick2Data)
+      // Insert picks using upsert to avoid duplicates
+      const pick1 = await this.bettingPickModel.findOneAndUpdate(
+        { fixtureId: pick1Data.fixtureId, market: pick1Data.market, direction: pick1Data.direction },
+        { $setOnInsert: pick1Data },
+        { upsert: true, new: true }
+      )
+      const pick2 = await this.bettingPickModel.findOneAndUpdate(
+        { fixtureId: pick2Data.fixtureId, market: pick2Data.market, direction: pick2Data.direction },
+        { $setOnInsert: pick2Data },
+        { upsert: true, new: true }
+      )
 
       return {
         success: true,

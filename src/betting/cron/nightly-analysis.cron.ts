@@ -573,11 +573,26 @@ export class NightlyAnalysisCron {
       }
 
       // Save only top picks to database (max 5)
+      // Use ordered: false to continue inserting even if some fail due to duplicates
       const savedPicksMap = new Map<string, string>()
-      const savedPickResults = await this.bettingPickModel.insertMany(topPickDocs)
+      let savedPickResults: any[] = []
+      try {
+        savedPickResults = await this.bettingPickModel.insertMany(topPickDocs, { ordered: false })
+      } catch (error: any) {
+        // Handle duplicate key errors (code 11000) - extract successfully inserted docs
+        if (error.code === 11000 || error.writeErrors) {
+          savedPickResults = error.insertedDocs || []
+          const duplicateCount = topPickDocs.length - savedPickResults.length
+          this.logger.warn(`Skipped ${duplicateCount} duplicate picks`)
+        } else {
+          throw error
+        }
+      }
       savedPickResults.forEach((pick: any, idx: number) => {
-        const key = `${topPickDocs[idx].fixtureId}-${topPickDocs[idx].market}-${topPickDocs[idx].direction}`
-        savedPicksMap.set(key, pick._id.toString())
+        if (pick && pick.fixtureId) {
+          const key = `${pick.fixtureId}-${pick.market}-${pick.direction}`
+          savedPicksMap.set(key, pick._id.toString())
+        }
       })
       this.logger.log(`Saved ${savedPickResults.length} picks to database`)
 

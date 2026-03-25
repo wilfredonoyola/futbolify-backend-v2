@@ -410,3 +410,9 @@ BettingPickSchema.index({ kickoff: 1 })
 BettingPickSchema.index({ createdAt: -1 })
 BettingPickSchema.index({ inCombo: 1, comboId: 1 })
 BettingPickSchema.index({ betPlaced: 1, status: 1 })
+
+// Unique index to prevent duplicate picks for same fixture+market+direction
+BettingPickSchema.index(
+  { fixtureId: 1, market: 1, direction: 1 },
+  { unique: true, background: true }
+)
