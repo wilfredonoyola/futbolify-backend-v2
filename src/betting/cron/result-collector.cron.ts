@@ -544,16 +544,18 @@ export class ResultCollectorCron {
       }
     }
 
-    // Get ACTIVE picks where kickoff was at least 2 hours ago
+    // Get PENDING or ACTIVE picks where kickoff was at least 2 hours ago
     const now = new Date()
     const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
 
     const activePicks = await this.bettingPickModel
       .find({
-        status: PickStatus.ACTIVE,
+        status: { $in: [PickStatus.PENDING, PickStatus.ACTIVE] },
         kickoff: { $lte: twoHoursAgo },
       })
       .exec()
+
+    this.logger.log(`Manual collection: Found ${activePicks.length} picks to settle`)
 
     let won = 0
     let lost = 0
