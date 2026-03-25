@@ -664,4 +664,71 @@ export class BettingTestController {
       return { error: String(error) }
     }
   }
+
+  /**
+   * Clean duplicate picks (keeps oldest or one with betPlaced=true)
+   * GET /betting/test/clean-duplicates
+   */
+  @Get('clean-duplicates')
+  async cleanDuplicates() {
+    try {
+      // Find all duplicate groups
+      const duplicates = await this.bettingPickModel.aggregate([
+        {
+          $group: {
+            _id: {
+              fixtureId: '$fixtureId',
+              market: '$market',
+              direction: '$direction',
+            },
+            count: { $sum: 1 },
+            docs: { $push: { id: '$_id', createdAt: '$createdAt', betPlaced: '$betPlaced' } },
+          },
+        },
+        {
+          $match: { count: { $gt: 1 } },
+        },
+      ])
+
+      let totalDeleted = 0
+      const deletedDetails: any[] = []
+
+      for (const group of duplicates) {
+        const docs = group.docs
+
+        // Sort: prioritize betPlaced=true, then oldest
+        docs.sort((a: any, b: any) => {
+          if (a.betPlaced && !b.betPlaced) return -1
+          if (!a.betPlaced && b.betPlaced) return 1
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        })
+
+        // Keep the first one, delete the rest
+        const toKeep = docs[0]
+        const toDelete = docs.slice(1).map((d: any) => d.id)
+
+        if (toDelete.length > 0) {
+          await this.bettingPickModel.deleteMany({ _id: { $in: toDelete } })
+          totalDeleted += toDelete.length
+          deletedDetails.push({
+            fixtureId: group._id.fixtureId,
+            market: group._id.market,
+            direction: group._id.direction,
+            kept: toKeep.id,
+            deleted: toDelete.length,
+          })
+        }
+      }
+
+      return {
+        success: true,
+        message: `Cleaned ${totalDeleted} duplicate picks`,
+        duplicateGroups: duplicates.length,
+        totalDeleted,
+        details: deletedDetails,
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
 }
