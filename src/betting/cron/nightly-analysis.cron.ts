@@ -762,10 +762,20 @@ export class NightlyAnalysisCron {
         return { picks, fixturesCount: 0 }
       }
 
-      fixturesCount = fixtures.length
-      this.logger.log(`Found ${fixtures.length} fixtures for ${league.name}`)
+      // Filter out fixtures that have already started (kickoff in the past)
+      const now = new Date()
+      const upcomingFixtures = fixtures.filter(f => new Date(f.kickoff) > now)
 
-      for (const fixture of fixtures) {
+      if (upcomingFixtures.length < fixtures.length) {
+        this.logger.debug(
+          `Filtered ${fixtures.length - upcomingFixtures.length} finished/in-progress fixtures for ${league.name}`
+        )
+      }
+
+      fixturesCount = upcomingFixtures.length
+      this.logger.log(`Found ${upcomingFixtures.length} upcoming fixtures for ${league.name}`)
+
+      for (const fixture of upcomingFixtures) {
         this.logger.debug(`Analyzing: ${fixture.homeTeamName} vs ${fixture.awayTeamName}`)
 
         // Get team stats
