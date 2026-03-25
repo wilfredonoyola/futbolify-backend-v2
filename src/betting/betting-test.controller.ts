@@ -685,6 +685,7 @@ export class BettingTestController {
       totalPending: pendingPicks.length,
       picks: pendingPicks.map(p => ({
         id: p._id,
+        fixtureId: p.fixtureId,
         match: `${p.teamHome.name} vs ${p.teamAway.name}`,
         kickoff: p.kickoff,
         kickoffISO: p.kickoff?.toISOString(),
@@ -692,6 +693,24 @@ export class BettingTestController {
         eligibleForCollection: p.kickoff ? p.kickoff <= twoHoursAgo : false,
         hoursAgo: p.kickoff ? ((now.getTime() - p.kickoff.getTime()) / (1000 * 60 * 60)).toFixed(1) : 'N/A',
       })),
+    }
+  }
+
+  /**
+   * Check fixture stats from API-Football
+   * GET /betting/test/fixture-stats?fixtureId=1536901
+   */
+  @Get('fixture-stats')
+  async getFixtureStats(@Query('fixtureId') fixtureId: string) {
+    try {
+      const stats = await this.apiFootball.getFixtureStats(parseInt(fixtureId))
+      return {
+        fixtureId: parseInt(fixtureId),
+        stats,
+        isFinished: stats ? ['FT', 'AET', 'PEN'].includes(stats.status) : false,
+      }
+    } catch (error) {
+      return { error: String(error), fixtureId }
     }
   }
 
