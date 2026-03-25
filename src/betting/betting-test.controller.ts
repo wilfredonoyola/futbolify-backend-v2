@@ -1,5 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
+import { ConfigService } from '@nestjs/config'
 import { Model } from 'mongoose'
 import { NightlyAnalysisCron } from './cron/nightly-analysis.cron'
 import { PreMatchCheckCron } from './cron/pre-match-check.cron'
@@ -8,6 +9,8 @@ import { ResultCollectorCron } from './cron/result-collector.cron'
 import { ApiFootballBettingService } from './services/api-football-betting.service'
 import { ScoringGoalsService } from './services/scoring-goals.service'
 import { ValueDetectionService } from './services/value-detection.service'
+import { BettingTelegramService } from './telegram/betting-telegram.service'
+import { BettingTelegramGuard } from './telegram/betting-telegram.guards'
 import { BettingLeague, BettingLeagueDocument } from './schemas/betting-league.schema'
 import { BettingPick, BettingPickDocument } from './schemas/betting-pick.schema'
 import { BettingCombo, BettingComboDocument } from './schemas/betting-combo.schema'
@@ -27,6 +30,9 @@ export class BettingTestController {
     private apiFootball: ApiFootballBettingService,
     private scoringGoals: ScoringGoalsService,
     private valueDetection: ValueDetectionService,
+    private telegramService: BettingTelegramService,
+    private telegramGuard: BettingTelegramGuard,
+    private configService: ConfigService,
     @InjectModel(BettingLeague.name)
     private bettingLeagueModel: Model<BettingLeagueDocument>,
     @InjectModel(BettingPick.name)
@@ -355,6 +361,52 @@ export class BettingTestController {
       }
     } catch (error) {
       return { error: String(error) }
+    }
+  }
+
+  /**
+   * Test Telegram configuration
+   * GET /betting/test/telegram
+   */
+  @Get('telegram')
+  async testTelegram() {
+    const adminChatId = this.telegramGuard.getAdminChatId()
+    const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN')
+
+    const config = {
+      adminChatIdConfigured: !!adminChatId,
+      adminChatIdValue: adminChatId ? `${adminChatId.slice(0, 3)}...${adminChatId.slice(-3)}` : null,
+      adminChatIdLength: adminChatId?.length || 0,
+      botTokenConfigured: !!botToken,
+    }
+
+    // Try to send a test message
+    let messageSent = false
+    let error = null
+
+    try {
+      await this.telegramService.sendMessage('🧪 *Test de Telegram*\n\nSi recibes este mensaje, la configuración está correcta!')
+      messageSent = true
+    } catch (e) {
+      error = String(e)
+    }
+
+    return {
+      config,
+      messageSent,
+      error,
+      instructions: !adminChatId ? [
+        '1. Busca @userinfobot en Telegram',
+        '2. Envíale cualquier mensaje',
+        '3. Copia el ID que te da',
+        '4. Ponlo en ADMIN_TELEGRAM_ID en tu .env',
+        '5. Reinicia el servidor',
+      ] : messageSent ? [
+        '✅ Telegram configurado correctamente!',
+      ] : [
+        '⚠️ Revisa que hayas iniciado conversación con el bot (/start)',
+        '⚠️ Verifica que el ADMIN_TELEGRAM_ID sea tu ID personal, no el del bot',
+      ],
     }
   }
 
