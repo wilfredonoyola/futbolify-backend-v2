@@ -1,10 +1,14 @@
 import { Controller, Get, Query } from '@nestjs/common'
+import { InjectModel } from '@nestjs/mongoose'
+import { Model } from 'mongoose'
 import { NightlyAnalysisCron } from './cron/nightly-analysis.cron'
 import { PreMatchCheckCron } from './cron/pre-match-check.cron'
 import { OddsMonitorCron } from './cron/odds-monitor.cron'
+import { ResultCollectorCron } from './cron/result-collector.cron'
 import { ApiFootballBettingService } from './services/api-football-betting.service'
 import { ScoringGoalsService } from './services/scoring-goals.service'
 import { ValueDetectionService } from './services/value-detection.service'
+import { BettingLeague, BettingLeagueDocument } from './schemas/betting-league.schema'
 
 /**
  * Test endpoints for betting module
@@ -17,9 +21,12 @@ export class BettingTestController {
     private nightlyAnalysis: NightlyAnalysisCron,
     private preMatchCheck: PreMatchCheckCron,
     private oddsMonitor: OddsMonitorCron,
+    private resultCollector: ResultCollectorCron,
     private apiFootball: ApiFootballBettingService,
     private scoringGoals: ScoringGoalsService,
-    private valueDetection: ValueDetectionService
+    private valueDetection: ValueDetectionService,
+    @InjectModel(BettingLeague.name)
+    private bettingLeagueModel: Model<BettingLeagueDocument>
   ) {}
 
   /**
@@ -66,6 +73,20 @@ export class BettingTestController {
   }
 
   /**
+   * Trigger result collection
+   * GET /betting/test/collect-results
+   */
+  @Get('collect-results')
+  async triggerResultCollection() {
+    const result = await this.resultCollector.triggerManualCollection()
+    return {
+      success: true,
+      message: 'Result collection completed',
+      ...result,
+    }
+  }
+
+  /**
    * Health check for betting module
    * GET /betting/test/health
    */
@@ -75,6 +96,77 @@ export class BettingTestController {
       status: 'ok',
       module: 'betting',
       timestamp: new Date().toISOString(),
+    }
+  }
+
+  /**
+   * Add a league by API-Football ID
+   * GET /betting/test/add-league?id=10&tier=4&active=true
+   */
+  @Get('add-league')
+  async addLeague(
+    @Query('id') apiFootballId: string,
+    @Query('tier') tier: string = '4',
+    @Query('active') active: string = 'false'
+  ) {
+    const id = parseInt(apiFootballId)
+    const tierNum = parseInt(tier)
+    const isActive = active === 'true'
+
+    // Check if exists
+    const existing = await this.bettingLeagueModel.findOne({ apiFootballId: id }).exec()
+    if (existing) {
+      return { error: `League already exists: ${existing.name}`, id: existing.apiFootballId }
+    }
+
+    // Fetch info from API-Football
+    const leagueInfo = await this.apiFootball.getLeagueInfo(id)
+    if (!leagueInfo) {
+      return { error: `League not found in API-Football`, id }
+    }
+
+    const seasonInfo = await this.apiFootball.getLeagueSeasonInfo(id)
+
+    // Create league
+    const newLeague = await this.bettingLeagueModel.create({
+      apiFootballId: id,
+      name: leagueInfo.name,
+      country: leagueInfo.country || 'International',
+      division: 1,
+      tier: tierNum,
+      isActive,
+      logo: leagueInfo.logo,
+      season: seasonInfo?.season?.toString(),
+      seasonStart: seasonInfo?.seasonStart ? new Date(seasonInfo.seasonStart) : undefined,
+      seasonEnd: seasonInfo?.seasonEnd ? new Date(seasonInfo.seasonEnd) : undefined,
+      coverage: seasonInfo?.coverage ? {
+        events: seasonInfo.coverage.fixtures?.events ?? false,
+        lineups: seasonInfo.coverage.fixtures?.lineups ?? false,
+        statisticsFixtures: seasonInfo.coverage.fixtures?.statistics_fixtures ?? false,
+        statisticsPlayers: seasonInfo.coverage.fixtures?.statistics_players ?? false,
+        standings: seasonInfo.coverage.standings ?? false,
+        players: seasonInfo.coverage.players ?? false,
+        topScorers: seasonInfo.coverage.top_scorers ?? false,
+        predictions: seasonInfo.coverage.predictions ?? false,
+        odds: seasonInfo.coverage.odds ?? false,
+      } : undefined,
+      stats: {},
+      modelConfig: {},
+      lastSynced: new Date(),
+    })
+
+    return {
+      success: true,
+      message: `League added: ${newLeague.name}`,
+      league: {
+        id: newLeague._id.toString(),
+        apiFootballId: newLeague.apiFootballId,
+        name: newLeague.name,
+        country: newLeague.country,
+        tier: newLeague.tier,
+        isActive: newLeague.isActive,
+        season: newLeague.season,
+      },
     }
   }
 
