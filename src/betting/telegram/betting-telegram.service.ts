@@ -46,12 +46,12 @@ export class BettingTelegramService implements OnModuleInit {
     private commands: BettingTelegramCommands,
     private callbacks: BettingTelegramCallbacks
   ) {
-    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN')
+    const token = this.configService.get<string>('BETTING_TELEGRAM_BOT_TOKEN')
     if (token) {
       this.bot = new Telegraf(token)
-      this.logger.log('Betting Telegram service initialized')
+      this.logger.log('Betting Telegram service initialized (GolPicks bot)')
     } else {
-      this.logger.warn('TELEGRAM_BOT_TOKEN not set - betting alerts disabled')
+      this.logger.warn('BETTING_TELEGRAM_BOT_TOKEN not set - betting alerts disabled')
     }
   }
 

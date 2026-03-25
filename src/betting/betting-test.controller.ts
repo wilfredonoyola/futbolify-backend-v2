@@ -369,7 +369,7 @@ export class BettingTestController {
   @Get('telegram')
   async testTelegram() {
     const adminChatId = this.configService.get<string>('ADMIN_TELEGRAM_ID')
-    const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN')
+    const botToken = this.configService.get<string>('BETTING_TELEGRAM_BOT_TOKEN')
 
     const config = {
       adminChatIdConfigured: !!adminChatId,

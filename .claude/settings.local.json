@@ -55,7 +55,27 @@
       "Bash(npm install:*)",
       "Bash(timeout 5 npm run start:prod:*)",
       "Bash(git rm:*)",
-      "Bash(npm run codegen:*)"
+      "Bash(npm run codegen:*)",
+      "Bash(npx mongosh:*)",
+      "Bash(mongosh:*)",
+      "Bash(brew list:*)",
+      "WebFetch(domain:open-meteo.com)",
+      "Bash(npx ts-node:*)",
+      "Bash(npm run betting:scan:*)",
+      "Bash(node dist/scripts/run-betting-scan.js:*)",
+      "Bash(tee:*)",
+      "Bash(source .env)",
+      "Bash(node run-scan-temp.js:*)",
+      "Bash(node diagnose-pick.js:*)",
+      "Bash(bash -c 'cd /Users/wilfredonoyola/workspace/futbolify/futbolify-web-v2 && yarn codegen')",
+      "Bash(node node_modules/.bin/graphql-codegen:*)",
+      "Bash(unset:*)",
+      "Bash(NEXT_PUBLIC_GRAPHQL_URL= node node_modules/.bin/graphql-codegen:*)",
+      "Bash(NEXT_PUBLIC_GRAPHQL_URL= npx graphql-codegen:*)",
+      "Bash(npx:*)",
+      "Bash(mongo:*)",
+      "Bash(git reset:*)",
+      "WebFetch(domain:thepickspro.com)"
     ]
   }
 }
