@@ -14,7 +14,7 @@ import { PickStatus, ComboStatus } from '../enums/betting.enums'
 
 /**
  * Result Collector Cron Job
- * Runs Saturday at 3:00 PM El Salvador time
+ * Runs every 30 minutes to check for finished matches
  *
  * Purpose:
  * - Collect match results from API-Football
@@ -23,7 +23,7 @@ import { PickStatus, ComboStatus } from '../enums/betting.enums'
  * - Update combo statuses
  * - Calculate profit/loss
  * - Update bankroll
- * - Send Alert 3 to Telegram
+ * - Send personal result notifications immediately when matches finish
  */
 @Injectable()
 export class ResultCollectorCron {
@@ -41,10 +41,11 @@ export class ResultCollectorCron {
   ) {}
 
   /**
-   * Daily at 11:00 PM El Salvador - Collect results
-   * Runs every day to catch all matches (weekday and weekend)
+   * Smart Result Collector - Runs every 30 minutes
+   * Checks for finished matches and settles picks immediately
+   * Sends personal notifications as soon as results are available
    */
-  @Cron('0 23 * * *', {
+  @Cron('*/30 * * * *', {
     name: 'betting-result-collector',
     timeZone: 'America/El_Salvador',
   })
@@ -60,16 +61,15 @@ export class ResultCollectorCron {
         return
       }
 
-      // Get today's picks that need results
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
+      // Get ACTIVE picks where kickoff was at least 2 hours ago (match should be finished)
+      // This ensures we only check matches that have likely concluded
+      const now = new Date()
+      const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
 
       const activePicks = await this.bettingPickModel
         .find({
           status: PickStatus.ACTIVE,
-          kickoff: { $gte: today, $lt: tomorrow },
+          kickoff: { $lte: twoHoursAgo }, // Match started at least 2 hours ago
         })
         .exec()
 
@@ -132,21 +132,8 @@ export class ResultCollectorCron {
         `System profit: $${totalProfit.toFixed(2)}, Personal profit: $${personalProfit.toFixed(2)}`
       )
 
-      // Send Telegram Alert 3: Daily Results
-      const settledPicks = await this.bettingPickModel
-        .find({
-          kickoff: { $gte: today, $lt: tomorrow },
-          status: { $in: [PickStatus.WON, PickStatus.LOST, PickStatus.VOID] },
-        })
-        .exec()
-
-      const settledCombos = await this.bettingComboModel
-        .find({
-          status: { $in: [ComboStatus.WON, ComboStatus.LOST, ComboStatus.PARTIAL] },
-        })
-        .exec()
-
-      await this.telegramService.sendResultsAlert(today, settledPicks, settledCombos)
+      // Note: Daily summary alert is sent separately at 11 PM via sendDailySummary()
+      // The 30-minute cron only settles picks and sends personal notifications
 
       // ================================================
       // MODEL CALIBRATION VALIDATION (Phase 5)
@@ -181,6 +168,52 @@ export class ResultCollectorCron {
       )
     } catch (error) {
       this.logger.error(`Result collection failed: ${error}`)
+    }
+  }
+
+  /**
+   * Daily Summary - Runs once at 11:00 PM El Salvador
+   * Sends the daily results summary to Telegram
+   */
+  @Cron('0 23 * * *', {
+    name: 'betting-daily-summary',
+    timeZone: 'America/El_Salvador',
+  })
+  async sendDailySummary(): Promise<void> {
+    this.logger.log('Sending daily results summary...')
+
+    try {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      // Get all settled picks for today
+      const settledPicks = await this.bettingPickModel
+        .find({
+          kickoff: { $gte: today, $lt: tomorrow },
+          status: { $in: [PickStatus.WON, PickStatus.LOST, PickStatus.VOID] },
+        })
+        .exec()
+
+      // Get all settled combos
+      const settledCombos = await this.bettingComboModel
+        .find({
+          date: { $gte: today, $lt: tomorrow },
+          status: { $in: [ComboStatus.WON, ComboStatus.LOST, ComboStatus.PARTIAL] },
+        })
+        .exec()
+
+      if (settledPicks.length > 0 || settledCombos.length > 0) {
+        await this.telegramService.sendResultsAlert(today, settledPicks, settledCombos)
+        this.logger.log(
+          `Daily summary sent: ${settledPicks.length} picks, ${settledCombos.length} combos`
+        )
+      } else {
+        this.logger.log('No settled picks/combos for today - skipping daily summary')
+      }
+    } catch (error) {
+      this.logger.error(`Daily summary failed: ${error}`)
     }
   }
 
@@ -509,15 +542,14 @@ export class ResultCollectorCron {
       }
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    // Get ACTIVE picks where kickoff was at least 2 hours ago
+    const now = new Date()
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
 
     const activePicks = await this.bettingPickModel
       .find({
         status: PickStatus.ACTIVE,
-        kickoff: { $gte: today, $lt: tomorrow },
+        kickoff: { $lte: twoHoursAgo },
       })
       .exec()
 
