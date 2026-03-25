@@ -2938,6 +2938,14 @@ type BettingLeagueOutput {
   season: String
   fixturesAnalyzed: Int
   picksGenerated: Int
+
+  """
+  Markets this league is strong for: goals_1h, corners, btts, sharps, over25
+  """
+  marketStrengths: [String!]
+
+  """Additional notes about the league"""
+  notes: String
 }
 
 type ScanResult {
@@ -3539,6 +3547,7 @@ type Mutation {
   updateLeagueTier(apiFootballId: Int!, tier: Int!): BettingLeagueOutput!
   addBettingLeague(apiFootballId: Int!, tier: Int! = 3, isActive: Boolean! = false): BettingLeagueOutput!
   deleteBettingLeague(apiFootballId: Int!): Boolean!
+  updateLeagueInfo(apiFootballId: Int!, marketStrengths: [String!], notes: String): BettingLeagueOutput!
 }
 
 input SigninInputDto {

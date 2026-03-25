@@ -758,6 +758,12 @@ export class BettingLeagueOutput {
 
   @Field(() => Int, { nullable: true })
   picksGenerated?: number
+
+  @Field(() => [String], { nullable: true, description: 'Markets this league is strong for: goals_1h, corners, btts, sharps, over25' })
+  marketStrengths?: string[]
+
+  @Field({ nullable: true, description: 'Additional notes about the league' })
+  notes?: string
 }
 
 // ============ INPUT TYPES ============

@@ -169,6 +169,37 @@ export class BettingLeaguesResolver {
     return true
   }
 
+  @Mutation(() => BettingLeagueOutput, { name: 'updateLeagueInfo' })
+  async updateLeagueInfo(
+    @Args('apiFootballId', { type: () => Int }) apiFootballId: number,
+    @Args('marketStrengths', { type: () => [String], nullable: true }) marketStrengths?: string[],
+    @Args('notes', { nullable: true }) notes?: string
+  ): Promise<BettingLeagueOutput> {
+    const updateData: Record<string, unknown> = {}
+
+    if (marketStrengths !== undefined) {
+      updateData.marketStrengths = marketStrengths
+    }
+    if (notes !== undefined) {
+      updateData.notes = notes
+    }
+
+    const league = await this.bettingLeagueModel
+      .findOneAndUpdate(
+        { apiFootballId },
+        { $set: updateData },
+        { new: true }
+      )
+      .exec()
+
+    if (!league) {
+      throw new Error('League not found')
+    }
+
+    this.logger.log(`Updated league info for ${league.name}: ${JSON.stringify(updateData)}`)
+    return this.mapLeagueToOutput(league)
+  }
+
   private mapLeagueToOutput(league: BettingLeagueDocument): BettingLeagueOutput {
     return {
       id: league._id.toString(),
@@ -181,6 +212,8 @@ export class BettingLeaguesResolver {
       season: league.season,
       fixturesAnalyzed: league.fixturesAnalyzed || 0,
       picksGenerated: league.picksGenerated || 0,
+      marketStrengths: league.marketStrengths || [],
+      notes: league.notes,
     }
   }
 }

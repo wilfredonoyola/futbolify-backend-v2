@@ -247,6 +247,11 @@ export class BettingLeague {
   @Field(() => Int)
   picksGenerated: number
 
+  // Market strengths - what this league is good for
+  @Prop({ type: [String], default: [] })
+  @Field(() => [String], { description: 'Markets this league is strong for: goals_1h, corners, btts, sharps, over25' })
+  marketStrengths: string[]
+
   // Metadata
   @Prop()
   @Field({ nullable: true })
