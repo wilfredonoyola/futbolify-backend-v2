@@ -232,7 +232,9 @@ export class ResultCollectorCron {
       pick.fixtureId
     )
 
-    if (!fixtureStats || fixtureStats.status !== 'FT') {
+    // Check if match is finished (regular time, extra time, or penalties)
+    const finishedStatuses = ['FT', 'AET', 'PEN']
+    if (!fixtureStats || !finishedStatuses.includes(fixtureStats.status)) {
       // Match not finished yet
       return { status: pick.status, profit: 0 }
     }
