@@ -2463,6 +2463,15 @@ type PickModelInputs {
   weatherWind: Float
   weatherPrecip: Float
   weatherFlags: [String!]
+
+  """Pinnacle odds as sharp reference"""
+  pinnacleOdds: Float
+
+  """Edge vs Pinnacle sharp line"""
+  edgeVsPinnacle: Float
+
+  """All bookmakers offering this market"""
+  allBookmakers: [String!]
 }
 
 type PickSteamMove {

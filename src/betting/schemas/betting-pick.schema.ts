@@ -178,6 +178,19 @@ export class PickModelInputs {
   @Prop({ type: [String], default: [] })
   @Field(() => [String], { nullable: true })
   weatherFlags?: string[]
+
+  // The Odds API integration - sharp line reference
+  @Prop()
+  @Field(() => Float, { nullable: true, description: 'Pinnacle odds as sharp reference' })
+  pinnacleOdds?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true, description: 'Edge vs Pinnacle sharp line' })
+  edgeVsPinnacle?: number
+
+  @Prop({ type: [String], default: [] })
+  @Field(() => [String], { nullable: true, description: 'All bookmakers offering this market' })
+  allBookmakers?: string[]
 }
 
 export const PickModelInputsSchema =

@@ -31,6 +31,7 @@ import {
   MarketDirection,
   TimeWindow,
 } from '../enums/betting.enums'
+import { NormalizedOdds } from '../services/odds-api.service'
 
 /**
  * Nightly Analysis Cron Job
@@ -756,6 +757,171 @@ export class NightlyAnalysisCron {
   }
 
   /**
+   * Fetch odds from The Odds API for a league (cached per league/market)
+   * Returns a Map of odds keyed by normalized team names for quick lookup
+   */
+  private async fetchOddsApiOdds(
+    league: BettingLeagueDocument,
+    market: string = 'totals'
+  ): Promise<Map<string, NormalizedOdds[]>> {
+    const oddsMap = new Map<string, NormalizedOdds[]>()
+
+    if (!league.hasOddsApi || !league.oddsApiSportKey) {
+      return oddsMap
+    }
+
+    try {
+      const normalizedOdds = await this.oddsApiService.getNormalizedOdds(
+        league.oddsApiSportKey,
+        market
+      )
+
+      for (const odds of normalizedOdds) {
+        // Create a normalized key from team names (lowercase, remove accents)
+        const key = this.normalizeTeamKey(odds.homeTeam, odds.awayTeam)
+        const existing = oddsMap.get(key) || []
+        existing.push(odds)
+        oddsMap.set(key, existing)
+      }
+
+      this.logger.log(
+        `Fetched ${normalizedOdds.length} events from The Odds API for ${league.name} (${market})`
+      )
+    } catch (error) {
+      this.logger.warn(`Failed to fetch The Odds API for ${league.name}: ${error.message}`)
+    }
+
+    return oddsMap
+  }
+
+  /**
+   * Normalize team names for matching between APIs
+   */
+  private normalizeTeamKey(homeTeam: string, awayTeam: string): string {
+    const normalize = (name: string) =>
+      name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove accents
+        .replace(/[^a-z0-9]/g, '') // Remove non-alphanumeric
+    return `${normalize(homeTeam)}_${normalize(awayTeam)}`
+  }
+
+  /**
+   * Find The Odds API odds for a specific fixture
+   */
+  private findOddsApiMatch(
+    oddsMap: Map<string, NormalizedOdds[]>,
+    homeTeam: string,
+    awayTeam: string,
+    line?: number
+  ): NormalizedOdds | null {
+    const key = this.normalizeTeamKey(homeTeam, awayTeam)
+    const matches = oddsMap.get(key)
+
+    if (!matches || matches.length === 0) {
+      // Try fuzzy matching
+      for (const [mapKey, odds] of oddsMap.entries()) {
+        // Check if any team name contains our search
+        const homeNorm = this.normalizeTeamKey(homeTeam, '')
+        const awayNorm = this.normalizeTeamKey(awayTeam, '')
+        if (mapKey.includes(homeNorm.replace('_', '')) && mapKey.includes(awayNorm.replace('_', ''))) {
+          if (line === undefined) return odds[0]
+          const lineMatch = odds.find((o) => o.line === line)
+          if (lineMatch) return lineMatch
+        }
+      }
+      return null
+    }
+
+    if (line === undefined) {
+      return matches[0]
+    }
+
+    return matches.find((o) => o.line === line) || null
+  }
+
+  /**
+   * Get the best odds from The Odds API or API-Football
+   * Returns the best odds and bookmaker info
+   */
+  private getBestOddsFromSources(
+    apiFootballOdds: number,
+    oddsApiMatch: NormalizedOdds | null,
+    direction: 'over' | 'under'
+  ): {
+    bestOdds: number
+    bestBookmaker: string
+    pinnacleOdds?: number
+    edgeVsPinnacle?: number
+    allBookmakers?: string[]
+  } {
+    let bestOdds = apiFootballOdds
+    let bestBookmaker = 'API-Football'
+    let pinnacleOdds: number | undefined
+    let edgeVsPinnacle: number | undefined
+    let allBookmakers: string[] = []
+
+    if (oddsApiMatch) {
+      const oddsApiPrice =
+        direction === 'over'
+          ? oddsApiMatch.bestOver?.price
+          : oddsApiMatch.bestUnder?.price
+      const oddsApiBookmaker =
+        direction === 'over'
+          ? oddsApiMatch.bestOver?.bookmaker
+          : oddsApiMatch.bestUnder?.bookmaker
+
+      if (oddsApiPrice && oddsApiPrice > bestOdds) {
+        bestOdds = oddsApiPrice
+        bestBookmaker = this.formatBookmakerName(oddsApiBookmaker || 'The Odds API')
+      }
+
+      // Track Pinnacle as sharp reference
+      pinnacleOdds =
+        direction === 'over' ? oddsApiMatch.pinnacleOver : oddsApiMatch.pinnacleUnder
+
+      if (pinnacleOdds) {
+        edgeVsPinnacle = this.oddsApiService.calculateEdgeVsPinnacle(
+          oddsApiMatch,
+          direction
+        )
+      }
+
+      // Collect all bookmaker names
+      allBookmakers = oddsApiMatch.allBookmakers.map((b) =>
+        this.formatBookmakerName(b.bookmaker)
+      )
+    }
+
+    return { bestOdds, bestBookmaker, pinnacleOdds, edgeVsPinnacle, allBookmakers }
+  }
+
+  /**
+   * Format bookmaker key to readable name
+   */
+  private formatBookmakerName(key: string): string {
+    const names: Record<string, string> = {
+      pinnacle: 'Pinnacle',
+      bet365: 'Bet365',
+      betfair: 'Betfair',
+      '1xbet': '1xBet',
+      williamhill: 'William Hill',
+      unibet: 'Unibet',
+      betway: 'Betway',
+      bwin: 'Bwin',
+      ladbrokes: 'Ladbrokes',
+      marathonbet: 'Marathonbet',
+      betvictor: 'BetVictor',
+      paddypower: 'Paddy Power',
+      draftkings: 'DraftKings',
+      fanduel: 'FanDuel',
+      bovada: 'Bovada',
+    }
+    return names[key.toLowerCase()] || key
+  }
+
+  /**
    * Analyze a single league for value picks
    * Returns picks and number of fixtures analyzed
    */
@@ -793,6 +959,20 @@ export class NightlyAnalysisCron {
 
       fixturesCount = upcomingFixtures.length
       this.logger.log(`Found ${upcomingFixtures.length} upcoming fixtures for ${league.name}`)
+
+      // Fetch The Odds API data for this league (if available)
+      // We fetch multiple markets: totals (full match) and totals_h1 (first half)
+      const [oddsApiTotals, oddsApiTotalsH1] = await Promise.all([
+        this.fetchOddsApiOdds(league, 'totals'),
+        this.fetchOddsApiOdds(league, 'totals_h1'),
+      ])
+
+      const hasOddsApiData = oddsApiTotals.size > 0 || oddsApiTotalsH1.size > 0
+      if (hasOddsApiData) {
+        this.logger.log(
+          `The Odds API data available for ${league.name}: ${oddsApiTotals.size} totals, ${oddsApiTotalsH1.size} 1H events`
+        )
+      }
 
       for (const fixture of upcomingFixtures) {
         this.logger.debug(`Analyzing: ${fixture.homeTeamName} vs ${fixture.awayTeamName}`)
@@ -890,19 +1070,35 @@ export class NightlyAnalysisCron {
 
         // Detect value for Over 0.5 1H
         if (goalsResult.probOver05_1H > 0 && odds) {
-          const over05Odds = this.findOddsForMarket(odds, 'over_05_1h')
-          this.logger.debug(`Over 0.5 1H odds: ${over05Odds}`)
+          const apiFootballOdds = this.findOddsForMarket(odds, 'over_05_1h')
+
+          // Check The Odds API for better odds (totals_h1 for first half goals)
+          const oddsApiMatch = this.findOddsApiMatch(
+            oddsApiTotalsH1,
+            fixture.homeTeamName,
+            fixture.awayTeamName,
+            0.5
+          )
+
+          const { bestOdds: over05Odds, bestBookmaker, pinnacleOdds, edgeVsPinnacle, allBookmakers } =
+            this.getBestOddsFromSources(apiFootballOdds, oddsApiMatch, 'over')
+
+          this.logger.debug(
+            `Over 0.5 1H odds: API-Football=${apiFootballOdds}, Best=${over05Odds} (${bestBookmaker})` +
+            (pinnacleOdds ? `, Pinnacle=${pinnacleOdds}` : '')
+          )
 
           if (over05Odds > 1.0) {
             const valueResult = this.valueDetectionService.detectValueGoals(
               goalsResult,
               'over_05_1h',
               over05Odds,
-              'API-Football'
+              bestBookmaker
             )
 
             this.logger.debug(
-              `Value detection Over 0.5 1H: hasValue=${valueResult.hasValue}, edge=${(valueResult.edge * 100).toFixed(1)}%`
+              `Value detection Over 0.5 1H: hasValue=${valueResult.hasValue}, edge=${(valueResult.edge * 100).toFixed(1)}%` +
+              (edgeVsPinnacle !== undefined ? `, edgeVsPinnacle=${(edgeVsPinnacle * 100).toFixed(1)}%` : '')
             )
 
             if (valueResult.hasValue) {
@@ -958,7 +1154,7 @@ export class NightlyAnalysisCron {
                   edge: valueResult.edge,
                   confidenceScore: Math.min(100, Math.round(valueResult.edge * 500 + 40)),
                   oddsAtDetection: over05Odds,
-                  bestBookmaker: 'API-Football',
+                  bestBookmaker,
                   status: PickStatus.PENDING,
                   stars: this.calculateStars(valueResult.edge),
                   reasons: this.generateGoalsReasons(
@@ -970,9 +1166,12 @@ export class NightlyAnalysisCron {
                     goalsResult
                   ),
                   modelInputs: {
-                    dataSource: 'API-Football',
+                    dataSource: bestBookmaker.includes('API-Football') ? 'API-Football' : 'The Odds API',
                     contextFlags: context.flags,
                     expectedGoals1H: goalsResult.expectedGoals1H,
+                    pinnacleOdds,
+                    edgeVsPinnacle,
+                    allBookmakers: allBookmakers?.slice(0, 5),
                     teamAStats: {
                       name: fixture.homeTeamName,
                       avgGoals1H: teamAStats.avg_goals_1h,
@@ -989,7 +1188,8 @@ export class NightlyAnalysisCron {
                       gamesPlayed: teamBStats.gamesPlayed,
                       dataQuality: teamBStats.dataQuality?.form_goals_1h || 'estimated',
                     },
-                    calculationExplanation: `Probabilidad calculada usando stats de ${teamAStats.gamesPlayed} partidos del local y ${teamBStats.gamesPlayed} del visitante. xG 1H: ${goalsResult.expectedGoals1H?.toFixed(2) || 'N/A'}.`,
+                    calculationExplanation: `Probabilidad calculada usando stats de ${teamAStats.gamesPlayed} partidos del local y ${teamBStats.gamesPlayed} del visitante. xG 1H: ${goalsResult.expectedGoals1H?.toFixed(2) || 'N/A'}.` +
+                      (pinnacleOdds ? ` Línea Pinnacle: ${pinnacleOdds.toFixed(2)} (referencia sharp).` : ''),
                     ...this.getWeatherFields(weather, context),
                   },
                 },
@@ -1001,13 +1201,25 @@ export class NightlyAnalysisCron {
 
         // Detect value for Over 1.5 1H (higher risk, higher reward)
         if (goalsResult.probOver15_1H > 0 && odds) {
-          const over15Odds = this.findOddsForMarket(odds, 'over_15_1h')
+          const apiFootball15Odds = this.findOddsForMarket(odds, 'over_15_1h')
+
+          // Check The Odds API for better odds
+          const oddsApiMatch15 = this.findOddsApiMatch(
+            oddsApiTotalsH1,
+            fixture.homeTeamName,
+            fixture.awayTeamName,
+            1.5
+          )
+
+          const { bestOdds: over15Odds, bestBookmaker: bestBookie15, pinnacleOdds: pinnacle15, edgeVsPinnacle: edgeVsPin15, allBookmakers: allBookie15 } =
+            this.getBestOddsFromSources(apiFootball15Odds, oddsApiMatch15, 'over')
+
           if (over15Odds > 1.0) {
             const valueResult = this.valueDetectionService.detectValueGoals(
               goalsResult,
               'over_15_1h',
               over15Odds,
-              'API-Football'
+              bestBookie15
             )
 
             if (valueResult.hasValue) {
@@ -1063,7 +1275,7 @@ export class NightlyAnalysisCron {
                   edge: valueResult.edge,
                   confidenceScore: Math.min(100, Math.round(valueResult.edge * 500 + 40)),
                   oddsAtDetection: over15Odds,
-                  bestBookmaker: 'API-Football',
+                  bestBookmaker: bestBookie15,
                   status: PickStatus.PENDING,
                   stars: this.calculateStars(valueResult.edge),
                   reasons: this.generateGoalsReasons(
@@ -1075,9 +1287,12 @@ export class NightlyAnalysisCron {
                     goalsResult
                   ),
                   modelInputs: {
-                    dataSource: 'API-Football',
+                    dataSource: bestBookie15.includes('API-Football') ? 'API-Football' : 'The Odds API',
                     contextFlags: context.flags,
                     expectedGoals1H: goalsResult.expectedGoals1H,
+                    pinnacleOdds: pinnacle15,
+                    edgeVsPinnacle: edgeVsPin15,
+                    allBookmakers: allBookie15?.slice(0, 5),
                     teamAStats: {
                       name: fixture.homeTeamName,
                       avgGoals1H: teamAStats.avg_goals_1h,
@@ -1094,7 +1309,8 @@ export class NightlyAnalysisCron {
                       gamesPlayed: teamBStats.gamesPlayed,
                       dataQuality: teamBStats.dataQuality?.form_goals_1h || 'estimated',
                     },
-                    calculationExplanation: `Over 1.5 1H requiere que ambos equipos marquen. Local promedia ${teamAStats.avg_goals_1h?.toFixed(2)} goles/1H, visitante ${teamBStats.avg_goals_1h?.toFixed(2)}. xG combinado: ${goalsResult.expectedGoals1H?.toFixed(2) || 'N/A'}.`,
+                    calculationExplanation: `Over 1.5 1H requiere que ambos equipos marquen. Local promedia ${teamAStats.avg_goals_1h?.toFixed(2)} goles/1H, visitante ${teamBStats.avg_goals_1h?.toFixed(2)}. xG combinado: ${goalsResult.expectedGoals1H?.toFixed(2) || 'N/A'}.` +
+                      (pinnacle15 ? ` Línea Pinnacle: ${pinnacle15.toFixed(2)}.` : ''),
                     ...this.getWeatherFields(weather, context),
                   },
                 },

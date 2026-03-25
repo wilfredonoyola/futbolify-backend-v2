@@ -7,6 +7,7 @@ import { PreMatchCheckCron } from './cron/pre-match-check.cron'
 import { OddsMonitorCron } from './cron/odds-monitor.cron'
 import { ResultCollectorCron } from './cron/result-collector.cron'
 import { ApiFootballBettingService } from './services/api-football-betting.service'
+import { OddsApiService } from './services/odds-api.service'
 import { ScoringGoalsService } from './services/scoring-goals.service'
 import { ValueDetectionService } from './services/value-detection.service'
 import { BettingTelegramService } from './telegram/betting-telegram.service'
@@ -29,6 +30,7 @@ export class BettingTestController {
     private oddsMonitor: OddsMonitorCron,
     private resultCollector: ResultCollectorCron,
     private apiFootball: ApiFootballBettingService,
+    private oddsApi: OddsApiService,
     private scoringGoals: ScoringGoalsService,
     private valueDetection: ValueDetectionService,
     private telegramService: BettingTelegramService,
@@ -1035,6 +1037,200 @@ export class BettingTestController {
       }
     } catch (error) {
       return { error: String(error) }
+    }
+  }
+
+  /**
+   * List available sports from The Odds API
+   * GET /betting/test/odds-api-sports
+   */
+  @Get('odds-api-sports')
+  async listOddsApiSports(@Query('filter') filter?: string) {
+    try {
+      const sports = await this.oddsApi.getAvailableSports()
+
+      // Filter to soccer only by default
+      let filtered = sports.filter(s => s.group === 'Soccer')
+
+      // Additional keyword filter if provided
+      if (filter) {
+        const lowerFilter = filter.toLowerCase()
+        filtered = filtered.filter(s =>
+          s.key.toLowerCase().includes(lowerFilter) ||
+          s.title.toLowerCase().includes(lowerFilter)
+        )
+      }
+
+      return {
+        total: filtered.length,
+        sports: filtered.map(s => ({
+          key: s.key,
+          title: s.title,
+          active: s.active,
+        })),
+        usage: 'Use the "key" value to configure a league via /betting/test/set-odds-api-key',
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
+   * Set The Odds API sport key for a league
+   * GET /betting/test/set-odds-api-key?leagueId=140&sportKey=soccer_spain_la_liga
+   */
+  @Get('set-odds-api-key')
+  async setOddsApiSportKey(
+    @Query('leagueId') leagueId: string,
+    @Query('sportKey') sportKey: string
+  ) {
+    if (!leagueId || !sportKey) {
+      return { error: 'Both leagueId and sportKey are required' }
+    }
+
+    const id = parseInt(leagueId)
+    if (isNaN(id)) {
+      return { error: 'Invalid leagueId' }
+    }
+
+    try {
+      // Verify sport key exists
+      const sports = await this.oddsApi.getAvailableSports()
+      const sportExists = sports.some(s => s.key === sportKey)
+
+      if (!sportExists) {
+        return {
+          error: `Sport key "${sportKey}" not found in The Odds API`,
+          hint: 'Use /betting/test/odds-api-sports to see available keys',
+        }
+      }
+
+      // Check if Pinnacle is available for this sport
+      const hasPinnacle = await this.oddsApi.hasPinnacle(sportKey)
+
+      const league = await this.bettingLeagueModel.findOneAndUpdate(
+        { apiFootballId: id },
+        {
+          $set: {
+            oddsApiSportKey: sportKey,
+            hasOddsApi: true,
+          }
+        },
+        { new: true }
+      ).exec()
+
+      if (!league) {
+        return { error: 'League not found', leagueId: id }
+      }
+
+      return {
+        success: true,
+        league: {
+          id: league.apiFootballId,
+          name: league.name,
+          oddsApiSportKey: league.oddsApiSportKey,
+          hasOddsApi: league.hasOddsApi,
+          hasPinnacle,
+        },
+        message: hasPinnacle
+          ? '✅ Pinnacle odds available - sharp line reference enabled!'
+          : '⚠️ No Pinnacle odds available for this league',
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
+   * Test The Odds API for a specific league
+   * GET /betting/test/test-odds-api?leagueId=140
+   */
+  @Get('test-odds-api')
+  async testOddsApi(@Query('leagueId') leagueId: string) {
+    const id = parseInt(leagueId)
+    if (isNaN(id)) {
+      return { error: 'Invalid leagueId' }
+    }
+
+    try {
+      const league = await this.bettingLeagueModel.findOne({ apiFootballId: id }).exec()
+      if (!league) {
+        return { error: 'League not found', leagueId: id }
+      }
+
+      if (!league.oddsApiSportKey) {
+        return {
+          error: 'League not configured for The Odds API',
+          hint: 'Use /betting/test/set-odds-api-key to configure it',
+          league: {
+            id: league.apiFootballId,
+            name: league.name,
+          },
+        }
+      }
+
+      // Fetch odds from The Odds API
+      const [totalsOdds, totalsH1Odds] = await Promise.all([
+        this.oddsApi.getNormalizedOdds(league.oddsApiSportKey, 'totals'),
+        this.oddsApi.getNormalizedOdds(league.oddsApiSportKey, 'totals_h1'),
+      ])
+
+      const hasPinnacle = totalsOdds.some(o => o.pinnacleOver !== undefined)
+
+      return {
+        league: {
+          id: league.apiFootballId,
+          name: league.name,
+          oddsApiSportKey: league.oddsApiSportKey,
+        },
+        totals: {
+          events: totalsOdds.length,
+          hasPinnacle,
+          sample: totalsOdds.slice(0, 3).map(o => ({
+            match: `${o.homeTeam} vs ${o.awayTeam}`,
+            line: o.line,
+            bestOver: o.bestOver,
+            bestUnder: o.bestUnder,
+            pinnacleOver: o.pinnacleOver,
+            bookmakers: o.allBookmakers.length,
+          })),
+        },
+        totals_h1: {
+          events: totalsH1Odds.length,
+          sample: totalsH1Odds.slice(0, 3).map(o => ({
+            match: `${o.homeTeam} vs ${o.awayTeam}`,
+            line: o.line,
+            bestOver: o.bestOver,
+            bestUnder: o.bestUnder,
+          })),
+        },
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
+   * Show leagues configured for The Odds API
+   * GET /betting/test/odds-api-leagues
+   */
+  @Get('odds-api-leagues')
+  async listOddsApiLeagues() {
+    const leagues = await this.bettingLeagueModel
+      .find({ hasOddsApi: true })
+      .sort({ tier: 1, name: 1 })
+      .exec()
+
+    return {
+      total: leagues.length,
+      leagues: leagues.map(l => ({
+        id: l.apiFootballId,
+        name: l.name,
+        country: l.country,
+        tier: l.tier,
+        isActive: l.isActive,
+        oddsApiSportKey: l.oddsApiSportKey,
+      })),
     }
   }
 }
