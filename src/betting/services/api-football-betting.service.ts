@@ -804,6 +804,47 @@ export class ApiFootballBettingService {
   }
 
   /**
+   * Search leagues by name
+   */
+  async searchLeagues(name: string): Promise<Array<{
+    id: number
+    name: string
+    country: string
+    type: string
+    logo: string
+  }>> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/leagues?search=${encodeURIComponent(name)}`,
+        {
+          headers: { 'x-apisports-key': this.apiKey },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (!data?.response) {
+        return []
+      }
+
+      return data.response.map((item: any) => ({
+        id: item.league?.id,
+        name: item.league?.name || 'Unknown',
+        country: item.country?.name || 'International',
+        type: item.league?.type || 'League',
+        logo: item.league?.logo || '',
+      }))
+    } catch (error) {
+      this.logger.error(`Failed to search leagues: ${error}`)
+      return []
+    }
+  }
+
+  /**
    * Get basic league information
    * Used to add new leagues to the system
    */

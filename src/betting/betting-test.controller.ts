@@ -715,16 +715,38 @@ export class BettingTestController {
   }
 
   /**
+   * Search leagues by name in API-Football
+   * GET /betting/test/search-leagues?name=women
+   */
+  @Get('search-leagues')
+  async searchLeagues(@Query('name') name: string) {
+    if (!name) {
+      return { error: 'Name parameter required' }
+    }
+
+    try {
+      const results = await this.apiFootball.searchLeagues(name)
+      return {
+        query: name,
+        count: results.length,
+        leagues: results.slice(0, 20), // Limit to 20 results
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
    * Add all women's leagues (Tier 4)
    * GET /betting/test/add-women-leagues
    */
   @Get('add-women-leagues')
   async addWomenLeagues() {
     const womenLeagues = [
-      { id: 766, name: 'UEFA Women\'s Champions League' },
-      { id: 712, name: 'Women\'s Super League (England)' },
-      { id: 722, name: 'Liga F (Spain)' },
-      { id: 713, name: 'Division 1 Féminine (France)' },
+      { id: 525, name: 'UEFA Champions League Women' },
+      { id: 44, name: 'FA WSL (England)' },
+      { id: 142, name: 'Primera División Femenina (Spain)' },
+      { id: 64, name: 'Feminine Division 1 (France)' },
     ]
 
     const results: any[] = []
