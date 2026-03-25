@@ -2921,6 +2921,9 @@ type BettingSettingsOutput {
   bankroll: Float!
   isActive: Boolean!
   telegramAlertsOn: Boolean!
+
+  """User timezone in IANA format"""
+  timezone: String
   thresholds: ThresholdsConfig!
   stakes: StakesConfig!
   antiTilt: AntiTiltConfig!
@@ -4138,6 +4141,9 @@ input BettingSettingsInput {
   bankroll: Float
   isActive: Boolean
   telegramAlertsOn: Boolean
+
+  """User timezone in IANA format (e.g., America/El_Salvador)"""
+  timezone: String
   minEdge: Float
   minComboEV: Float
   minScore: Int

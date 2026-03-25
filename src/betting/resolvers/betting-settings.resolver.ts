@@ -88,6 +88,7 @@ export class BettingSettingsResolver {
     if (input.isActive !== undefined) updateData.isActive = input.isActive
     if (input.telegramAlertsOn !== undefined)
       updateData.telegramAlertsOn = input.telegramAlertsOn
+    if (input.timezone !== undefined) updateData.timezone = input.timezone
 
     // Thresholds
     if (input.minEdge !== undefined) updateData['thresholds.minEdge'] = input.minEdge
@@ -268,6 +269,7 @@ export class BettingSettingsResolver {
       bankroll: settings.bankroll,
       isActive: settings.isActive,
       telegramAlertsOn: settings.telegramAlertsOn,
+      timezone: settings.timezone || 'UTC',
       thresholds: {
         minEdge: settings.thresholds?.minEdge || 0.05,
         minComboEV: settings.thresholds?.minComboEV || 0.05,

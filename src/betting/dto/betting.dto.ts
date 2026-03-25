@@ -712,6 +712,9 @@ export class BettingSettingsOutput {
   @Field()
   telegramAlertsOn: boolean
 
+  @Field({ nullable: true, description: 'User timezone in IANA format' })
+  timezone?: string
+
   @Field(() => ThresholdsConfig)
   thresholds: ThresholdsConfig
 
@@ -829,6 +832,9 @@ export class BettingSettingsInput {
 
   @Field({ nullable: true })
   telegramAlertsOn?: boolean
+
+  @Field({ nullable: true, description: 'User timezone in IANA format (e.g., America/El_Salvador)' })
+  timezone?: string
 
   @Field(() => Float, { nullable: true })
   minEdge?: number

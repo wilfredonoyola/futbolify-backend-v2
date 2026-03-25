@@ -178,6 +178,11 @@ export class BettingSettings {
   @Field()
   telegramAlertsOn: boolean
 
+  // User timezone for alerts (IANA timezone format)
+  @Prop({ default: 'UTC' })
+  @Field({ nullable: true })
+  timezone?: string
+
   // Configuration objects
   @Prop({ type: BettingThresholdsSchema, default: () => ({}) })
   @Field(() => BettingThresholds)

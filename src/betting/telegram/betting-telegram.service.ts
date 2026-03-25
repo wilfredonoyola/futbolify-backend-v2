@@ -415,19 +415,66 @@ export class BettingTelegramService implements OnModuleInit {
       const starsEmoji = '\u2b50'.repeat(pick.stars || 3)
       const reasons = pick.reasons?.length > 0 ? pick.reasons.join('\n• ') : ''
 
-      let message = `\ud83d\udea8 *NUEVO PICK*\n`
-      message += '\u2501'.repeat(20) + '\n\n'
-      message += `\u26bd *${pick.teamHome.name}* vs *${pick.teamAway.name}*\n`
-      message += `\ud83c\udfc6 ${pick.league.name}\n`
-      message += `\ud83d\udcca ${pick.market} ${pick.direction} ${pick.line}\n`
-      message += `\ud83d\udcb0 @${odds} ${stake ? `| Stake: ${stake}` : ''}\n`
-      message += `${starsEmoji} Confianza: ${pick.confidenceScore}%\n`
-      if (reasons) {
-        message += `\n\ud83d\udcdd *Razones:*\n• ${reasons}\n`
-      }
-      message += `\n\u23f0 Kickoff: ${pick.kickoff.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`
+      // Format market label nicely
+      const marketLabel = this.formatters.formatMarketLabel(pick.market, pick.line, pick.direction)
 
-      const buttonText = pick.betPlaced ? '\u2705 APOSTADO' : '\ud83d\udcb0 APOSTE'
+      // Format kickoff with date and time in user timezone (from settings)
+      const userTimezone = settings.timezone || 'UTC'
+      const kickoffDate = new Date(pick.kickoff)
+      const dateOptions: Intl.DateTimeFormatOptions = {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: userTimezone,
+      }
+      const formattedKickoff = kickoffDate.toLocaleString('es-SV', dateOptions)
+
+      // Get bookmaker info - show top 3 popular bookmakers
+      const popularBookmakers = ['Bet365', 'Betfair', '1xBet']
+      const bookmakerEmojis: Record<string, string> = {
+        'Bet365': '🅱️',
+        'Betfair': '🔵',
+        '1xBet': '1️⃣',
+        'Pinnacle': '📌',
+        'Unibet': '🟢',
+        'Bwin': '🟡',
+      }
+
+      // If we have a specific best bookmaker, put it first
+      let displayBookmakers = [...popularBookmakers]
+      if (pick.bestBookmaker && pick.bestBookmaker !== 'API-Football') {
+        const bestNormalized = pick.bestBookmaker.charAt(0).toUpperCase() + pick.bestBookmaker.slice(1).toLowerCase()
+        if (!displayBookmakers.includes(bestNormalized) && !displayBookmakers.includes(pick.bestBookmaker)) {
+          displayBookmakers = [pick.bestBookmaker, ...displayBookmakers.slice(0, 2)]
+        }
+      }
+
+      // Format bookmakers: show 3 main ones
+      const formattedBookmakers = displayBookmakers.slice(0, 3).map(b => {
+        const emoji = bookmakerEmojis[b] || '📍'
+        return `${emoji} ${b}`
+      }).join(' • ')
+
+      // Add "+X más" if there could be more
+      const bookmakerLine = `${formattedBookmakers} +2 más`
+
+      let message = `🚨 *NUEVO PICK*\n`
+      message += '━'.repeat(20) + '\n\n'
+      message += `⚽ *${pick.teamHome.name}* vs *${pick.teamAway.name}*\n`
+      message += `🏆 ${pick.league.name}\n`
+      message += `📊 ${marketLabel}\n`
+      message += `💰 @${odds} ${stake ? `| Stake: ${stake}` : ''}\n`
+      message += `${starsEmoji} Confianza: ${pick.confidenceScore}%\n`
+      message += `🎯 ${bookmakerLine}\n`
+      if (reasons) {
+        message += `\n📝 *Razones:*\n• ${reasons}\n`
+      }
+      message += `\n📅 ${formattedKickoff}`
+
+      const buttonText = pick.betPlaced ? '✅ APOSTADO' : '💰 APOSTÉ'
       const buttons = Markup.inlineKeyboard([
         [Markup.button.callback(buttonText, `bet_placed:${pick._id}`)],
       ])

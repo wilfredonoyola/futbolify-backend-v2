@@ -13,6 +13,7 @@ import { BettingTelegramService } from './telegram/betting-telegram.service'
 import { BettingLeague, BettingLeagueDocument } from './schemas/betting-league.schema'
 import { BettingPick, BettingPickDocument } from './schemas/betting-pick.schema'
 import { BettingCombo, BettingComboDocument } from './schemas/betting-combo.schema'
+import { BettingSettings, BettingSettingsDocument } from './schemas/betting-settings.schema'
 import { MarketType, MarketDirection, PickStatus } from './enums/betting.enums'
 
 /**
@@ -37,7 +38,9 @@ export class BettingTestController {
     @InjectModel(BettingPick.name)
     private bettingPickModel: Model<BettingPickDocument>,
     @InjectModel(BettingCombo.name)
-    private bettingComboModel: Model<BettingComboDocument>
+    private bettingComboModel: Model<BettingComboDocument>,
+    @InjectModel(BettingSettings.name)
+    private bettingSettingsModel: Model<BettingSettingsDocument>
   ) {}
 
   /**
@@ -301,6 +304,36 @@ export class BettingTestController {
         marketStrengths: league.marketStrengths,
         notes: league.notes,
       }
+    }
+  }
+
+  /**
+   * Update user timezone
+   * GET /betting/test/set-timezone?tz=America/El_Salvador
+   */
+  @Get('set-timezone')
+  async setTimezone(@Query('tz') timezone: string) {
+    if (!timezone) {
+      return { error: 'Missing timezone parameter. Example: ?tz=America/El_Salvador' }
+    }
+
+    // Validate timezone
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: timezone })
+    } catch {
+      return { error: `Invalid timezone: ${timezone}. Use IANA format like America/New_York, UTC, etc.` }
+    }
+
+    const settings = await this.bettingSettingsModel.findOneAndUpdate(
+      {},
+      { $set: { timezone } },
+      { new: true, upsert: true }
+    ).exec()
+
+    return {
+      success: true,
+      timezone: settings?.timezone,
+      message: `Timezone updated to ${timezone}`,
     }
   }
 
