@@ -666,6 +666,36 @@ export class BettingTestController {
   }
 
   /**
+   * Debug: Show pending picks and their eligibility for result collection
+   * GET /betting/test/pending-picks
+   */
+  @Get('pending-picks')
+  async getPendingPicks() {
+    const now = new Date()
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
+
+    const pendingPicks = await this.bettingPickModel
+      .find({ status: { $in: ['PENDING', 'ACTIVE'] } })
+      .sort({ kickoff: 1 })
+      .exec()
+
+    return {
+      currentTime: now.toISOString(),
+      twoHoursAgoThreshold: twoHoursAgo.toISOString(),
+      totalPending: pendingPicks.length,
+      picks: pendingPicks.map(p => ({
+        id: p._id,
+        match: `${p.teamHome.name} vs ${p.teamAway.name}`,
+        kickoff: p.kickoff,
+        kickoffISO: p.kickoff?.toISOString(),
+        status: p.status,
+        eligibleForCollection: p.kickoff ? p.kickoff <= twoHoursAgo : false,
+        hoursAgo: p.kickoff ? ((now.getTime() - p.kickoff.getTime()) / (1000 * 60 * 60)).toFixed(1) : 'N/A',
+      })),
+    }
+  }
+
+  /**
    * Clean duplicate picks (keeps oldest or one with betPlaced=true)
    * GET /betting/test/clean-duplicates
    */
