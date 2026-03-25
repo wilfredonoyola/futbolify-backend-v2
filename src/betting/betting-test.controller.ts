@@ -715,6 +715,65 @@ export class BettingTestController {
   }
 
   /**
+   * Check league coverage in API-Football
+   * GET /betting/test/check-coverage?ids=78,88,179,253
+   */
+  @Get('check-coverage')
+  async checkCoverage(@Query('ids') ids: string) {
+    if (!ids) {
+      return { error: 'IDs parameter required (comma-separated)' }
+    }
+
+    const leagueIds = ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+    const results: any[] = []
+
+    for (const leagueId of leagueIds) {
+      try {
+        const leagueInfo = await this.apiFootball.getLeagueInfo(leagueId)
+        const seasonInfo = await this.apiFootball.getLeagueSeasonInfo(leagueId)
+
+        // Check if already in our database
+        const existsInDb = await this.bettingLeagueModel.findOne({ apiFootballId: leagueId }).exec()
+
+        results.push({
+          id: leagueId,
+          name: leagueInfo?.name || 'Unknown',
+          country: leagueInfo?.country || 'Unknown',
+          type: leagueInfo?.type || 'Unknown',
+          season: seasonInfo?.season,
+          inDatabase: !!existsInDb,
+          dbTier: existsInDb?.tier,
+          dbActive: existsInDb?.isActive,
+          coverage: seasonInfo?.coverage ? {
+            fixtures: seasonInfo.coverage.fixtures?.statistics_fixtures ?? false,
+            lineups: seasonInfo.coverage.fixtures?.lineups ?? false,
+            standings: seasonInfo.coverage.standings ?? false,
+            predictions: seasonInfo.coverage.predictions ?? false,
+            odds: seasonInfo.coverage.odds ?? false,
+          } : null,
+          recommended: seasonInfo?.coverage?.odds && seasonInfo?.coverage?.fixtures?.statistics_fixtures,
+        })
+      } catch (error) {
+        results.push({
+          id: leagueId,
+          error: String(error),
+        })
+      }
+    }
+
+    const withOdds = results.filter(r => r.coverage?.odds).length
+    const withStats = results.filter(r => r.coverage?.fixtures).length
+
+    return {
+      total: results.length,
+      withOdds,
+      withStats,
+      fullySupported: results.filter(r => r.recommended).length,
+      results,
+    }
+  }
+
+  /**
    * Search leagues by name in API-Football
    * GET /betting/test/search-leagues?name=women
    */
