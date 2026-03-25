@@ -200,8 +200,8 @@ export class BettingPickOutput {
   @Field()
   kickoff: Date
 
-  @Field(() => TimeWindow)
-  timeWindow: TimeWindow
+  @Field(() => TimeWindow, { nullable: true })
+  timeWindow?: TimeWindow
 
   @Field(() => MarketType)
   market: MarketType

@@ -2603,7 +2603,7 @@ type BettingPickOutput {
   teamHome: BettingTeamInfo!
   teamAway: BettingTeamInfo!
   kickoff: DateTime!
-  timeWindow: TimeWindow!
+  timeWindow: TimeWindow
   market: MarketType!
 
   """Human-readable market label"""

@@ -13,6 +13,7 @@ import { BettingTelegramService } from './telegram/betting-telegram.service'
 import { BettingLeague, BettingLeagueDocument } from './schemas/betting-league.schema'
 import { BettingPick, BettingPickDocument } from './schemas/betting-pick.schema'
 import { BettingCombo, BettingComboDocument } from './schemas/betting-combo.schema'
+import { MarketType, MarketDirection, PickStatus } from './enums/betting.enums'
 
 /**
  * Test endpoints for betting module
@@ -463,6 +464,193 @@ export class BettingTestController {
         bet365Available: !!bet365,
         bookmakers: bookmakers.map(b => b.name),
         over05_1h_odds: over05OddsByBookmaker,
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
+   * Send a test pick alert with APOSTÉ button
+   * GET /betting/test/send-pick-alert?pickId=optional
+   * If no pickId provided, sends a mock pick
+   */
+  @Get('send-pick-alert')
+  async sendPickAlert(@Query('pickId') pickId?: string) {
+    try {
+      let pick: BettingPickDocument | null = null
+
+      if (pickId) {
+        pick = await this.bettingPickModel.findById(pickId).exec()
+        if (!pick) {
+          return { error: 'Pick not found', pickId }
+        }
+      } else {
+        // Get the most recent pending pick, or create a mock one
+        pick = await this.bettingPickModel
+          .findOne({ status: 'pending' })
+          .sort({ createdAt: -1 })
+          .exec()
+
+        if (!pick) {
+          // Create a mock pick for testing
+          const mockPick = {
+            _id: 'test-pick-id',
+            teamHome: { name: 'Real Madrid', id: 541 },
+            teamAway: { name: 'Barcelona', id: 529 },
+            league: { name: 'La Liga', id: 140 },
+            market: 'Over 0.5 Goles 1H',
+            direction: 'Over',
+            line: '0.5',
+            oddsAtDetection: 1.45,
+            oddsAtBet: 1.45,
+            stake: 3.15,
+            confidenceScore: 85,
+            stars: 4,
+            reasons: [
+              'Local marca en 1H en 90% de partidos',
+              'Promedio 1.5 goles en 1H',
+              'Visitante concede en 1H en 85% de partidos'
+            ],
+            kickoff: new Date(Date.now() + 3600000), // 1 hour from now
+            betPlaced: false,
+          } as unknown as BettingPickDocument
+
+          await this.telegramService.sendPickWithBetButton(mockPick)
+          return {
+            success: true,
+            message: 'Mock pick alert sent',
+            pick: {
+              match: 'Real Madrid vs Barcelona',
+              market: mockPick.market,
+              odds: mockPick.oddsAtDetection,
+            },
+          }
+        }
+      }
+
+      await this.telegramService.sendPickWithBetButton(pick)
+      return {
+        success: true,
+        message: 'Pick alert sent',
+        pick: {
+          id: pick._id,
+          match: `${pick.teamHome.name} vs ${pick.teamAway.name}`,
+          market: pick.market,
+          odds: pick.oddsAtDetection,
+        },
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
+   * Recreate picks from March 24 (Doncaster vs Port Vale)
+   * GET /betting/test/recreate-march24
+   */
+  @Get('recreate-march24')
+  async recreateMarch24Picks() {
+    try {
+      const kickoffDate = new Date('2026-03-24T13:45:00Z')
+      const pickDate = new Date('2026-03-24T00:00:00Z')
+
+      // Pick 1: Corners Handicap Local (-2) @2.00
+      const pick1Data = {
+        fixtureId: 1234567, // Placeholder
+        date: pickDate,
+        league: {
+          id: 39, // League One
+          name: 'League One',
+          country: 'England',
+          tier: 3,
+        },
+        teamHome: { id: 67, name: 'Doncaster' },
+        teamAway: { id: 68, name: 'Port Vale' },
+        kickoff: kickoffDate,
+        market: MarketType.CORNERS_HANDICAP,
+        direction: MarketDirection.OVER,
+        line: -2,
+        probOwn: 0.72,
+        probImplied: 0.50,
+        edge: 0.216,
+        confidenceScore: 72,
+        oddsAtDetection: 2.00,
+        oddsAtBet: 2.00,
+        stake: 3.00,
+        stars: 5,
+        status: PickStatus.PENDING,
+        reasons: [
+          'Modelo: Doncaster +0.0 vs Casa: -2.0',
+          'Edge: 21.6% | Prob: 72%',
+        ],
+        telegramAlertSent: true,
+        betPlaced: false,
+        modelInputs: {
+          handicapLineExpected: 0,
+          handicapLineBookmaker: -2,
+          calculationExplanation: 'Doncaster debe ganar por 2+ corners de diferencia',
+        },
+      }
+
+      // Pick 2: Under 10.5 Corners @1.70
+      const pick2Data = {
+        fixtureId: 1234567, // Same fixture
+        date: pickDate,
+        league: {
+          id: 39,
+          name: 'League One',
+          country: 'England',
+          tier: 3,
+        },
+        teamHome: { id: 67, name: 'Doncaster' },
+        teamAway: { id: 68, name: 'Port Vale' },
+        kickoff: kickoffDate,
+        market: MarketType.UNDER_105_CORNERS,
+        direction: MarketDirection.UNDER,
+        line: 10.5,
+        probOwn: 0.65,
+        probImplied: 0.59,
+        edge: 0.10,
+        confidenceScore: 60,
+        oddsAtDetection: 1.70,
+        oddsAtBet: 1.70,
+        stake: 3.00,
+        stars: 3,
+        status: PickStatus.PENDING,
+        reasons: ['Corners estimados: 9.1'],
+        telegramAlertSent: true,
+        betPlaced: false,
+        modelInputs: {
+          cornersExpected: 9.1,
+        },
+      }
+
+      // Insert picks
+      const pick1 = await this.bettingPickModel.create(pick1Data)
+      const pick2 = await this.bettingPickModel.create(pick2Data)
+
+      return {
+        success: true,
+        message: '2 picks recreated for March 24',
+        picks: [
+          {
+            id: pick1._id,
+            match: 'Doncaster vs Port Vale',
+            market: pick1.market,
+            line: pick1.line,
+            odds: pick1.oddsAtDetection,
+            stars: pick1.stars,
+          },
+          {
+            id: pick2._id,
+            match: 'Doncaster vs Port Vale',
+            market: pick2.market,
+            line: pick2.line,
+            odds: pick2.oddsAtDetection,
+            stars: pick2.stars,
+          },
+        ],
       }
     } catch (error) {
       return { error: String(error) }
