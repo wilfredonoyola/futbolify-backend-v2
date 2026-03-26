@@ -1,73 +1,256 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo_text.svg" width="320" alt="Nest Logo" /></a>
-</p>
+# Futbolify Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend API para Futbolify - plataforma de datos de fútbol y sistema de betting inteligente.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Tech Stack
 
-## Description
+- **NestJS** 10.x - Backend framework
+- **GraphQL** - API (Apollo Server)
+- **MongoDB** - Base de datos (Mongoose)
+- **AWS Cognito** - Autenticación
+- **Telegram Bot** - Alertas de betting
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Installation
+## Instalación
 
 ```bash
-$ npm install
+yarn install
 ```
 
-## Running the app
+## Ejecutar
 
 ```bash
-# development
-$ npm run start
+# desarrollo
+yarn start:dev
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# producción
+yarn build && yarn start:prod
 ```
 
-## Test
+## Variables de Entorno
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```env
+MONGODB_URI=mongodb://...
+AWS_COGNITO_USER_POOL_ID=...
+AWS_COGNITO_CLIENT_ID=...
+OPENAI_API_KEY=...
+API_FOOTBALL_KEY=...
+THE_ODDS_API_KEY=...
+BETTING_TELEGRAM_BOT_TOKEN=...
+ADMIN_TELEGRAM_ID=...
 ```
 
-## Support
+---
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+# Sistema de Betting - GolPicks
 
-## Stay in touch
+## Arquitectura
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           FUENTES DE DATOS                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                  │
+│   │ API-Football │    │ The Odds API │    │  Open-Meteo  │                  │
+│   │  (7,500/día) │    │  (500/mes)   │    │   (gratis)   │                  │
+│   └──────┬───────┘    └──────┬───────┘    └──────┬───────┘                  │
+│          │                   │                   │                          │
+│          ▼                   ▼                   ▼                          │
+│   • Fixtures            • Cuotas USA        • Clima                         │
+│   • Estadísticas        • Sharps            • Condiciones                   │
+│   • Cuotas EU           • Value bets        • Outdoor matches               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CRON JOBS                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │  📅 PICK SCANNER (7:00 PM diario)                                   │   │
+│   │                                                                     │   │
+│   │  1. Obtener fixtures de MAÑANA (32 ligas configuradas)             │   │
+│   │  2. Para cada partido:                                              │   │
+│   │     • Obtener estadísticas de equipos                               │   │
+│   │     • Obtener cuotas de casas de apuestas                          │   │
+│   │     • Calcular probabilidades propias                               │   │
+│   │  3. Detectar VALUE (edge > 5%)                                      │   │
+│   │  4. Calcular stakes basado en edge                                  │   │
+│   │  5. Guardar picks en MongoDB                                        │   │
+│   │  6. Enviar alerta Telegram                                          │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │  🔥 ODDS MONITOR (cada 30 min, 2h antes de partidos)                │   │
+│   │                                                                     │   │
+│   │  • Monitorea picks pendientes próximos a empezar                    │   │
+│   │  • Detecta STEAM MOVES (cambio cuotas ≥10%)                         │   │
+│   │  • Envía alerta INMEDIATA si hay cambio significativo               │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │  📊 RESULT COLLECTOR (cada 30 min)                                  │   │
+│   │                                                                     │   │
+│   │  • Revisa partidos finalizados                                      │   │
+│   │  • Liquida picks (WON/LOST/VOID)                                    │   │
+│   │  • Actualiza bankroll                                               │   │
+│   │  • Envía notificación de resultado                                  │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           MERCADOS ANALIZADOS                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐          │
+│   │  ⚽ OVER 0.5 1H  │  │  🔲 CORNERS      │  │  📈 SHARPS       │          │
+│   │                  │  │                  │  │                  │          │
+│   │  • Goles primera │  │  • Handicap      │  │  • Asian lines   │          │
+│   │    mitad         │  │  • Over/Under    │  │  • Value bets    │          │
+│   │  • Alta liquidez │  │  • Por equipo    │  │  • Sharp money   │          │
+│   └──────────────────┘  └──────────────────┘  └──────────────────┘          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CÁLCULO DE STAKES                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Edge (ventaja) ──────────────────────────────► Stake (unidades)           │
+│                                                                              │
+│   ┌─────────────┬────────────┐                                              │
+│   │    Edge     │   Stake    │                                              │
+│   ├─────────────┼────────────┤                                              │
+│   │   ≥ 20%     │   1.5u     │                                              │
+│   │   ≥ 15%     │   1.0u     │                                              │
+│   │   ≥ 10%     │   0.75u    │                                              │
+│   │   ≥ 7%      │   0.5u     │                                              │
+│   │   < 7%      │   0.25u    │                                              │
+│   └─────────────┴────────────┘                                              │
+│                                                                              │
+│   📋 1u = $25 (configurable)                                                │
+│   📋 Max exposición diaria: 15% del bankroll                                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          TELEGRAM ALERTS                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │  📅 7:00 PM - ANÁLISIS DIARIO                                       │   │
+│   │  ──────────────────────────────                                     │   │
+│   │  🎯 ANÁLISIS VIE, 28 MAR                                            │   │
+│   │  ━━━━━━━━━━━━━━━━━━━━━━━                                            │   │
+│   │  📊 15 partidos | 32 ligas                                          │   │
+│   │  ✅ 5 picks con value                                               │   │
+│   │                                                                     │   │
+│   │  1️⃣ Real Madrid vs Barcelona                                        │   │
+│   │     La Liga                                                         │   │
+│   │     ⚽ Over 0.5 1H @1.35 ⭐⭐⭐⭐⭐                                    │   │
+│   │     💵 Stake: 0.5u ($13)                                            │   │
+│   │     ⏰ 15:00                                                        │   │
+│   │                                                                     │   │
+│   │  💰 Exposición total: 2u ($50)                                      │   │
+│   │  📋 1u = $25                                                        │   │
+│   │  🔔 Alertas inmediatas si hay cambios >10%                          │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │  🔥 INMEDIATO - STEAM MOVE                                          │   │
+│   │  ──────────────────────────                                         │   │
+│   │  🔥 STEAM MOVE DETECTADO                                            │   │
+│   │                                                                     │   │
+│   │  ⚽ Vietnam vs Bangladesh                                           │   │
+│   │  📊 Over 0.5 1H                                                     │   │
+│   │  📉 Cuota: 1.45 → 1.30 (-10.3%)                                     │   │
+│   │                                                                     │   │
+│   │  ⚠️ Dinero entrando → SEÑAL CONFIRMADA                              │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │  ✅/❌ RESULTADO                                                     │   │
+│   │  ─────────────────                                                  │   │
+│   │  ✅ GANASTE +$12.50                                                 │   │
+│   │                                                                     │   │
+│   │  ⚽ Real Madrid vs Barcelona                                        │   │
+│   │  📊 Over 0.5 1H @1.35                                               │   │
+│   │  💵 Stake: 0.5u ($13)                                               │   │
+│   │                                                                     │   │
+│   │  💰 Bankroll: $500 → $512.50                                        │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             MONGODB                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐                │
+│   │ BettingPick    │  │ BettingCombo   │  │ BettingSettings│                │
+│   ├────────────────┤  ├────────────────┤  ├────────────────┤                │
+│   │ • fixtureId    │  │ • legs[]       │  │ • bankroll     │                │
+│   │ • market       │  │ • combinedOdds │  │ • unitValue    │                │
+│   │ • odds         │  │ • stake        │  │ • maxExposure  │                │
+│   │ • edge         │  │ • status       │  │ • timezone     │                │
+│   │ • stake        │  │ • result       │  │ • isActive     │                │
+│   │ • status       │  └────────────────┘  │ • telegramOn   │                │
+│   │ • steamMove    │                      └────────────────┘                │
+│   │ • result       │  ┌────────────────┐                                    │
+│   └────────────────┘  │ BettingLeague  │  ┌────────────────┐                │
+│                       ├────────────────┤  │ AnalyzedFixture│                │
+│                       │ • leagueId     │  ├────────────────┤                │
+│                       │ • name         │  │ • fixtureId    │                │
+│                       │ • country      │  │ • date         │                │
+│                       │ • isActive     │  │ • analyzedAt   │                │
+│                       │ • markets[]    │  └────────────────┘                │
+│                       └────────────────┘  (evita re-analizar)               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Flujo Simplificado
+
+```
+    7:00 PM                    Durante el día                  Post-partido
+       │                            │                               │
+       ▼                            ▼                               ▼
+┌─────────────┐            ┌─────────────────┐            ┌─────────────────┐
+│   ANÁLISIS  │            │  ODDS MONITOR   │            │    LIQUIDAR     │
+│   MAÑANA    │───────────▶│  (steam moves)  │───────────▶│   RESULTADOS    │
+└─────────────┘            └─────────────────┘            └─────────────────┘
+       │                            │                               │
+       ▼                            ▼                               ▼
+   📱 Telegram              📱 Alerta inmediata            📱 Win/Loss alert
+   "5 picks"                "Steam move -10%"              "+$12.50"
+```
+
+## Endpoints de Testing
+
+| Endpoint | API Calls | Descripción |
+|----------|-----------|-------------|
+| `/betting/test/scan?dryRun=true` | ❌ No | Ver picks existentes |
+| `/betting/test/send-nightly-alert` | ❌ No | Probar alerta Telegram |
+| `/betting/test/send-pick-alert` | ❌ No | Probar pick individual |
+| `/betting/test/tomorrow-picks` | ❌ No | Ver picks de mañana |
+| `/betting/test/settings` | ❌ No | Ver configuración |
+| `/betting/test/scan` | ✅ Sí | Scan real (consume API) |
+
+## Configuración de Ligas
+
+Las ligas se configuran desde el admin panel (`/admin/betting/leagues`). Cada liga tiene:
+- Mercados habilitados (Over 0.5 1H, Corners, etc.)
+- Prioridad
+- Estado activo/inactivo
+
+---
 
 ## License
 
-Nest is [MIT licensed](LICENSE).
+MIT
