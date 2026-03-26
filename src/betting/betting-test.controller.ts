@@ -503,19 +503,27 @@ export class BettingTestController {
 
   /**
    * Diagnostic endpoint to analyze a specific fixture
-   * GET /betting/test/diagnose?fixtureId=1391110&leagueId=140
+   * GET /betting/test/diagnose?fixtureId=1391110&leagueId=140&date=2026-03-26
    */
   @Get('diagnose')
   async diagnoseFixture(
     @Query('fixtureId') fixtureId: string,
-    @Query('leagueId') leagueId: string
+    @Query('leagueId') leagueId: string,
+    @Query('date') date?: string
   ) {
     try {
       const fId = parseInt(fixtureId)
       const lId = parseInt(leagueId)
 
+      // Use provided date or default to today
+      const targetDate = date || new Date().toISOString().split('T')[0]
+
+      // Get league to determine season
+      const league = await this.bettingLeagueModel.findOne({ apiFootballId: lId }).exec()
+      const season = league?.season || '2025'
+
       // Get team IDs from fixture
-      const fixtures = await this.apiFootball.getFixtures('2026-04-04', lId, '2025')
+      const fixtures = await this.apiFootball.getFixtures(targetDate, lId, season)
       const fixture = fixtures.find((f) => f.fixtureId === fId)
 
       if (!fixture) {
@@ -542,7 +550,7 @@ export class BettingTestController {
         homeStats,
         awayStats,
         h2h,
-        4 // La Liga is tier 4
+        league?.tier || 3
       )
 
       // Find Over 0.5 1H odds

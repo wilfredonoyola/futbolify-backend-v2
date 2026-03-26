@@ -314,9 +314,20 @@ export class ApiFootballBettingService {
       // For now, use league averages as fallback
       const avgCorners = this.getLeagueAvgCorners(leagueId)
 
-      // Fetch recent form data (actual goals in 1H from last 5 matches)
-      const recentForm = await this.getTeamRecentForm(teamId, 5)
+      // Fetch recent form data (actual goals in 1H from last 10 matches across ALL competitions)
+      const recentForm = await this.getTeamRecentForm(teamId, 10)
       const formDataIsReal = recentForm.totalMatches >= 3
+
+      // FALLBACK: If league-specific gamesPlayed is 0, use recentForm data
+      // This handles national teams that play across multiple competitions
+      // (Friendlies, World Cup Qualifiers, Nations League, etc.)
+      const effectiveGamesPlayed = gamesPlayed > 0 ? gamesPlayed : recentForm.totalMatches
+
+      if (gamesPlayed === 0 && recentForm.totalMatches > 0) {
+        this.logger.debug(
+          `Team ${teamId}: Using cross-competition data (${recentForm.totalMatches} matches from all competitions)`
+        )
+      }
 
       // Determine data quality
       const dataQuality: DataQuality = {
@@ -337,7 +348,7 @@ export class ApiFootballBettingService {
         teamName: stats.team?.name || '',
         leagueId,
         season: targetSeason,
-        gamesPlayed,
+        gamesPlayed: effectiveGamesPlayed,
 
         // 1H Goals
         over05_1h_pct,
@@ -365,15 +376,15 @@ export class ApiFootballBettingService {
         avg_possession: this.extractAvgPossession(stats),
         avg_fouls: 12, // estimated - API doesn't provide fouls per team
 
-        // Form (real data from last 5 fixtures when available)
+        // Form (real data from last 10 fixtures when available)
         form_goals_1h: formDataIsReal
           ? recentForm.matchesWithGoal1H
-          : Math.round(gamesPlayed > 0 ? Math.min(5, gamesPlayed * over05_1h_pct) : 3),
+          : Math.round(effectiveGamesPlayed > 0 ? Math.min(10, effectiveGamesPlayed * over05_1h_pct) : 3),
         form_corners_5: avgCorners,
 
         // Clean sheets
-        clean_sheets_pct: (stats.clean_sheet?.total || 0) / Math.max(1, gamesPlayed),
-        failed_to_score_pct: (stats.failed_to_score?.total || 0) / Math.max(1, gamesPlayed),
+        clean_sheets_pct: (stats.clean_sheet?.total || 0) / Math.max(1, effectiveGamesPlayed),
+        failed_to_score_pct: (stats.failed_to_score?.total || 0) / Math.max(1, effectiveGamesPlayed),
 
         // Data quality indicators
         dataQuality,

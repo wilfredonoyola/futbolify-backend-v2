@@ -17,18 +17,22 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 - Esto generaba picks con "edge" falso que perdieron ambos (0-0 HT)
 
 **Solución implementada:**
-- Agregado `MIN_GAMES_FOR_VALUE = 3` en `value-detection.service.ts`
-- Si `sampleSize < 3`, el pick es rechazado automáticamente con `insufficientData: true`
-- Actualizado `nightly-analysis.cron.ts` para pasar `goalsResult.sampleSize` a todas las llamadas de `detectValueGoals()`
+- Rechazar si **AMBOS** equipos tienen < 3 juegos de historial
+- Ambos equipos necesitan datos reales para cálculo confiable
+- NO se excluyen Friendlies - el problema es la falta de datos, no el tipo de partido
+- Parámetros cambiados: `teamAGames, teamBGames` en lugar de `sampleSize`
 
 **Archivos modificados:**
 - `src/betting/services/value-detection.service.ts`
 - `src/betting/cron/nightly-analysis.cron.ts`
+- `src/betting/betting-test.controller.ts` (diagnose acepta param date)
 
 **Impacto:**
-- Elimina picks basados en datos inventados
-- Solo genera picks con datos históricos reales (mínimo 3 partidos)
-- Reduce falsos positivos significativamente
+- Elimina picks donde AMBOS equipos tienen < 3 juegos
+- Friendlies con datos reales siguen siendo válidos
+- Gibraltar vs Latvia (0,0) → RECHAZADO
+- Brasil vs Francia (4,0) → RECHAZADO (Francia sin datos)
+- Colombia vs Croatia (4,0) → RECHAZADO (Croatia sin datos)
 
 ---
 

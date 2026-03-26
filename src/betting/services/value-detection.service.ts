@@ -158,7 +158,8 @@ export class ValueDetectionService {
     oddsDecimal: number,
     bookmaker: string = 'unknown',
     oddsOpposite?: number,
-    sampleSize?: number
+    teamAGames?: number,
+    teamBGames?: number
   ): ValueResult {
     const probOwn =
       market === 'over_05_1h'
@@ -166,12 +167,19 @@ export class ValueDetectionService {
         : scoringResult.probOver15_1H
 
     // MINIMUM SAMPLE SIZE CHECK
-    // Reject picks if we don't have enough real data
-    // This prevents "invented" probabilities from generating false value
+    // Reject if EITHER team has insufficient data (< 3 games)
+    // Both teams need real historical data for reliable probability calculation
+    // This prevents false value from invented/default probabilities
     const MIN_GAMES_FOR_VALUE = 3
-    if (sampleSize !== undefined && sampleSize < MIN_GAMES_FOR_VALUE) {
+    const eitherTeamLacksData =
+      teamAGames !== undefined &&
+      teamBGames !== undefined &&
+      (teamAGames < MIN_GAMES_FOR_VALUE || teamBGames < MIN_GAMES_FOR_VALUE)
+
+    if (eitherTeamLacksData) {
       this.logger.debug(
-        `Rejecting ${market}: insufficient data (${sampleSize} games < ${MIN_GAMES_FOR_VALUE} required)`
+        `Rejecting ${market}: insufficient data ` +
+        `(teamA=${teamAGames}, teamB=${teamBGames}, BOTH need >= ${MIN_GAMES_FOR_VALUE})`
       )
       return {
         hasValue: false,
@@ -247,9 +255,14 @@ export class ValueDetectionService {
     }
 
     // Check statistical significance if sample size provided
+    // Use minimum of both teams for conservative estimate
     let isStatisticallySignificant = true
     let marginOfError = 0
-    if (sampleSize) {
+    const sampleSize = teamAGames !== undefined && teamBGames !== undefined
+      ? Math.min(teamAGames, teamBGames)
+      : undefined
+
+    if (sampleSize && sampleSize >= 3) {
       const significance = this.isEdgeSignificant(probOwn, probImplied, sampleSize)
       isStatisticallySignificant = significance.isSignificant
       marginOfError = significance.marginOfError
