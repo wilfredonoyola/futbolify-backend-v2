@@ -140,6 +140,14 @@ function getScoreBadge(score: number): string {
 @Injectable()
 export class BettingTelegramFormatters {
   /**
+   * Format stake as units with dollar amount
+   * Public wrapper for formatStakeUnits function
+   */
+  formatStake(stakeDollars: number, unitValue: number = 10): string {
+    return formatStakeUnits(stakeDollars, unitValue)
+  }
+
+  /**
    * Format Alert 1: Nightly Analysis
    * Supports two modes:
    * - 'initial': First alert of the day with full summary
@@ -281,7 +289,8 @@ export class BettingTelegramFormatters {
       status: 'confirmed' | 'cancelled'
       reason?: string
     }>,
-    totalExposure: number
+    totalExposure: number,
+    unitValue: number = 10
   ): string {
     let message = `\u26a1 VERIFICACION PRE-PARTIDO\n`
     message += '\u2501'.repeat(23) + '\n\n'
@@ -321,14 +330,15 @@ export class BettingTelegramFormatters {
     message += 'EJECUTAR:\n'
     confirmed.forEach(({ pick, newOdds }) => {
       const odds = (newOdds || pick.oddsAtDetection || 0).toFixed(2)
-      const stake = (pick.stake || 0).toFixed(2)
+      const stakeFormatted = formatStakeUnits(pick.stake || 0, unitValue)
       const market = formatMarket(pick.market, pick)
-      message += `\u2022 ${pick.teamHome.name} ${market} @${odds} \u2014 $${stake}\n`
+      message += `\u2022 ${pick.teamHome.name} ${market} @${odds} \u2014 ${stakeFormatted}\n`
     })
 
     // Combo status
     combos.filter(c => c.status === 'confirmed').forEach(({ combo }) => {
-      message += `\u2022 ${formatComboType(combo.type)}: @${(combo.combinedOdds || 0).toFixed(2)} \u2014 $${(combo.stake || 0).toFixed(2)}\n`
+      const comboStake = formatStakeUnits(combo.stake || 0, unitValue)
+      message += `\u2022 ${formatComboType(combo.type)}: @${(combo.combinedOdds || 0).toFixed(2)} \u2014 ${comboStake}\n`
     })
 
     // Cancelled section
@@ -342,7 +352,8 @@ export class BettingTelegramFormatters {
       })
     }
 
-    message += `\n\ud83d\udcb0 Exposicion final: $${totalExposure.toFixed(2)}`
+    const exposureFormatted = formatStakeUnits(totalExposure, unitValue)
+    message += `\n\ud83d\udcb0 Exposicion final: ${exposureFormatted}`
 
     return message
   }

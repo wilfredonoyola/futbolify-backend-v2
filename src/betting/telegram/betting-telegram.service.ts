@@ -252,7 +252,8 @@ export class BettingTelegramService implements OnModuleInit {
           .filter((c) => c.status === 'confirmed')
           .reduce((sum, c) => sum + (c.combo.stake || 0), 0)
 
-      const message = this.formatters.formatPreMatchAlert(picks, combos, totalExposure)
+      const unitValue = settings.stakes?.fixedStake || 10
+      const message = this.formatters.formatPreMatchAlert(picks, combos, totalExposure, unitValue)
 
       await this.bot.telegram.sendMessage(adminChatId, message, {
         parse_mode: 'Markdown',
@@ -415,7 +416,8 @@ export class BettingTelegramService implements OnModuleInit {
       }
 
       const odds = (pick.oddsAtBet || pick.oddsAtDetection || 0).toFixed(2)
-      const stake = pick.stake ? `$${pick.stake.toFixed(2)}` : ''
+      const unitValue = settings.stakes?.fixedStake || 10
+      const stake = pick.stake ? this.formatters.formatStake(pick.stake, unitValue) : ''
       const starsEmoji = '\u2b50'.repeat(pick.stars || 3)
       const reasons = pick.reasons?.length > 0 ? pick.reasons.join('\n• ') : ''
 
@@ -517,7 +519,9 @@ export class BettingTelegramService implements OnModuleInit {
       const emoji = isWin ? '✅' : '❌'
       const resultText = isWin ? 'GANASTE' : 'PERDISTE'
       const profitText = profit >= 0 ? `+$${profit.toFixed(2)}` : `-$${Math.abs(profit).toFixed(2)}`
-      const stake = pick.stake || pick.betAmount || 0
+      const stakeAmount = pick.stake || pick.betAmount || 0
+      const unitValue = settings.stakes?.fixedStake || 10
+      const stakeFormatted = this.formatters.formatStake(stakeAmount, unitValue)
 
       // Format market label nicely
       const marketLabel = this.formatters.formatMarketLabel(pick.market, pick.line, pick.direction)
@@ -531,7 +535,7 @@ export class BettingTelegramService implements OnModuleInit {
 
       // Bet details
       message += `📊 *Apuesta:* ${marketLabel}\n`
-      message += `💵 *Stake:* $${stake.toFixed(2)} @ ${(pick.oddsAtDetection || 0).toFixed(2)}\n`
+      message += `💵 *Stake:* ${stakeFormatted} @ ${(pick.oddsAtDetection || 0).toFixed(2)}\n`
 
       // Match result
       if (pick.matchResult) {

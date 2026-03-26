@@ -9,6 +9,7 @@ import {
 } from '../schemas/betting-settings.schema'
 import { PickStatus, ComboStatus } from '../enums/betting.enums'
 import { BettingTelegramGuard } from './betting-telegram.guards'
+import { BettingTelegramFormatters } from './betting-telegram.formatters'
 
 /**
  * Callback data format:
@@ -29,7 +30,8 @@ export class BettingTelegramCallbacks {
     private bettingComboModel: Model<BettingComboDocument>,
     @InjectModel(BettingSettings.name)
     private bettingSettingsModel: Model<BettingSettingsDocument>,
-    private guard: BettingTelegramGuard
+    private guard: BettingTelegramGuard,
+    private formatters: BettingTelegramFormatters
   ) {}
 
   /**
@@ -286,9 +288,12 @@ export class BettingTelegramCallbacks {
       )
 
       try {
+        const settings = await this.bettingSettingsModel.findOne().exec()
+        const unitValue = settings?.stakes?.fixedStake || 10
+        const stakeFormatted = this.formatters.formatStake(pick.stake || 0, unitValue)
         await ctx.editMessageText(
           `\u2705 ${pick.teamHome.name} vs ${pick.teamAway.name}\n` +
-            `Pick ACTIVADO - Stake: $${(pick.stake || 0).toFixed(2)}`
+            `Pick ACTIVADO - Stake: ${stakeFormatted}`
         )
       } catch {
         // Message might already be edited
@@ -367,8 +372,10 @@ export class BettingTelegramCallbacks {
       )
 
       // Update button text to show current state
+      const settings = await this.bettingSettingsModel.findOne().exec()
+      const unitValue = settings?.stakes?.fixedStake || 10
       const odds = (pick.oddsAtBet || pick.oddsAtDetection || 0).toFixed(2)
-      const stake = pick.stake ? `$${pick.stake.toFixed(2)}` : ''
+      const stake = pick.stake ? this.formatters.formatStake(pick.stake, unitValue) : ''
       const buttonText = newBetPlaced ? '\u2705 APOSTADO' : '\ud83d\udcb0 APOSTE'
 
       try {

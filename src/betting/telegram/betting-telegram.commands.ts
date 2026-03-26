@@ -99,18 +99,23 @@ export class BettingTelegramCommands {
         return
       }
 
+      // Get settings for unit value
+      const settings = await this.bettingSettingsModel.findOne().exec()
+      const unitValue = settings?.stakes?.fixedStake || 10
+
       // Send detailed info for each pick
       for (const pick of picks) {
         const prob = (pick.probOwn * 100).toFixed(1)
         const edge = (pick.edge * 100).toFixed(1)
         const odds = (pick.oddsAtDetection || 0).toFixed(2)
+        const stakeFormatted = this.formatters.formatStake(pick.stake || 0, unitValue)
 
         let message = `\ud83c\udfaf *${pick.teamHome.name} vs ${pick.teamAway.name}*\n`
         message += `${pick.league.name} - ${pick.league.country}\n\n`
         message += `Mercado: ${pick.market}\n`
         message += `Prob: ${prob}% | Cuota: @${odds}\n`
         message += `Edge: ${edge}% | Score: ${pick.confidenceScore}/100\n`
-        message += `Stake: $${(pick.stake || 0).toFixed(2)}\n\n`
+        message += `Stake: ${stakeFormatted}\n\n`
 
         if (pick.modelInputs?.contextFlags?.length) {
           message += `Flags: ${pick.modelInputs.contextFlags.join(', ')}\n`
