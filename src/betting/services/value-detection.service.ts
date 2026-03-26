@@ -58,9 +58,9 @@ export interface BestOddsResult {
  * These are REAL edges after removing bookmaker margin
  */
 const EDGE_THRESHOLDS = {
-  ALTA: 0.08, // 8%+ edge - very strong (real, not inflated)
-  MEDIA: 0.05, // 5-8% edge - solid
-  BAJA: 0.03, // 3-5% edge - minimum acceptable
+  ALTA: 0.10, // 10%+ edge - very strong
+  MEDIA: 0.07, // 7-10% edge - solid
+  BAJA: 0.05, // 5-7% edge - minimum acceptable (was 3%)
 }
 
 /**

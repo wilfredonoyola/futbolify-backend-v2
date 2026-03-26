@@ -218,19 +218,25 @@ export class BettingTestController {
   }
 
   /**
-   * Get tomorrow's picks
+   * Get picks by date with full details
    * GET /betting/test/tomorrow-picks
+   * GET /betting/test/tomorrow-picks?date=2026-03-26
    */
   @Get('tomorrow-picks')
-  async getTomorrowPicks() {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    tomorrow.setHours(0, 0, 0, 0)
-    const dayAfter = new Date(tomorrow)
+  async getTomorrowPicks(@Query('date') date?: string) {
+    let targetDate: Date
+    if (date) {
+      targetDate = new Date(`${date}T00:00:00.000Z`)
+    } else {
+      targetDate = new Date()
+      targetDate.setDate(targetDate.getDate() + 1)
+      targetDate.setHours(0, 0, 0, 0)
+    }
+    const dayAfter = new Date(targetDate)
     dayAfter.setDate(dayAfter.getDate() + 1)
 
     const picks = await this.bettingPickModel
-      .find({ kickoff: { $gte: tomorrow, $lt: dayAfter } })
+      .find({ kickoff: { $gte: targetDate, $lt: dayAfter } })
       .sort({ confidenceScore: -1 })
       .exec()
 
@@ -240,7 +246,7 @@ export class BettingTestController {
       .exec()
 
     return {
-      date: tomorrow.toISOString().split('T')[0],
+      date: targetDate.toISOString().split('T')[0],
       picksCount: picks.length,
       combosCount: combos.length,
       picks: picks.map(p => ({
@@ -249,10 +255,27 @@ export class BettingTestController {
         market: p.market,
         odds: p.oddsAtDetection?.toFixed(2),
         edge: `${(p.edge * 100).toFixed(1)}%`,
+        prob: `${(p.probOwn * 100).toFixed(0)}%`,
         score: p.confidenceScore,
         stars: p.stars,
         stake: p.stake?.toFixed(2),
         kickoff: p.kickoff,
+        reasons: p.reasons,
+        modelInputs: p.modelInputs ? {
+          expectedGoals1H: p.modelInputs.expectedGoals1H?.toFixed(2),
+          teamA: p.modelInputs.teamAStats ? {
+            avgGoals1H: p.modelInputs.teamAStats.avgGoals1H?.toFixed(2),
+            avgConceded1H: p.modelInputs.teamAStats.avgConceded1H?.toFixed(2),
+            over05_1h_pct: p.modelInputs.teamAStats.over05_1h_pct ? `${(p.modelInputs.teamAStats.over05_1h_pct * 100).toFixed(0)}%` : null,
+            games: p.modelInputs.teamAStats.gamesPlayed,
+          } : null,
+          teamB: p.modelInputs.teamBStats ? {
+            avgGoals1H: p.modelInputs.teamBStats.avgGoals1H?.toFixed(2),
+            avgConceded1H: p.modelInputs.teamBStats.avgConceded1H?.toFixed(2),
+            over05_1h_pct: p.modelInputs.teamBStats.over05_1h_pct ? `${(p.modelInputs.teamBStats.over05_1h_pct * 100).toFixed(0)}%` : null,
+            games: p.modelInputs.teamBStats.gamesPlayed,
+          } : null,
+        } : null,
       })),
       combos: combos.map(c => ({
         type: c.type,
@@ -560,46 +583,52 @@ export class BettingTestController {
   /**
    * Send nightly analysis alert with actual picks
    * GET /betting/test/send-nightly-alert
+   * GET /betting/test/send-nightly-alert?date=2026-03-26
    */
   @Get('send-nightly-alert')
-  async sendNightlyAlert() {
+  async sendNightlyAlert(@Query('date') date?: string) {
     try {
       const settings = await this.bettingSettingsModel.findOne().exec()
       if (!settings) {
         return { error: 'No settings found' }
       }
 
-      // Get tomorrow's date
-      const tomorrow = new Date()
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      tomorrow.setHours(0, 0, 0, 0)
-      const dayAfter = new Date(tomorrow)
+      // Use provided date or default to tomorrow
+      let targetDate: Date
+      if (date) {
+        targetDate = new Date(`${date}T00:00:00.000Z`)
+      } else {
+        targetDate = new Date()
+        targetDate.setDate(targetDate.getDate() + 1)
+        targetDate.setHours(0, 0, 0, 0)
+      }
+      const dayAfter = new Date(targetDate)
       dayAfter.setDate(dayAfter.getDate() + 1)
 
-      // Get picks for tomorrow
+      // Get picks for target date
       const picks = await this.bettingPickModel
         .find({
-          kickoff: { $gte: tomorrow, $lt: dayAfter },
+          kickoff: { $gte: targetDate, $lt: dayAfter },
         })
         .sort({ confidenceScore: -1 })
         .exec()
 
-      // Get combos for tomorrow
+      // Get combos for target date
       const combos = await this.bettingComboModel
         .find({
-          'legs.kickoff': { $gte: tomorrow, $lt: dayAfter },
+          'legs.kickoff': { $gte: targetDate, $lt: dayAfter },
         })
         .exec()
 
       if (picks.length === 0 && combos.length === 0) {
-        return { error: 'No picks or combos for tomorrow', date: tomorrow.toISOString().split('T')[0] }
+        return { error: 'No picks or combos for date', date: targetDate.toISOString().split('T')[0] }
       }
 
       const totalExposure = picks.reduce((sum, p) => sum + (p.stake || 0), 0) +
         combos.reduce((sum, c) => sum + (c.stake || 0), 0)
 
       await this.telegramService.sendNightlyAnalysisAlert(
-        tomorrow,
+        targetDate,
         picks,
         combos,
         picks.length,  // fixturesAnalyzed
@@ -612,7 +641,7 @@ export class BettingTestController {
       return {
         success: true,
         message: 'Nightly analysis alert sent',
-        date: tomorrow.toISOString().split('T')[0],
+        date: targetDate.toISOString().split('T')[0],
         picks: picks.length,
         combos: combos.length,
         totalExposure,
