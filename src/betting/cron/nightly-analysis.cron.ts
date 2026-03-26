@@ -323,26 +323,28 @@ export class NightlyAnalysisCron {
    * - First scan of the day: analyzes all fixtures (~320 requests)
    * - Subsequent scans: only NEW fixtures or those needing re-analysis (~20-50 requests)
    *
-   * TARGET DATE LOGIC:
-   * - 6 AM - 6 PM: Scan TODAY's matches
-   * - 6 PM - 6 AM: Scan TOMORROW's matches
+   * SCHEDULE: 7 PM daily (user's timezone from settings)
+   * Always scans TOMORROW's matches so user can review overnight
+   * and place bets in the morning.
    *
-   * @schedule Every 30 minutes
+   * @schedule 7:00 PM daily
    * @timezone America/El_Salvador
    */
-  @Cron('*/30 * * * *', {
+  @Cron('0 19 * * *', {
     name: 'pick-scanner',
     timeZone: 'America/El_Salvador',
   })
   async runPickScanner(): Promise<void> {
-    const { targetDate, isToday, hour } = this.getSmartTargetDate()
-    const dayLabel = isToday ? 'HOY' : 'MAÑANA'
+    // At 7 PM, always scan tomorrow's matches
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const targetDate = tomorrow.toISOString().split('T')[0]
 
     this.logger.log(
-      `🔍 Pick Scanner triggered at ${hour}:00 - Scanning ${dayLabel} (${targetDate})`
+      `🔍 Pick Scanner triggered at 7 PM - Scanning MAÑANA (${targetDate})`
     )
 
-    await this.runNightlyAnalysis(dayLabel, targetDate)
+    await this.runNightlyAnalysis('MAÑANA', targetDate)
   }
 
   /**

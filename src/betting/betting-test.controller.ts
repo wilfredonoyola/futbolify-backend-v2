@@ -528,6 +528,71 @@ export class BettingTestController {
   }
 
   /**
+   * Send nightly analysis alert with actual picks
+   * GET /betting/test/send-nightly-alert
+   */
+  @Get('send-nightly-alert')
+  async sendNightlyAlert() {
+    try {
+      const settings = await this.bettingSettingsModel.findOne().exec()
+      if (!settings) {
+        return { error: 'No settings found' }
+      }
+
+      // Get tomorrow's date
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(0, 0, 0, 0)
+      const dayAfter = new Date(tomorrow)
+      dayAfter.setDate(dayAfter.getDate() + 1)
+
+      // Get picks for tomorrow
+      const picks = await this.bettingPickModel
+        .find({
+          kickoff: { $gte: tomorrow, $lt: dayAfter },
+        })
+        .sort({ confidenceScore: -1 })
+        .exec()
+
+      // Get combos for tomorrow
+      const combos = await this.bettingComboModel
+        .find({
+          'legs.kickoff': { $gte: tomorrow, $lt: dayAfter },
+        })
+        .exec()
+
+      if (picks.length === 0 && combos.length === 0) {
+        return { error: 'No picks or combos for tomorrow', date: tomorrow.toISOString().split('T')[0] }
+      }
+
+      const totalExposure = picks.reduce((sum, p) => sum + (p.stake || 0), 0) +
+        combos.reduce((sum, c) => sum + (c.stake || 0), 0)
+
+      await this.telegramService.sendNightlyAnalysisAlert(
+        tomorrow,
+        picks,
+        combos,
+        picks.length,  // fixturesAnalyzed
+        32,            // leaguesAnalyzed
+        'initial',     // alertType
+        picks.length,  // totalPicks
+        combos.length  // totalCombos
+      )
+
+      return {
+        success: true,
+        message: 'Nightly analysis alert sent',
+        date: tomorrow.toISOString().split('T')[0],
+        picks: picks.length,
+        combos: combos.length,
+        totalExposure,
+      }
+    } catch (error) {
+      return { error: String(error) }
+    }
+  }
+
+  /**
    * Get available bookmakers for a fixture
    * GET /betting/test/bookmakers?fixtureId=1391116
    */

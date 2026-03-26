@@ -197,7 +197,8 @@ export class BettingTelegramFormatters {
 
       picks.forEach((pick, index) => {
         const odds = (pick.oddsAtDetection || 0).toFixed(2)
-        const stakeUnits = formatStakeUnits(pick.stake || 0, unitValue)
+        const stakeValue = typeof pick.stake === 'string' ? parseFloat(pick.stake) : (pick.stake || 0)
+        const stakeUnits = formatStakeUnits(stakeValue, unitValue)
         const kickoffTime = formatTime(pick.kickoff)
         const stars = '\u2b50'.repeat(pick.stars || 3)
         const reasons = pick.reasons || []
@@ -212,7 +213,7 @@ export class BettingTelegramFormatters {
         })
 
         // Show stake suggestion in units
-        if (pick.stake && pick.stake > 0) {
+        if (stakeValue > 0) {
           message += `   \ud83d\udcb5 Stake: ${stakeUnits}\n`
         }
 
@@ -235,7 +236,8 @@ export class BettingTelegramFormatters {
         const comboType = formatComboType(combo.type)
         const scoreBadge = getScoreBadge(combo.score || 0)
         const ev = ((combo.evReal || 0) * 100).toFixed(1)
-        const stakeUnits = formatStakeUnits(combo.stake || 0, unitValue)
+        const comboStakeValue = typeof combo.stake === 'string' ? parseFloat(combo.stake) : (combo.stake || 0)
+        const stakeUnits = formatStakeUnits(comboStakeValue, unitValue)
         const hiddenEdge = ((combo.hiddenEdge || 0) * 100).toFixed(1)
 
         message += `\ud83d\udd17 ${comboType}\n`
@@ -266,7 +268,7 @@ export class BettingTelegramFormatters {
     message += '\u2501'.repeat(23) + '\n'
     message += `\ud83d\udcb0 Exposicion total: ${exposureUnits} (${((totalExposure / bankroll) * 100).toFixed(1)}% de bankroll)\n`
     message += `\ud83d\udccb 1u = $${unitValue}\n`
-    message += `\ud83d\udd50 Proxima alerta: Sab 6:30 AM (verificacion pre-partido)`
+    message += `\ud83d\udd14 Alertas inmediatas si hay cambios de cuotas >10%`
 
     return message
   }
@@ -330,14 +332,16 @@ export class BettingTelegramFormatters {
     message += 'EJECUTAR:\n'
     confirmed.forEach(({ pick, newOdds }) => {
       const odds = (newOdds || pick.oddsAtDetection || 0).toFixed(2)
-      const stakeFormatted = formatStakeUnits(pick.stake || 0, unitValue)
+      const pickStakeValue = typeof pick.stake === 'string' ? parseFloat(pick.stake) : (pick.stake || 0)
+      const stakeFormatted = formatStakeUnits(pickStakeValue, unitValue)
       const market = formatMarket(pick.market, pick)
       message += `\u2022 ${pick.teamHome.name} ${market} @${odds} \u2014 ${stakeFormatted}\n`
     })
 
     // Combo status
     combos.filter(c => c.status === 'confirmed').forEach(({ combo }) => {
-      const comboStake = formatStakeUnits(combo.stake || 0, unitValue)
+      const comboStakeValue = typeof combo.stake === 'string' ? parseFloat(combo.stake) : (combo.stake || 0)
+      const comboStake = formatStakeUnits(comboStakeValue, unitValue)
       message += `\u2022 ${formatComboType(combo.type)}: @${(combo.combinedOdds || 0).toFixed(2)} \u2014 ${comboStake}\n`
     })
 

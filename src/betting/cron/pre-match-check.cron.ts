@@ -49,39 +49,44 @@ export class PreMatchCheckCron {
     private telegramService: BettingTelegramService
   ) {}
 
-  /**
-   * Saturday and Sunday 6:30 AM El Salvador - Weekend pre-match verification
-   */
-  @Cron('30 6 * * 6,0', {
-    name: 'betting-pre-match-check-weekend',
-    timeZone: 'America/El_Salvador',
-  })
+  // ===========================================
+  // PRE-MATCH CHECK CRONS DISABLED
+  // Steam move alerts handle urgent changes
+  // ===========================================
+
+  // /**
+  //  * Saturday and Sunday 6:30 AM El Salvador - Weekend pre-match verification
+  //  */
+  // @Cron('30 6 * * 6,0', {
+  //   name: 'betting-pre-match-check-weekend',
+  //   timeZone: 'America/El_Salvador',
+  // })
   async runWeekendPreMatchCheck(): Promise<void> {
     const dayName = new Date().getDay() === 0 ? 'Sunday' : 'Saturday'
     this.logger.log(`Starting ${dayName} pre-match check...`)
     await this.runPreMatchCheck()
   }
 
-  /**
-   * Tuesday and Wednesday 10:00 AM El Salvador - Champions League pre-match
-   */
-  @Cron('0 10 * * 2,3', {
-    name: 'betting-pre-match-check-ucl',
-    timeZone: 'America/El_Salvador',
-  })
+  // /**
+  //  * Tuesday and Wednesday 10:00 AM El Salvador - Champions League pre-match
+  //  */
+  // @Cron('0 10 * * 2,3', {
+  //   name: 'betting-pre-match-check-ucl',
+  //   timeZone: 'America/El_Salvador',
+  // })
   async runChampionsLeaguePreMatchCheck(): Promise<void> {
     const dayName = new Date().getDay() === 2 ? 'Tuesday' : 'Wednesday'
     this.logger.log(`Starting ${dayName} Champions League pre-match check...`)
     await this.runPreMatchCheck()
   }
 
-  /**
-   * Thursday 8:00 AM El Salvador - Europa League pre-match
-   */
-  @Cron('0 8 * * 4', {
-    name: 'betting-pre-match-check-uel',
-    timeZone: 'America/El_Salvador',
-  })
+  // /**
+  //  * Thursday 8:00 AM El Salvador - Europa League pre-match
+  //  */
+  // @Cron('0 8 * * 4', {
+  //   name: 'betting-pre-match-check-uel',
+  //   timeZone: 'America/El_Salvador',
+  // })
   async runEuropaLeaguePreMatchCheck(): Promise<void> {
     this.logger.log('Starting Thursday Europa League pre-match check...')
     await this.runPreMatchCheck()
