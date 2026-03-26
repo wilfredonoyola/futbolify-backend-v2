@@ -52,10 +52,40 @@ export class BettingTestController {
 
   /**
    * Trigger manual nightly analysis scan
-   * GET /betting/test/scan?date=2026-04-07
+   * GET /betting/test/scan?date=2026-04-07&dryRun=true
+   *
+   * dryRun=true: Uses existing picks from DB, no API calls
    */
   @Get('scan')
-  async triggerScan(@Query('date') date?: string) {
+  async triggerScan(
+    @Query('date') date?: string,
+    @Query('dryRun') dryRun?: string
+  ) {
+    // Dry run mode - just return existing picks without API calls
+    if (dryRun === 'true') {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(0, 0, 0, 0)
+      const dayAfter = new Date(tomorrow)
+      dayAfter.setDate(dayAfter.getDate() + 1)
+
+      const picks = await this.bettingPickModel
+        .find({ kickoff: { $gte: tomorrow, $lt: dayAfter } })
+        .exec()
+      const combos = await this.bettingComboModel
+        .find({ 'legs.kickoff': { $gte: tomorrow, $lt: dayAfter } })
+        .exec()
+
+      return {
+        success: true,
+        message: 'Dry run - using existing data (no API calls)',
+        date: date || 'tomorrow',
+        picks: picks.length,
+        combos: combos.length,
+        dryRun: true,
+      }
+    }
+
     const result = await this.nightlyAnalysis.triggerManualAnalysis(date)
     return {
       success: true,
@@ -595,11 +625,17 @@ export class BettingTestController {
   /**
    * Get available bookmakers for a fixture
    * GET /betting/test/bookmakers?fixtureId=1391116
+   *
+   * Note: This endpoint makes API calls. Use existing picks data instead
+   * when possible to save quota.
    */
   @Get('bookmakers')
   async getBookmakers(@Query('fixtureId') fixtureId: string) {
     try {
       const fId = parseInt(fixtureId)
+      if (!fId) {
+        return { error: 'fixtureId required', tip: 'Use /tomorrow-picks to see existing data without API calls' }
+      }
       const odds = await this.apiFootball.getOdds(fId)
 
       if (!odds || !odds.bookmakers) {
