@@ -218,6 +218,75 @@ export class BettingTestController {
   }
 
   /**
+   * Update pick result manually (for testing/tracking)
+   * GET /betting/test/update-pick?id=XXX&status=WON&betPlaced=true
+   * GET /betting/test/update-pick?id=XXX&status=LOST&betPlaced=true
+   */
+  @Get('update-pick')
+  async updatePick(
+    @Query('id') pickId: string,
+    @Query('status') status?: 'WON' | 'LOST' | 'VOID',
+    @Query('betPlaced') betPlaced?: string,
+    @Query('scoreHT') scoreHT?: string,
+  ) {
+    if (!pickId) {
+      return { error: 'Pick ID required' }
+    }
+
+    const pick = await this.bettingPickModel.findById(pickId).exec()
+    if (!pick) {
+      return { error: 'Pick not found', pickId }
+    }
+
+    const updateData: any = {}
+
+    // Update status
+    if (status) {
+      updateData.status = status
+
+      // Calculate profit if WON
+      if (status === 'WON' && pick.stake && pick.oddsAtDetection) {
+        updateData.profit = pick.stake * (pick.oddsAtDetection - 1)
+      } else if (status === 'LOST') {
+        updateData.profit = -(pick.stake || 0)
+      } else if (status === 'VOID') {
+        updateData.profit = 0
+      }
+    }
+
+    // Update bet placed
+    if (betPlaced === 'true') {
+      updateData.betPlaced = true
+      updateData.betPlacedAt = new Date()
+    }
+
+    // Update score
+    if (scoreHT) {
+      updateData['matchResult.scoreHT'] = scoreHT
+    }
+
+    const updated = await this.bettingPickModel.findByIdAndUpdate(
+      pickId,
+      { $set: updateData },
+      { new: true }
+    ).exec()
+
+    return {
+      success: true,
+      pick: {
+        id: updated._id,
+        match: `${updated.teamHome.name} vs ${updated.teamAway.name}`,
+        market: updated.market,
+        status: updated.status,
+        betPlaced: updated.betPlaced,
+        stake: updated.stake,
+        profit: updated.profit,
+        scoreHT: updated.matchResult?.scoreHT,
+      }
+    }
+  }
+
+  /**
    * Get picks by date with full details
    * GET /betting/test/tomorrow-picks
    * GET /betting/test/tomorrow-picks?date=2026-03-26

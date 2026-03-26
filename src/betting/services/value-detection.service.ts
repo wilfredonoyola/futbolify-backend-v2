@@ -24,6 +24,7 @@ export interface ValueResult {
   vigInfo?: VigInfo
   isStatisticallySignificant?: boolean
   marginOfError?: number
+  insufficientData?: boolean  // True when sample size < minimum required
 }
 
 /**
@@ -163,6 +164,30 @@ export class ValueDetectionService {
       market === 'over_05_1h'
         ? scoringResult.probOver05_1H
         : scoringResult.probOver15_1H
+
+    // MINIMUM SAMPLE SIZE CHECK
+    // Reject picks if we don't have enough real data
+    // This prevents "invented" probabilities from generating false value
+    const MIN_GAMES_FOR_VALUE = 3
+    if (sampleSize !== undefined && sampleSize < MIN_GAMES_FOR_VALUE) {
+      this.logger.debug(
+        `Rejecting ${market}: insufficient data (${sampleSize} games < ${MIN_GAMES_FOR_VALUE} required)`
+      )
+      return {
+        hasValue: false,
+        edge: 0,
+        edgePercent: '0%',
+        confidence: 'SIN_VALUE',
+        probOwn,
+        probImplied: 1 / oddsDecimal,
+        bestOdds: oddsDecimal,
+        bestBookmaker: bookmaker,
+        market,
+        direction: 'OVER',
+        line: market === 'over_05_1h' ? 0.5 : 1.5,
+        insufficientData: true,
+      }
+    }
 
     // Extract VIG and get true implied probability
     let probImplied: number
@@ -304,6 +329,28 @@ export class ValueDetectionService {
         market: `over_${line}_corners`,
         direction: 'OVER',
         line,
+      }
+    }
+
+    // MINIMUM SAMPLE SIZE CHECK for corners
+    const MIN_GAMES_FOR_VALUE = 3
+    if (sampleSize !== undefined && sampleSize < MIN_GAMES_FOR_VALUE) {
+      this.logger.debug(
+        `Rejecting corners line ${line}: insufficient data (${sampleSize} games < ${MIN_GAMES_FOR_VALUE} required)`
+      )
+      return {
+        hasValue: false,
+        edge: 0,
+        edgePercent: '0%',
+        confidence: 'SIN_VALUE',
+        probOwn: 0,
+        probImplied: 0,
+        bestOdds: 0,
+        bestBookmaker: bookmaker,
+        market: `over_${line}_corners`,
+        direction: 'OVER',
+        line,
+        insufficientData: true,
       }
     }
 

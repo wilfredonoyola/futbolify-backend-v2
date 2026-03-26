@@ -1421,7 +1421,9 @@ export class NightlyAnalysisCron {
                   goalsResult,
                   'over_15_1h',
                   over15Odds,
-                  over15Bookmaker
+                  over15Bookmaker,
+                  undefined,
+                  goalsResult.sampleSize
                 )
 
                 this.logger.debug(
@@ -1527,7 +1529,9 @@ export class NightlyAnalysisCron {
               goalsResult,
               'over_05_1h',
               over05Odds,
-              bestBookmaker
+              bestBookmaker,
+              undefined,
+              goalsResult.sampleSize
             )
 
             this.logger.debug(
@@ -1654,7 +1658,9 @@ export class NightlyAnalysisCron {
               goalsResult,
               'over_15_1h',
               over15Odds,
-              bestBookie15
+              bestBookie15,
+              undefined,
+              goalsResult.sampleSize
             )
 
             if (valueResult.hasValue) {
