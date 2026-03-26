@@ -13,6 +13,8 @@ import {
   BettingDailySummarySchema,
   BettingSettings,
   BettingSettingsSchema,
+  AnalyzedFixture,
+  AnalyzedFixtureSchema,
 } from './schemas'
 
 import {
@@ -67,6 +69,7 @@ import { BettingTestController } from './betting-test.controller'
       { name: BettingCombo.name, schema: BettingComboSchema },
       { name: BettingDailySummary.name, schema: BettingDailySummarySchema },
       { name: BettingSettings.name, schema: BettingSettingsSchema },
+      { name: AnalyzedFixture.name, schema: AnalyzedFixtureSchema },
     ]),
     // Phase 6: Telegram Integration
     BettingTelegramModule,

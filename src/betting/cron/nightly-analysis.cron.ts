@@ -12,6 +12,10 @@ import {
   BettingSettings,
   BettingSettingsDocument,
 } from '../schemas/betting-settings.schema'
+import {
+  AnalyzedFixture,
+  AnalyzedFixtureDocument,
+} from '../schemas/analyzed-fixture.schema'
 import { ApiFootballBettingService } from '../services/api-football-betting.service'
 import { OddsApiService } from '../services/odds-api.service'
 import { ScoringGoalsService } from '../services/scoring-goals.service'
@@ -34,25 +38,55 @@ import {
 import { NormalizedOdds } from '../services/odds-api.service'
 
 /**
- * Nightly Analysis Cron Job
- * Runs Friday and Saturday at 9:00 PM El Salvador time
+ * ============================================================================
+ * PICK SCANNER CRON (formerly "Nightly Analysis")
+ * ============================================================================
  *
- * Schedule:
- * - Friday 9 PM → Analyze Saturday matches (VENTANA A + B)
- * - Saturday 9 PM → Analyze Sunday matches (VENTANA C)
+ * Scans fixtures every 30 minutes to detect value betting opportunities.
  *
- * Purpose:
- * - Analyze fixtures across active leagues
- * - Score goals 1H and corners for each match
- * - Detect value bets
- * - Generate intelligent combos
- * - Optimize portfolio
- * - Save picks and combos to database
- * - Send Alert 1 to Telegram
+ * SMART SCANNING OPTIMIZATION:
+ * ----------------------------
+ * To minimize API-Football requests (limit: 7,500/day), we track which
+ * fixtures have already been analyzed and skip redundant processing.
+ *
+ * A fixture is RE-ANALYZED only if:
+ *   1. It's NEW (never analyzed before)
+ *   2. Kickoff is within 3 hours (odds stabilize closer to match time)
+ *   3. Last analysis was > 6 hours ago (catch significant odds movements)
+ *
+ * API SAVINGS:
+ *   - Without smart scanning: ~15,000 requests/day (48 runs × 320 req)
+ *   - With smart scanning: ~600 requests/day (95% reduction)
+ *
+ * FLOW:
+ *   1. Get fixtures list for target date (cheap: ~1 req per league)
+ *   2. Filter to only fixtures needing analysis (smart filtering)
+ *   3. For qualifying fixtures: fetch stats, score, detect value
+ *   4. Save picks and send Telegram alerts
+ *   5. Mark fixtures as analyzed in tracking collection
+ *
+ * MARKETS ANALYZED:
+ *   - Goals 1H (Over 0.5 1H)
+ *   - Corners (totals and handicaps)
+ *
+ * @schedule Every 30 minutes, 24/7
+ * @timezone America/El_Salvador
  */
 @Injectable()
 export class NightlyAnalysisCron {
-  private readonly logger = new Logger(NightlyAnalysisCron.name)
+  private readonly logger = new Logger('PickScanner')
+
+  /**
+   * Configuration for smart scanning
+   */
+  private readonly SCAN_CONFIG = {
+    /** Re-analyze if kickoff is within this many hours */
+    REANALYZE_HOURS_BEFORE_KICKOFF: 3,
+    /** Re-analyze if last scan was more than this many hours ago */
+    REANALYZE_AFTER_HOURS: 6,
+    /** Maximum fixtures to analyze per scan (prevents runaway API usage) */
+    MAX_FIXTURES_PER_SCAN: 50,
+  }
 
   constructor(
     @InjectModel(BettingLeague.name)
@@ -63,6 +97,8 @@ export class NightlyAnalysisCron {
     private bettingComboModel: Model<BettingComboDocument>,
     @InjectModel(BettingSettings.name)
     private bettingSettingsModel: Model<BettingSettingsDocument>,
+    @InjectModel(AnalyzedFixture.name)
+    private analyzedFixtureModel: Model<AnalyzedFixtureDocument>,
     private apiFootballService: ApiFootballBettingService,
     private oddsApiService: OddsApiService,
     private scoringGoalsService: ScoringGoalsService,
@@ -271,27 +307,33 @@ export class NightlyAnalysisCron {
   }
 
   /**
-   * Smart Analysis Cron - Runs every 30 minutes
+   * ========================================================================
+   * PICK SCANNER - Main Cron Job
+   * ========================================================================
    *
-   * Logic:
-   * - 6:00 AM to 6:00 PM: Scan TODAY's matches (markets appear 12-24h before)
-   * - 6:00 PM to 6:00 AM: Scan TOMORROW's matches (prepare for next day)
+   * Runs every 30 minutes to scan for new betting opportunities.
    *
-   * Benefits:
-   * - Catches markets as soon as they become available
-   * - No duplicate picks (checks before creating)
-   * - Continuous monitoring for best odds
+   * SMART SCANNING:
+   * - First scan of the day: analyzes all fixtures (~320 requests)
+   * - Subsequent scans: only NEW fixtures or those needing re-analysis (~20-50 requests)
+   *
+   * TARGET DATE LOGIC:
+   * - 6 AM - 6 PM: Scan TODAY's matches
+   * - 6 PM - 6 AM: Scan TOMORROW's matches
+   *
+   * @schedule Every 30 minutes
+   * @timezone America/El_Salvador
    */
   @Cron('*/30 * * * *', {
-    name: 'betting-smart-analysis',
+    name: 'pick-scanner',
     timeZone: 'America/El_Salvador',
   })
-  async runSmartAnalysis(): Promise<void> {
+  async runPickScanner(): Promise<void> {
     const { targetDate, isToday, hour } = this.getSmartTargetDate()
     const dayLabel = isToday ? 'HOY' : 'MAÑANA'
 
     this.logger.log(
-      `Smart analysis triggered at ${hour}:00 - Scanning ${dayLabel} (${targetDate})`
+      `🔍 Pick Scanner triggered at ${hour}:00 - Scanning ${dayLabel} (${targetDate})`
     )
 
     await this.runNightlyAnalysis(dayLabel, targetDate)
@@ -343,6 +385,118 @@ export class NightlyAnalysisCron {
 
     return !!existing
   }
+
+  // ==========================================================================
+  // SMART SCANNING METHODS
+  // ==========================================================================
+
+  /**
+   * Check if a fixture needs to be analyzed.
+   *
+   * Returns TRUE (needs analysis) if:
+   *   1. Fixture has NEVER been analyzed
+   *   2. Kickoff is within REANALYZE_HOURS_BEFORE_KICKOFF (odds stabilize)
+   *   3. Last analysis was more than REANALYZE_AFTER_HOURS ago
+   *
+   * @param fixtureId - The API-Football fixture ID
+   * @param kickoff - The match kickoff time
+   * @param date - The match date (YYYY-MM-DD)
+   * @returns Boolean indicating if analysis is needed
+   */
+  private async needsAnalysis(
+    fixtureId: number,
+    kickoff: Date,
+    date: string
+  ): Promise<{ needsAnalysis: boolean; reason: string }> {
+    const now = new Date()
+    const hoursUntilKickoff = (kickoff.getTime() - now.getTime()) / (1000 * 60 * 60)
+
+    // Check if we have an existing analysis record
+    const existing = await this.analyzedFixtureModel.findOne({
+      fixtureId,
+      date,
+    }).exec()
+
+    // Case 1: Never analyzed - definitely needs analysis
+    if (!existing) {
+      return { needsAnalysis: true, reason: 'NEW' }
+    }
+
+    // Case 2: Kickoff is within threshold - re-analyze for final odds
+    if (hoursUntilKickoff <= this.SCAN_CONFIG.REANALYZE_HOURS_BEFORE_KICKOFF) {
+      return { needsAnalysis: true, reason: 'PRE_MATCH' }
+    }
+
+    // Case 3: Last analysis was too long ago - check for odds movements
+    const hoursSinceLastAnalysis =
+      (now.getTime() - existing.lastAnalyzedAt.getTime()) / (1000 * 60 * 60)
+
+    if (hoursSinceLastAnalysis >= this.SCAN_CONFIG.REANALYZE_AFTER_HOURS) {
+      return { needsAnalysis: true, reason: 'STALE' }
+    }
+
+    // No analysis needed - skip this fixture
+    return { needsAnalysis: false, reason: 'CACHED' }
+  }
+
+  /**
+   * Mark a fixture as analyzed in the tracking collection.
+   *
+   * @param fixture - The fixture data
+   * @param date - The match date
+   * @param leagueId - The league ID
+   * @param pickGenerated - Whether a pick was generated
+   */
+  private async markAsAnalyzed(
+    fixture: { fixtureId: number; homeTeamName: string; awayTeamName: string; kickoff: string },
+    date: string,
+    leagueId: number,
+    pickGenerated: boolean
+  ): Promise<void> {
+    await this.analyzedFixtureModel.findOneAndUpdate(
+      { fixtureId: fixture.fixtureId, date },
+      {
+        $set: {
+          leagueId,
+          kickoff: new Date(fixture.kickoff),
+          lastAnalyzedAt: new Date(),
+          homeTeam: fixture.homeTeamName,
+          awayTeam: fixture.awayTeamName,
+          pickGenerated,
+          expiresAt: new Date(), // Reset TTL
+        },
+        $inc: { analysisCount: 1 },
+      },
+      { upsert: true, new: true }
+    ).exec()
+  }
+
+  /**
+   * Get smart scanning statistics for logging
+   */
+  private async getScanStats(date: string): Promise<{
+    totalAnalyzed: number
+    withPicks: number
+    avgAnalysisCount: number
+  }> {
+    const stats = await this.analyzedFixtureModel.aggregate([
+      { $match: { date } },
+      {
+        $group: {
+          _id: null,
+          totalAnalyzed: { $sum: 1 },
+          withPicks: { $sum: { $cond: ['$pickGenerated', 1, 0] } },
+          avgAnalysisCount: { $avg: '$analysisCount' },
+        },
+      },
+    ]).exec()
+
+    return stats[0] || { totalAnalyzed: 0, withPicks: 0, avgAnalysisCount: 0 }
+  }
+
+  // ==========================================================================
+  // CORE ANALYSIS LOGIC
+  // ==========================================================================
 
   /**
    * Core nightly analysis logic
@@ -932,7 +1086,15 @@ export class NightlyAnalysisCron {
 
   /**
    * Analyze a single league for value picks
-   * Returns picks and number of fixtures analyzed
+   *
+   * SMART SCANNING OPTIMIZATION:
+   * - First gets fixture list (cheap API call)
+   * - Filters to only fixtures needing analysis
+   * - Skips already-analyzed fixtures unless:
+   *   1. Kickoff is within 3 hours
+   *   2. Last analysis was > 6 hours ago
+   *
+   * @returns picks array and count of fixtures actually analyzed
    */
   private async analyzeLeague(
     league: BettingLeagueDocument,
@@ -944,7 +1106,7 @@ export class NightlyAnalysisCron {
     let fixturesCount = 0
 
     try {
-      // Get fixtures for this league
+      // Get fixtures for this league (cheap: 1 API call)
       const fixtures = await this.apiFootballService.getFixtures(
         date,
         league.apiFootballId,
@@ -966,8 +1128,45 @@ export class NightlyAnalysisCron {
         )
       }
 
-      fixturesCount = upcomingFixtures.length
-      this.logger.log(`Found ${upcomingFixtures.length} upcoming fixtures for ${league.name}`)
+      this.logger.debug(`Found ${upcomingFixtures.length} upcoming fixtures for ${league.name}`)
+
+      // ========================================================================
+      // SMART SCANNING: Filter to only fixtures that need analysis
+      // ========================================================================
+      const fixturesToAnalyze: typeof upcomingFixtures = []
+      const scanReasons: Record<string, number> = { NEW: 0, PRE_MATCH: 0, STALE: 0, CACHED: 0 }
+
+      for (const fixture of upcomingFixtures) {
+        const { needsAnalysis: needs, reason } = await this.needsAnalysis(
+          fixture.fixtureId,
+          new Date(fixture.kickoff),
+          date
+        )
+        scanReasons[reason]++
+
+        if (needs) {
+          fixturesToAnalyze.push(fixture)
+        }
+      }
+
+      // Log smart scanning stats
+      const skipped = upcomingFixtures.length - fixturesToAnalyze.length
+      if (skipped > 0) {
+        this.logger.log(
+          `⚡ Smart scan: ${fixturesToAnalyze.length}/${upcomingFixtures.length} fixtures need analysis ` +
+          `(${scanReasons.NEW} new, ${scanReasons.PRE_MATCH} pre-match, ${scanReasons.STALE} stale, ${scanReasons.CACHED} cached)`
+        )
+      } else {
+        this.logger.log(`📊 Analyzing all ${upcomingFixtures.length} fixtures for ${league.name}`)
+      }
+
+      fixturesCount = fixturesToAnalyze.length
+
+      // If no fixtures need analysis, skip this league
+      if (fixturesToAnalyze.length === 0) {
+        this.logger.debug(`No fixtures need analysis for ${league.name} - all cached`)
+        return { picks, fixturesCount: 0 }
+      }
 
       // Check if league uses Pinnacle/sharps strategy
       const usesSharps = league.marketStrengths?.includes('sharps') ?? false
@@ -998,8 +1197,12 @@ export class NightlyAnalysisCron {
         this.logger.debug(`${league.name} uses MODEL-ONLY strategy (no sharps)`)
       }
 
-      for (const fixture of upcomingFixtures) {
+      // Track if any picks were generated for this fixture
+      let fixtureGeneratedPick = false
+
+      for (const fixture of fixturesToAnalyze) {
         this.logger.debug(`Analyzing: ${fixture.homeTeamName} vs ${fixture.awayTeamName}`)
+        fixtureGeneratedPick = false
 
         // Get team stats
         const [teamAStats, teamBStats, h2h] = await Promise.all([
@@ -1218,6 +1421,7 @@ export class NightlyAnalysisCron {
                   },
                 },
               })
+              fixtureGeneratedPick = true
               } // end else (not duplicate)
             }
           }
@@ -1339,6 +1543,7 @@ export class NightlyAnalysisCron {
                   },
                 },
               })
+              fixtureGeneratedPick = true
               } // end else (not duplicate)
             }
           }
@@ -1452,7 +1657,8 @@ export class NightlyAnalysisCron {
                     },
                   },
                 })
-                } // end else (not duplicate)
+                fixtureGeneratedPick = true
+              } // end else (not duplicate)
               }
             }
           }
@@ -1567,7 +1773,8 @@ export class NightlyAnalysisCron {
                     },
                   },
                 })
-                } // end else (not duplicate)
+                fixtureGeneratedPick = true
+              } // end else (not duplicate)
               }
             }
           }
@@ -1675,10 +1882,22 @@ export class NightlyAnalysisCron {
                   },
                 },
               })
+              fixtureGeneratedPick = true
+              fixtureGeneratedPick = true
               } // end else (not duplicate)
             }
           }
         }
+
+        // ====================================================================
+        // SMART SCANNING: Mark fixture as analyzed
+        // ====================================================================
+        await this.markAsAnalyzed(
+          fixture,
+          date,
+          league.apiFootballId,
+          fixtureGeneratedPick
+        )
       }
     } catch (error) {
       this.logger.error(`Failed to analyze league ${league.name}: ${error}`)

@@ -13,21 +13,33 @@ import { BettingTelegramService } from '../telegram/betting-telegram.service'
 import { PickStatus, ComboStatus } from '../enums/betting.enums'
 
 /**
- * Result Collector Cron Job
- * Runs every 30 minutes to check for finished matches
+ * ============================================================================
+ * PICK SETTLER CRON (formerly "Result Collector")
+ * ============================================================================
  *
- * Purpose:
- * - Collect match results from API-Football
- * - Calculate CLV (Closing Line Value)
- * - Update pick statuses (WON/LOST/VOID)
- * - Update combo statuses
- * - Calculate profit/loss
- * - Update bankroll
- * - Send personal result notifications immediately when matches finish
+ * Settles picks after matches finish by collecting results from API-Football.
+ *
+ * SMART SETTLING:
+ * - Only runs if there are PENDING/ACTIVE picks to settle
+ * - Skips API calls entirely if no picks need settling
+ * - Checks only matches that started 2+ hours ago (should be finished)
+ *
+ * FLOW:
+ *   1. Check for pending picks with kickoff 2+ hours ago
+ *   2. If none found, skip (save API calls)
+ *   3. For each pick: fetch match stats, settle, calculate profit
+ *   4. Update bankroll and send Telegram notifications
+ *
+ * NOTIFICATIONS:
+ *   - Immediate notification when each bet is settled (if betPlaced=true)
+ *   - Daily summary at 11 PM
+ *
+ * @schedule Every 30 minutes
+ * @timezone America/El_Salvador
  */
 @Injectable()
 export class ResultCollectorCron {
-  private readonly logger = new Logger(ResultCollectorCron.name)
+  private readonly logger = new Logger('PickSettler')
 
   constructor(
     @InjectModel(BettingPick.name)
@@ -41,19 +53,45 @@ export class ResultCollectorCron {
   ) {}
 
   /**
-   * Smart Result Collector - Runs every 30 minutes
-   * Checks for finished matches and settles picks immediately
-   * Sends personal notifications as soon as results are available
+   * ========================================================================
+   * PICK SETTLER - Main Cron Job
+   * ========================================================================
+   *
+   * SMART SETTLING:
+   * - Early return if no picks need settling (saves API calls)
+   * - Only checks matches that ended 2+ hours ago
+   *
+   * @schedule Every 30 minutes
+   * @timezone America/El_Salvador
    */
   @Cron('*/30 * * * *', {
-    name: 'betting-result-collector',
+    name: 'pick-settler',
     timeZone: 'America/El_Salvador',
   })
-  async collectResults(): Promise<void> {
-    this.logger.log('Starting result collection...')
+  async settlePicks(): Promise<void> {
     const startTime = Date.now()
 
     try {
+      // ====================================================================
+      // SMART CHECK: Early return if no picks to settle
+      // ====================================================================
+      const now = new Date()
+      const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
+
+      // Count pending picks first (cheap DB query)
+      const pendingCount = await this.bettingPickModel.countDocuments({
+        status: { $in: [PickStatus.PENDING, PickStatus.ACTIVE] },
+        kickoff: { $lte: twoHoursAgo },
+      }).exec()
+
+      // If no pending picks, skip entirely (save API calls)
+      if (pendingCount === 0) {
+        this.logger.debug('⚡ No pending picks to settle - skipping')
+        return
+      }
+
+      this.logger.log(`🎯 Pick Settler: ${pendingCount} picks to settle`)
+
       // Get settings
       const settings = await this.bettingSettingsModel.findOne().exec()
       if (!settings) {
@@ -61,19 +99,15 @@ export class ResultCollectorCron {
         return
       }
 
-      // Get PENDING or ACTIVE picks where kickoff was at least 2 hours ago (match should be finished)
-      // This ensures we only check matches that have likely concluded
-      const now = new Date()
-      const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
-
+      // Get the actual picks now that we know there are some
       const activePicks = await this.bettingPickModel
         .find({
           status: { $in: [PickStatus.PENDING, PickStatus.ACTIVE] },
-          kickoff: { $lte: twoHoursAgo }, // Match started at least 2 hours ago
+          kickoff: { $lte: twoHoursAgo },
         })
         .exec()
 
-      this.logger.log(`Found ${activePicks.length} picks to settle (PENDING + ACTIVE)`)
+      this.logger.log(`Found ${activePicks.length} picks to settle`)
 
       let won = 0
       let lost = 0
