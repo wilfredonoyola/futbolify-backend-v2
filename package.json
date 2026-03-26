@@ -1,8 +1,8 @@
 {
-  "name": "ng-admin-ai",
-  "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "name": "futbolify-backend",
+  "version": "1.0.0",
+  "description": "Backend API para Futbolify - plataforma de datos de fútbol y sistema de betting inteligente",
+  "author": "Futbolify",
   "private": true,
   "license": "UNLICENSED",
   "engines": {
