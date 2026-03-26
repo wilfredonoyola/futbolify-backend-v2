@@ -4,6 +4,34 @@ import { BettingComboDocument } from '../schemas/betting-combo.schema'
 import { PickStatus, ComboStatus, MarketType, MarketDirection, TimeWindow } from '../enums/betting.enums'
 
 /**
+ * Format stake as units with dollar amount (e.g., "2u ($20)" or "0.5u ($5)")
+ * Units are shown in 0.25 increments for cleaner display
+ * @param stakeDollars - The stake in dollars
+ * @param unitValue - Value of 1 unit in dollars (default: $10)
+ */
+function formatStakeUnits(stakeDollars: number, unitValue: number = 10): string {
+  const units = stakeDollars / unitValue
+  // Round to nearest 0.25 for clean display
+  const roundedUnits = Math.round(units * 4) / 4
+
+  // Format units: whole number if integer, otherwise show decimals
+  let unitsStr: string
+  if (roundedUnits === Math.floor(roundedUnits)) {
+    unitsStr = `${Math.floor(roundedUnits)}u`
+  } else if (roundedUnits * 2 === Math.floor(roundedUnits * 2)) {
+    // .5 increments - show 1 decimal
+    unitsStr = `${roundedUnits.toFixed(1)}u`
+  } else {
+    // .25 or .75 - show 2 decimals
+    unitsStr = `${roundedUnits.toFixed(2)}u`
+  }
+
+  // Calculate actual dollar amount based on rounded units
+  const actualDollars = roundedUnits * unitValue
+  return `${unitsStr} ($${actualDollars.toFixed(0)})`
+}
+
+/**
  * Format confidence score with visual bar
  */
 function formatConfidenceBar(score: number): string {
@@ -127,7 +155,8 @@ export class BettingTelegramFormatters {
     leaguesAnalyzed: number,
     alertType: 'initial' | 'update' = 'initial',
     totalPicks?: number,
-    totalCombos?: number
+    totalCombos?: number,
+    unitValue: number = 10  // Value of 1 unit in dollars (default $10)
   ): string {
     const dateStr = formatDate(date)
 
@@ -160,7 +189,7 @@ export class BettingTelegramFormatters {
 
       picks.forEach((pick, index) => {
         const odds = (pick.oddsAtDetection || 0).toFixed(2)
-        const stake = (pick.stake || 0).toFixed(2)
+        const stakeUnits = formatStakeUnits(pick.stake || 0, unitValue)
         const kickoffTime = formatTime(pick.kickoff)
         const stars = '\u2b50'.repeat(pick.stars || 3)
         const reasons = pick.reasons || []
@@ -174,9 +203,9 @@ export class BettingTelegramFormatters {
           message += `   \ud83d\udca1 ${reason}\n`
         })
 
-        // Show stake suggestion
+        // Show stake suggestion in units
         if (pick.stake && pick.stake > 0) {
-          message += `   \ud83d\udcb5 Stake sugerido: $${stake}\n`
+          message += `   \ud83d\udcb5 Stake: ${stakeUnits}\n`
         }
 
         message += `   \u23f0 ${kickoffTime}\n`
@@ -198,7 +227,7 @@ export class BettingTelegramFormatters {
         const comboType = formatComboType(combo.type)
         const scoreBadge = getScoreBadge(combo.score || 0)
         const ev = ((combo.evReal || 0) * 100).toFixed(1)
-        const stake = (combo.stake || 0).toFixed(2)
+        const stakeUnits = formatStakeUnits(combo.stake || 0, unitValue)
         const hiddenEdge = ((combo.hiddenEdge || 0) * 100).toFixed(1)
 
         message += `\ud83d\udd17 ${comboType}\n`
@@ -216,7 +245,7 @@ export class BettingTelegramFormatters {
           message += `   Correlacion: ${combo.correlation.dynamic.toFixed(2)} | EV real: ${ev}%\n`
         }
         message += `   Score: ${combo.score || 0}/100 ${scoreBadge}\n`
-        message += `   Stake sugerido: $${stake}\n`
+        message += `   Stake: ${stakeUnits}\n`
         if (combo.hiddenEdge && combo.hiddenEdge > 0) {
           message += `   \ud83d\udca1 Edge oculto por correlacion: +${hiddenEdge}%\n`
         }
@@ -225,9 +254,10 @@ export class BettingTelegramFormatters {
     }
 
     // Footer
+    const exposureUnits = formatStakeUnits(totalExposure, unitValue)
     message += '\u2501'.repeat(23) + '\n'
-    message += `\ud83d\udcb0 Exposicion total: $${totalExposure.toFixed(2)} (${((totalExposure / bankroll) * 100).toFixed(1)}% de bankroll)\n`
-    message += `\ud83d\udccb Bankroll actual: $${bankroll.toFixed(2)}\n`
+    message += `\ud83d\udcb0 Exposicion total: ${exposureUnits} (${((totalExposure / bankroll) * 100).toFixed(1)}% de bankroll)\n`
+    message += `\ud83d\udccb 1u = $${unitValue}\n`
     message += `\ud83d\udd50 Proxima alerta: Sab 6:30 AM (verificacion pre-partido)`
 
     return message

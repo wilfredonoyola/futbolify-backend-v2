@@ -184,6 +184,9 @@ export class BettingTelegramService implements OnModuleInit {
         picks.reduce((sum, p) => sum + (p.stake || 0), 0) +
         combos.reduce((sum, c) => sum + (c.stake || 0), 0)
 
+      // Unit value for stake display (1u = fixedStake or default $10)
+      const unitValue = settings.stakes?.fixedStake || 10
+
       const message = this.formatters.formatNightlyAnalysisAlert(
         date,
         picks,
@@ -194,7 +197,8 @@ export class BettingTelegramService implements OnModuleInit {
         leaguesAnalyzed,
         alertType,
         totalPicks,
-        totalCombos
+        totalCombos,
+        unitValue
       )
 
       await this.bot.telegram.sendMessage(adminChatId, message, {

@@ -528,14 +528,21 @@ export class StakeCalculatorService {
   }
 
   /**
-   * Calculate stake for individual pick using Kelly Criterion
-   * Simpler version for single bets (not combos)
+   * Calculate stake for individual pick based on edge
+   * Stakes are in clean unit increments (0.25u, 0.5u, 0.75u, 1u, etc.)
+   *
+   * Stake scale based on edge:
+   * - Edge >= 20%: 1.5u (very high confidence)
+   * - Edge >= 15%: 1u (high confidence)
+   * - Edge >= 10%: 0.75u (good confidence)
+   * - Edge >= 7%:  0.5u (moderate confidence)
+   * - Edge >= 5%:  0.25u (minimum)
    *
    * @param probOwn Probability from our model
    * @param odds Decimal odds
-   * @param edge Edge percentage
+   * @param edge Edge percentage (0.05 = 5%)
    * @param bankroll Current bankroll
-   * @param options Optional settings for fixed stake
+   * @param options Optional settings for fixed stake and unit value
    */
   calculatePickStake(
     probOwn: number,
@@ -545,41 +552,41 @@ export class StakeCalculatorService {
     options?: {
       useFixedStake?: boolean
       fixedStake?: number
+      unitValue?: number  // Value of 1 unit in dollars (default $10)
     }
   ): number {
-    // If fixed stake is configured and enabled, use it
+    const unitValue = options?.unitValue || 10  // Default 1u = $10
+
+    // If fixed stake is configured and enabled, use it directly
     if (options?.useFixedStake && options?.fixedStake && options.fixedStake > 0) {
       this.logger.debug(`Using fixed stake: $${options.fixedStake}`)
       return Math.round(options.fixedStake * 100) / 100
     }
 
-    // Kelly formula: (b * p - q) / b
-    const b = odds - 1 // Net odds
-    const q = 1 - probOwn
-    const kellyFull = (b * probOwn - q) / b
-
-    // Kelly is negative = don't bet
-    if (kellyFull <= 0) {
-      return 0
+    // Edge-based stake in units (simple and clear for bettors)
+    let stakeUnits: number
+    if (edge >= 0.20) {
+      stakeUnits = 1.5  // Very high edge: 1.5u
+    } else if (edge >= 0.15) {
+      stakeUnits = 1.0  // High edge: 1u
+    } else if (edge >= 0.10) {
+      stakeUnits = 0.75 // Good edge: 0.75u
+    } else if (edge >= 0.07) {
+      stakeUnits = 0.5  // Moderate edge: 0.5u
+    } else {
+      stakeUnits = 0.25 // Minimum: 0.25u
     }
 
-    // Use 25% of Kelly for individual picks (more aggressive than combos)
-    const kellyFraction = 0.25
+    // Bonus for very high probability (>80%)
+    if (probOwn >= 0.80) {
+      stakeUnits = Math.min(2.0, stakeUnits + 0.25)
+    }
 
-    // Edge-based multiplier: higher edge = higher stake
-    let edgeMultiplier = 1.0
-    if (edge >= 0.15) edgeMultiplier = 1.0
-    else if (edge >= 0.10) edgeMultiplier = 0.85
-    else if (edge >= 0.07) edgeMultiplier = 0.7
-    else edgeMultiplier = 0.5
+    // Convert to dollars
+    const stake = stakeUnits * unitValue
 
-    let stake = bankroll * kellyFull * kellyFraction * edgeMultiplier
+    this.logger.debug(`Stake: ${stakeUnits}u ($${stake.toFixed(2)}) - Edge: ${(edge * 100).toFixed(1)}%, Prob: ${(probOwn * 100).toFixed(0)}%`)
 
-    // Apply limits: min $1, max 3% of bankroll for individual picks
-    const maxPickStake = bankroll * 0.03
-    stake = Math.max(DEFAULT_CONFIG.minStake, Math.min(maxPickStake, stake))
-
-    // Round to 2 decimals
     return Math.round(stake * 100) / 100
   }
 }

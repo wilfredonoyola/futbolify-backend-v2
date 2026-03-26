@@ -77,6 +77,12 @@ export class NightlyAnalysisCron {
   private readonly logger = new Logger('PickScanner')
 
   /**
+   * Mutex for Telegram notifications - prevents duplicate alerts when multiple scans run concurrently
+   * Key: date string (YYYY-MM-DD), Value: true if notification is in progress
+   */
+  private readonly telegramNotificationLocks = new Map<string, boolean>()
+
+  /**
    * Configuration for smart scanning
    */
   private readonly SCAN_CONFIG = {
@@ -716,7 +722,12 @@ export class NightlyAnalysisCron {
       // Only delete picks that haven't been notified yet (fresh picks from failed runs)
       // This preserves picks that users have already been alerted about
 
-      // Calculate stakes for individual picks
+      // Calculate stakes for individual picks (in 0.25u increments)
+      const unitValue = settings.stakes?.fixedStake || 10  // 1u = fixedStake or $10
+      const maxDailyExposurePct = settings.stakes?.maxDailyExposurePct || 0.15  // Default 15%
+      const maxDailyExposure = settings.bankroll * maxDailyExposurePct
+
+      // First pass: calculate raw stakes
       for (const pickDoc of topPickDocs) {
         const stake = this.stakeCalculatorService.calculatePickStake(
           pickDoc.probOwn || 0,
@@ -726,9 +737,36 @@ export class NightlyAnalysisCron {
           {
             useFixedStake: settings.stakes?.useFixedStake || false,
             fixedStake: settings.stakes?.fixedStake,
+            unitValue,
           }
         )
         pickDoc.stake = stake
+      }
+
+      // Second pass: check total exposure and scale down if needed
+      const totalExposure = topPickDocs.reduce((sum, p) => sum + (p.stake || 0), 0)
+      if (totalExposure > maxDailyExposure) {
+        const scaleFactor = maxDailyExposure / totalExposure
+        this.logger.warn(
+          `Total exposure $${totalExposure.toFixed(2)} exceeds max $${maxDailyExposure.toFixed(2)} ` +
+          `(${(maxDailyExposurePct * 100).toFixed(0)}%) - scaling down by ${(scaleFactor * 100).toFixed(0)}%`
+        )
+
+        // Scale down and round to 0.25u increments
+        for (const pickDoc of topPickDocs) {
+          const scaledStake = (pickDoc.stake || 0) * scaleFactor
+          // Round to nearest 0.25u
+          const scaledUnits = Math.round((scaledStake / unitValue) * 4) / 4
+          // Minimum 0.25u
+          const finalUnits = Math.max(0.25, scaledUnits)
+          pickDoc.stake = finalUnits * unitValue
+        }
+
+        const newTotal = topPickDocs.reduce((sum, p) => sum + (p.stake || 0), 0)
+        this.logger.log(
+          `Stakes scaled: $${totalExposure.toFixed(2)} → $${newTotal.toFixed(2)} ` +
+          `(${((newTotal / settings.bankroll) * 100).toFixed(1)}% of bankroll)`
+        )
       }
 
       // Save only top picks to database (max 5)
@@ -828,76 +866,104 @@ export class NightlyAnalysisCron {
       }
 
       // Smart Telegram Alerts: Only notify for NEW picks (not already notified)
-      // Use UTC dates to avoid timezone issues
+      // Use MUTEX + ATOMIC approach to prevent duplicate alerts when multiple scans run concurrently
       const targetDateStart = new Date(`${tomorrowDate}T00:00:00.000Z`)
       const targetDateEnd = new Date(`${tomorrowDate}T23:59:59.999Z`)
 
-      this.logger.debug(`Querying unnotified picks for date range: ${targetDateStart.toISOString()} to ${targetDateEnd.toISOString()}`)
-
-      const unnotifiedPicks = await this.bettingPickModel
-        .find({
-          kickoff: { $gte: targetDateStart, $lte: targetDateEnd },
-          telegramAlertSent: { $ne: true }
-        })
-        .exec()
-
-      const unnotifiedCombos = await this.bettingComboModel
-        .find({
-          date: { $gte: targetDateStart, $lte: targetDateEnd },
-          telegramAlertSent: { $ne: true }
-        })
-        .exec()
-
-      this.logger.debug(`Found ${unnotifiedPicks.length} unnotified picks, ${unnotifiedCombos.length} unnotified combos`)
-
-      // Only send alert if there are NEW picks/combos to notify about
-      if (unnotifiedPicks.length > 0 || unnotifiedCombos.length > 0) {
-        this.logger.log(
-          `Sending Telegram alert for ${unnotifiedPicks.length} NEW picks, ${unnotifiedCombos.length} NEW combos`
-        )
-
-        // Get total counts for context
-        const totalPicks = await this.bettingPickModel.countDocuments({
-          kickoff: { $gte: targetDateStart, $lte: targetDateEnd }
-        })
-        const totalCombos = await this.bettingComboModel.countDocuments({
-          date: { $gte: targetDateStart, $lte: targetDateEnd }
-        })
-
-        // Determine if this is initial alert or update
-        const isInitialAlert = totalPicks === unnotifiedPicks.length
-
-        await this.telegramService.sendNightlyAnalysisAlert(
-          new Date(tomorrowDate),
-          unnotifiedPicks,
-          unnotifiedCombos,
-          fixturesAnalyzed,
-          activeLeagues.length,
-          isInitialAlert ? 'initial' : 'update',
-          totalPicks,
-          totalCombos
-        )
-
-        // Mark picks as notified
-        const pickIds = unnotifiedPicks.map(p => p._id)
-        this.logger.debug(`Marking ${pickIds.length} picks as notified: ${pickIds.map(id => id.toString()).join(', ')}`)
-
-        const updateResult = await this.bettingPickModel.updateMany(
-          { _id: { $in: pickIds } },
-          { $set: { telegramAlertSent: true } }
-        )
-
-        this.logger.debug(`Update result: matched=${updateResult.matchedCount}, modified=${updateResult.modifiedCount}`)
-
-        // Mark combos as notified
-        if (unnotifiedCombos.length > 0) {
-          await this.bettingComboModel.updateMany(
-            { _id: { $in: unnotifiedCombos.map(c => c._id) } },
-            { $set: { telegramAlertSent: true } }
-          )
-        }
+      // Check if another scan is already handling notifications for this date
+      if (this.telegramNotificationLocks.get(tomorrowDate)) {
+        this.logger.log(`Another scan is already handling Telegram notifications for ${tomorrowDate} - skipping`)
       } else {
-        this.logger.log('No new picks to notify - skipping Telegram alert')
+        // Acquire lock for this date
+        this.telegramNotificationLocks.set(tomorrowDate, true)
+        this.logger.debug(`Acquired Telegram notification lock for ${tomorrowDate}`)
+
+        try {
+          // Query unnotified picks (we have the lock, so no race condition)
+          const unnotifiedPicks = await this.bettingPickModel
+            .find({
+              kickoff: { $gte: targetDateStart, $lte: targetDateEnd },
+              telegramAlertSent: { $ne: true }
+            })
+            .exec()
+
+          const unnotifiedCombos = await this.bettingComboModel
+            .find({
+              date: { $gte: targetDateStart, $lte: targetDateEnd },
+              telegramAlertSent: { $ne: true }
+            })
+            .exec()
+
+          this.logger.debug(`Found ${unnotifiedPicks.length} unnotified picks, ${unnotifiedCombos.length} unnotified combos`)
+
+          // Only send alert if there are NEW picks/combos to notify about
+          if (unnotifiedPicks.length > 0 || unnotifiedCombos.length > 0) {
+            this.logger.log(
+              `Sending Telegram alert for ${unnotifiedPicks.length} NEW picks, ${unnotifiedCombos.length} NEW combos`
+            )
+
+            // Get total counts for context
+            const totalPicks = await this.bettingPickModel.countDocuments({
+              kickoff: { $gte: targetDateStart, $lte: targetDateEnd }
+            })
+            const totalCombos = await this.bettingComboModel.countDocuments({
+              date: { $gte: targetDateStart, $lte: targetDateEnd }
+            })
+
+            // Determine if this is initial alert or update
+            const isInitialAlert = totalPicks === unnotifiedPicks.length
+
+            // Mark picks as notified BEFORE sending (to prevent duplicates if send is slow)
+            const pickIds = unnotifiedPicks.map(p => p._id)
+            const comboIds = unnotifiedCombos.map(c => c._id)
+
+            await this.bettingPickModel.updateMany(
+              { _id: { $in: pickIds } },
+              { $set: { telegramAlertSent: true } }
+            )
+            if (comboIds.length > 0) {
+              await this.bettingComboModel.updateMany(
+                { _id: { $in: comboIds } },
+                { $set: { telegramAlertSent: true } }
+              )
+            }
+
+            try {
+              await this.telegramService.sendNightlyAnalysisAlert(
+                new Date(tomorrowDate),
+                unnotifiedPicks,
+                unnotifiedCombos,
+                fixturesAnalyzed,
+                activeLeagues.length,
+                isInitialAlert ? 'initial' : 'update',
+                totalPicks,
+                totalCombos
+              )
+              this.logger.log(`Telegram alert sent successfully for ${unnotifiedPicks.length} picks`)
+            } catch (telegramError) {
+              // If Telegram fails, revert the marks so they can be retried
+              this.logger.error(`Telegram alert failed: ${telegramError}`)
+              this.logger.warn(`Reverting ${pickIds.length} picks and ${comboIds.length} combos to unnotified state`)
+
+              await this.bettingPickModel.updateMany(
+                { _id: { $in: pickIds } },
+                { $set: { telegramAlertSent: false } }
+              )
+              if (comboIds.length > 0) {
+                await this.bettingComboModel.updateMany(
+                  { _id: { $in: comboIds } },
+                  { $set: { telegramAlertSent: false } }
+                )
+              }
+            }
+          } else {
+            this.logger.log('No new picks to notify - skipping Telegram alert')
+          }
+        } finally {
+          // Always release the lock
+          this.telegramNotificationLocks.delete(tomorrowDate)
+          this.logger.debug(`Released Telegram notification lock for ${tomorrowDate}`)
+        }
       }
 
       const duration = Date.now() - startTime

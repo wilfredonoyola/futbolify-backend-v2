@@ -16,6 +16,7 @@ import { BettingLeague, BettingLeagueDocument } from './schemas/betting-league.s
 import { BettingPick, BettingPickDocument } from './schemas/betting-pick.schema'
 import { BettingCombo, BettingComboDocument } from './schemas/betting-combo.schema'
 import { BettingSettings, BettingSettingsDocument } from './schemas/betting-settings.schema'
+import { AnalyzedFixture, AnalyzedFixtureDocument } from './schemas/analyzed-fixture.schema'
 import { MarketType, MarketDirection, PickStatus } from './enums/betting.enums'
 
 /**
@@ -44,7 +45,9 @@ export class BettingTestController {
     @InjectModel(BettingCombo.name)
     private bettingComboModel: Model<BettingComboDocument>,
     @InjectModel(BettingSettings.name)
-    private bettingSettingsModel: Model<BettingSettingsDocument>
+    private bettingSettingsModel: Model<BettingSettingsDocument>,
+    @InjectModel(AnalyzedFixture.name)
+    private analyzedFixtureModel: Model<AnalyzedFixtureDocument>
   ) {}
 
   /**
@@ -118,6 +121,35 @@ export class BettingTestController {
   }
 
   /**
+   * Get current betting settings
+   * GET /betting/test/settings
+   */
+  @Get('settings')
+  async getSettings() {
+    const settings = await this.bettingSettingsModel.findOne().exec()
+    if (!settings) {
+      return { error: 'No settings found' }
+    }
+    return {
+      adminId: settings.adminId,
+      bankroll: settings.bankroll,
+      isActive: settings.isActive,
+      stakes: {
+        fixedStake: settings.stakes?.fixedStake,
+        useFixedStake: settings.stakes?.useFixedStake,
+        kellyFraction: settings.stakes?.kellyFraction,
+        maxStakeIndividualPct: settings.stakes?.maxStakeIndividualPct,
+        maxStakeComboPct: settings.stakes?.maxStakeComboPct,
+        maxDailyExposurePct: settings.stakes?.maxDailyExposurePct,
+        maxPicksPerDay: settings.stakes?.maxPicksPerDay,
+        maxCombosPerDay: settings.stakes?.maxCombosPerDay,
+      },
+      unitValue: settings.stakes?.fixedStake || 10,
+      telegramAlertsOn: settings.telegramAlertsOn,
+    }
+  }
+
+  /**
    * Delete picks by date
    * GET /betting/test/delete-picks?date=2026-03-24
    */
@@ -141,11 +173,17 @@ export class BettingTestController {
       createdAt: { $gte: startOfDay, $lte: endOfDay }
     })
 
+    // Delete analyzed fixtures cache for this date (allows re-scan)
+    const analyzedResult = await this.analyzedFixtureModel.deleteMany({
+      date: date
+    })
+
     return {
       success: true,
       date,
       picksDeleted: picksResult.deletedCount,
       combosDeleted: combosResult.deletedCount,
+      analyzedFixturesCleared: analyzedResult.deletedCount,
     }
   }
 
@@ -1462,6 +1500,43 @@ export class BettingTestController {
       leaguesWithFixtures: results.length,
       totalFixtures,
       details: results,
+    }
+  }
+
+  /**
+   * Reset telegramAlertSent flag for testing
+   * GET /betting/test/reset-telegram-flags?date=2026-03-26
+   */
+  @Get('reset-telegram-flags')
+  async resetTelegramFlags(@Query('date') date?: string) {
+    // Use provided date or calculate tomorrow
+    let targetDate: string
+    if (date) {
+      targetDate = date
+    } else {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      targetDate = tomorrow.toISOString().split('T')[0]
+    }
+    const targetDateStart = new Date(`${targetDate}T00:00:00.000Z`)
+    const targetDateEnd = new Date(`${targetDate}T23:59:59.999Z`)
+
+    const picksResult = await this.bettingPickModel.updateMany(
+      { kickoff: { $gte: targetDateStart, $lte: targetDateEnd } },
+      { $set: { telegramAlertSent: false } }
+    )
+
+    const combosResult = await this.bettingComboModel.updateMany(
+      { date: { $gte: targetDateStart, $lte: targetDateEnd } },
+      { $set: { telegramAlertSent: false } }
+    )
+
+    return {
+      success: true,
+      message: 'Telegram flags reset',
+      date: targetDate,
+      picksReset: picksResult.modifiedCount,
+      combosReset: combosResult.modifiedCount,
     }
   }
 }

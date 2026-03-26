@@ -90,21 +90,51 @@ export class QueriesService implements OnModuleInit {
   private loadData() {
     const dataPath = path.join(__dirname, '..', 'data');
 
-    this.matches = JSON.parse(
-      fs.readFileSync(path.join(dataPath, 'matches.json'), 'utf-8'),
-    );
-    this.teams = JSON.parse(
-      fs.readFileSync(path.join(dataPath, 'teams.json'), 'utf-8'),
-    );
-    this.groups = JSON.parse(
-      fs.readFileSync(path.join(dataPath, 'groups.json'), 'utf-8'),
-    );
-    this.venues = JSON.parse(
-      fs.readFileSync(path.join(dataPath, 'venues.json'), 'utf-8'),
-    );
-    this.broadcasts = JSON.parse(
-      fs.readFileSync(path.join(dataPath, 'broadcasts.json'), 'utf-8'),
-    );
+    // Load data files if they exist (optional - API is primary source now)
+    try {
+      const matchesPath = path.join(dataPath, 'matches.json');
+      if (fs.existsSync(matchesPath)) {
+        this.matches = JSON.parse(fs.readFileSync(matchesPath, 'utf-8'));
+      }
+    } catch (e) {
+      console.log('matches.json not found - using API instead');
+    }
+
+    try {
+      const teamsPath = path.join(dataPath, 'teams.json');
+      if (fs.existsSync(teamsPath)) {
+        this.teams = JSON.parse(fs.readFileSync(teamsPath, 'utf-8'));
+      }
+    } catch (e) {
+      console.log('teams.json not found - using API instead');
+    }
+
+    try {
+      const groupsPath = path.join(dataPath, 'groups.json');
+      if (fs.existsSync(groupsPath)) {
+        this.groups = JSON.parse(fs.readFileSync(groupsPath, 'utf-8'));
+      }
+    } catch (e) {
+      console.log('groups.json not found - using API instead');
+    }
+
+    try {
+      const venuesPath = path.join(dataPath, 'venues.json');
+      if (fs.existsSync(venuesPath)) {
+        this.venues = JSON.parse(fs.readFileSync(venuesPath, 'utf-8'));
+      }
+    } catch (e) {
+      console.log('venues.json not found - using API instead');
+    }
+
+    try {
+      const broadcastsPath = path.join(dataPath, 'broadcasts.json');
+      if (fs.existsSync(broadcastsPath)) {
+        this.broadcasts = JSON.parse(fs.readFileSync(broadcastsPath, 'utf-8'));
+      }
+    } catch (e) {
+      console.log('broadcasts.json not found - using API instead');
+    }
 
     console.log(
       `[WorldCup] Loaded: ${this.matches.length} matches, ${this.teams.length} teams, ${this.groups.length} groups, ${this.venues.length} venues`,
