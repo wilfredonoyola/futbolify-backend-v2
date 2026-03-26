@@ -1,5 +1,11 @@
 # Sistema de Betting GolPicks - Documentación Técnica Completa
 
+> **Versión:** 1.0.0
+> **Última actualización:** 2026-03-26
+> **Changelog:** [CHANGELOG.md](./CHANGELOG.md)
+
+---
+
 ## Índice
 
 1. [Arquitectura General](#1-arquitectura-general)
