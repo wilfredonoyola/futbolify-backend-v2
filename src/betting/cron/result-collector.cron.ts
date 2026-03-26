@@ -60,11 +60,13 @@ export class ResultCollectorCron {
    * SMART SETTLING:
    * - Early return if no picks need settling (saves API calls)
    * - Only checks matches that ended 2+ hours ago
+   * - Runs every 2 hours during match hours (8 AM - midnight)
+   * - No need to run at 3 AM when no matches are finishing
    *
-   * @schedule Every 30 minutes
+   * @schedule Every 2 hours from 8 AM to midnight
    * @timezone America/El_Salvador
    */
-  @Cron('*/30 * * * *', {
+  @Cron('0 8,10,12,14,16,18,20,22,0 * * *', {
     name: 'pick-settler',
     timeZone: 'America/El_Salvador',
   })

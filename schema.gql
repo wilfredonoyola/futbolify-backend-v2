@@ -2472,6 +2472,12 @@ type PickModelInputs {
 
   """All bookmakers offering this market"""
   allBookmakers: [String!]
+
+  """Original Over 0.5 1H odds when switched to Over 1.5"""
+  originalOver05Odds: Float
+
+  """True if market was switched from Over 0.5 to Over 1.5 1H"""
+  switchedToOver15: Boolean
 }
 
 type PickSteamMove {

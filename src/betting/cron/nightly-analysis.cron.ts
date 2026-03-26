@@ -1363,7 +1363,7 @@ export class NightlyAnalysisCron {
           league.apiFootballId
         )
 
-        // Detect value for Over 0.5 1H
+        // Detect value for Over 0.5 1H (or Over 1.5 1H if odds are too low)
         if (goalsResult.probOver05_1H > 0 && odds) {
           const apiFootballOdds = this.findOddsForMarket(odds, 'over_05_1h')
 
@@ -1383,7 +1383,146 @@ export class NightlyAnalysisCron {
             (pinnacleOdds ? `, Pinnacle=${pinnacleOdds}` : '')
           )
 
-          if (over05Odds > 1.0) {
+          // ============================================================
+          // INTELLIGENT MARKET SELECTION
+          // If Over 0.5 1H odds are too low (<1.40), check if Over 1.5 1H
+          // is a better value bet based on team scoring patterns
+          // ============================================================
+          const MIN_ODDS_OVER_05 = 1.40
+          const MIN_EXPECTED_GOALS_FOR_OVER_15 = 1.3
+          const MIN_PROB_OVER_15 = 0.50
+
+          if (over05Odds > 1.0 && over05Odds < MIN_ODDS_OVER_05) {
+            // Over 0.5 1H odds too low - check if Over 1.5 1H is better
+            this.logger.debug(
+              `Over 0.5 1H odds ${over05Odds} < ${MIN_ODDS_OVER_05} - checking Over 1.5 1H as alternative`
+            )
+
+            // Check if this is a high-scoring match where Over 1.5 1H makes sense
+            const isHighScoring =
+              goalsResult.expectedGoals1H >= MIN_EXPECTED_GOALS_FOR_OVER_15 &&
+              goalsResult.probOver15_1H >= MIN_PROB_OVER_15
+
+            if (isHighScoring) {
+              // Get Over 1.5 1H odds
+              const over15ApiOdds = this.findOddsForMarket(odds, 'over_15_1h')
+              const over15OddsApiMatch = this.findOddsApiMatch(
+                oddsApiTotalsH1,
+                fixture.homeTeamName,
+                fixture.awayTeamName,
+                1.5
+              )
+
+              const { bestOdds: over15Odds, bestBookmaker: over15Bookmaker } =
+                this.getBestOddsFromSources(over15ApiOdds, over15OddsApiMatch, 'over')
+
+              if (over15Odds > 1.5) {
+                const over15ValueResult = this.valueDetectionService.detectValueGoals(
+                  goalsResult,
+                  'over_15_1h',
+                  over15Odds,
+                  over15Bookmaker
+                )
+
+                this.logger.debug(
+                  `Over 1.5 1H alternative: odds=${over15Odds}, hasValue=${over15ValueResult.hasValue}, ` +
+                  `edge=${(over15ValueResult.edge * 100).toFixed(1)}%, ` +
+                  `expectedGoals1H=${goalsResult.expectedGoals1H.toFixed(2)}, ` +
+                  `probOver15=${(goalsResult.probOver15_1H * 100).toFixed(1)}%`
+                )
+
+                if (over15ValueResult.hasValue) {
+                  // Use Over 1.5 1H instead - create pick with this market
+                  const alreadyExists = await this.pickExists(fixture.fixtureId, MarketType.OVER_15_1H)
+                  if (!alreadyExists) {
+                    const timeWindow = this.determineTimeWindow(new Date(fixture.kickoff))
+
+                    picks.push({
+                      leg: {
+                        fixtureId: fixture.fixtureId,
+                        leagueId: league.apiFootballId,
+                        homeTeam: fixture.homeTeamName,
+                        awayTeam: fixture.awayTeamName,
+                        market: MarketType.OVER_15_1H,
+                        direction: 'OVER',
+                        line: 1.5,
+                        odds: over15Odds,
+                        probOwn: goalsResult.probOver15_1H,
+                        edge: over15ValueResult.edge,
+                        confidenceScore: Math.min(100, Math.round(over15ValueResult.edge * 500 + 40)),
+                        teamAStats,
+                        teamBStats,
+                      },
+                      document: {
+                        fixtureId: fixture.fixtureId,
+                        date: new Date(date),
+                        league: {
+                          id: league.apiFootballId,
+                          name: league.name,
+                          country: league.country,
+                          tier: league.tier,
+                        },
+                        teamHome: { id: fixture.homeTeamId, name: fixture.homeTeamName },
+                        teamAway: { id: fixture.awayTeamId, name: fixture.awayTeamName },
+                        kickoff: new Date(fixture.kickoff),
+                        timeWindow,
+                        market: MarketType.OVER_15_1H,
+                        direction: MarketDirection.OVER,
+                        line: 1.5,
+                        probOwn: goalsResult.probOver15_1H,
+                        probImplied: over15ValueResult.probImplied,
+                        edge: over15ValueResult.edge,
+                        confidenceScore: Math.min(100, Math.round(over15ValueResult.edge * 500 + 40)),
+                        oddsAtDetection: over15Odds,
+                        bestBookmaker: over15Bookmaker,
+                        status: PickStatus.PENDING,
+                        stars: this.calculateStars(over15ValueResult.edge),
+                        reasons: [
+                          `Over 0.5 1H odds muy bajas (${over05Odds.toFixed(2)}) → Over 1.5 1H es mejor value`,
+                          `Promedio ${goalsResult.expectedGoals1H.toFixed(1)} goles en 1H`,
+                          `${(goalsResult.probOver15_1H * 100).toFixed(0)}% prob de 2+ goles en 1H`,
+                          ...this.generateGoalsReasons('over_15_1h', teamAStats, teamBStats, h2h, league, goalsResult)
+                        ],
+                        modelInputs: {
+                          dataSource: over15Bookmaker.includes('API-Football') ? 'API-Football' : 'The Odds API',
+                          contextFlags: context.flags,
+                          expectedGoals1H: goalsResult.expectedGoals1H,
+                          originalOver05Odds: over05Odds,
+                          switchedToOver15: true,
+                          teamAStats: {
+                            name: fixture.homeTeamName,
+                            avgGoals1H: teamAStats.avg_goals_1h,
+                            avgConceded1H: teamAStats.avg_conceded_1h,
+                            gamesPlayed: teamAStats.gamesPlayed,
+                          },
+                          teamBStats: {
+                            name: fixture.awayTeamName,
+                            avgGoals1H: teamBStats.avg_goals_1h,
+                            avgConceded1H: teamBStats.avg_conceded_1h,
+                            gamesPlayed: teamBStats.gamesPlayed,
+                          },
+                          ...this.getWeatherFields(weather, context),
+                        },
+                      },
+                    })
+                    fixtureGeneratedPick = true
+                    this.logger.log(
+                      `✅ Switched to Over 1.5 1H: ${fixture.homeTeamName} vs ${fixture.awayTeamName} ` +
+                      `@${over15Odds} (edge: ${(over15ValueResult.edge * 100).toFixed(1)}%)`
+                    )
+                  }
+                }
+              }
+            } else {
+              this.logger.debug(
+                `Over 0.5 1H odds too low and Over 1.5 1H not viable: ` +
+                `expectedGoals1H=${goalsResult.expectedGoals1H.toFixed(2)} (need >=${MIN_EXPECTED_GOALS_FOR_OVER_15}), ` +
+                `probOver15=${(goalsResult.probOver15_1H * 100).toFixed(1)}% (need >=${MIN_PROB_OVER_15 * 100}%)`
+              )
+            }
+            // Skip Over 0.5 1H since odds are too low
+          } else if (over05Odds >= MIN_ODDS_OVER_05) {
+            // Normal Over 0.5 1H analysis (odds are acceptable)
             const valueResult = this.valueDetectionService.detectValueGoals(
               goalsResult,
               'over_05_1h',
@@ -1847,7 +1986,12 @@ export class NightlyAnalysisCron {
             }
           }
 
-          // Detect Asian Corners Handicap value
+          // ============================================================
+          // DISABLED: Asian Corners Handicap
+          // Reason: Not reliably available on betting sites like Bet365
+          // Use Over/Under Total Corners instead (see detectAllCornersValue)
+          // ============================================================
+          /*
           const handicapOdds = this.findCornersHandicapOdds(odds)
           if (handicapOdds) {
             const handicapValue =
@@ -1955,6 +2099,7 @@ export class NightlyAnalysisCron {
               } // end else (not duplicate)
             }
           }
+          */
         }
 
         // ====================================================================

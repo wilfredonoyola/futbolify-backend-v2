@@ -191,6 +191,15 @@ export class PickModelInputs {
   @Prop({ type: [String], default: [] })
   @Field(() => [String], { nullable: true, description: 'All bookmakers offering this market' })
   allBookmakers?: string[]
+
+  // Market switching (Over 0.5 -> Over 1.5 1H)
+  @Prop()
+  @Field(() => Float, { nullable: true, description: 'Original Over 0.5 1H odds when switched to Over 1.5' })
+  originalOver05Odds?: number
+
+  @Prop()
+  @Field({ nullable: true, description: 'True if market was switched from Over 0.5 to Over 1.5 1H' })
+  switchedToOver15?: boolean
 }
 
 export const PickModelInputsSchema =
