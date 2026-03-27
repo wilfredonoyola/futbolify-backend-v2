@@ -19,6 +19,48 @@
 
 ---
 
+## ⚠️ Proyecto Separado: Betting
+
+> **IMPORTANTE:** El módulo de Betting es un **proyecto independiente** que requiere tratamiento especial.
+
+### Por qué está separado
+
+| Razón | Detalle |
+|-------|---------|
+| **💰 Dinero real** | Involucra apuestas con dinero real |
+| **📜 Regulaciones** | Requiere licencias de gambling por país |
+| **🔒 Compliance** | KYC, AML, protección al consumidor |
+| **⚖️ Legal** | Diferentes leyes por jurisdicción |
+| **🏦 Pagos** | Integración con procesadores especializados |
+
+### Estado Actual
+
+- El código existe en `src/betting/` del backend
+- Funciona como bot de Telegram (@FutbolifyBettingBot)
+- **NO es parte del producto principal de Futbolify**
+- Se desarrollará/lanzará de forma independiente cuando se tengan las licencias
+
+### Productos Principales (Este Roadmap)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              FUTBOLIFY - PRODUCTOS CORE                  │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│   1. 🏆 QUINIELAS      ← Producto principal             │
+│   2. 📱 FEED SOCIAL    ← Contenido viral                │
+│   3. 💬 CHAT           ← Comunidad                      │
+│   4. 📊 SEO/DATA       ← Adquisición (solo web)        │
+│                                                          │
+│   ─────────────────────────────────────────────────     │
+│                                                          │
+│   🎰 BETTING           ← PROYECTO SEPARADO (futuro)     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## BACKEND (futbolify-backend-v2)
 
 > **El core que manda todo.** NestJS + GraphQL + MongoDB
@@ -42,9 +84,7 @@ src/
 ├── auth/           # Autenticacion (Cognito + JWT)
 ├── users/          # Usuarios y perfiles
 ├── matches/        # Partidos en vivo (API-Football)
-├── betting/        # Sistema de apuestas (Telegram bot incluido)
-├── goal-guru/      # Analisis G1H (Anthropic)
-├── quiniela/       # Core quinielas
+├── quiniela/       # Core quinielas ← PRODUCTO PRINCIPAL
 ├── telegram/       # Bot quinielas Telegram
 ├── notifications/  # Sistema multi-canal
 ├── feed/           # Feed social
@@ -54,7 +94,10 @@ src/
 ├── firebase/       # Push + RT Database
 ├── email/          # AWS SES
 ├── bunny/          # CDN media
-└── common/         # Redis cache, utils
+├── common/         # Redis cache, utils
+│
+├── betting/        # ⚠️ PROYECTO SEPARADO (ver nota arriba)
+└── goal-guru/      # ⚠️ Parte de Betting
 ```
 
 ### APIs Integradas
