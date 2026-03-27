@@ -316,7 +316,8 @@ export class ValueDetectionService {
    * @param oddsOver Decimal odds for Over
    * @param oddsUnder Decimal odds for Under
    * @param bookmaker Bookmaker name
-   * @param sampleSize Optional: Sample size for significance testing
+   * @param teamAGames Optional: Team A games for validation
+   * @param teamBGames Optional: Team B games for validation
    */
   detectValueCorners(
     scoringResult: CornersScoringResult,
@@ -324,7 +325,8 @@ export class ValueDetectionService {
     oddsOver: number,
     oddsUnder: number,
     bookmaker: string = 'unknown',
-    sampleSize?: number
+    teamAGames?: number,
+    teamBGames?: number
   ): ValueResult {
     // Get our probabilities for this line
     const probs = scoringResult.probByLine.get(line)
@@ -346,10 +348,17 @@ export class ValueDetectionService {
     }
 
     // MINIMUM SAMPLE SIZE CHECK for corners
+    // Reject if EITHER team has < 3 games (same logic as goals)
     const MIN_GAMES_FOR_VALUE = 3
-    if (sampleSize !== undefined && sampleSize < MIN_GAMES_FOR_VALUE) {
+    const eitherTeamLacksData =
+      teamAGames !== undefined &&
+      teamBGames !== undefined &&
+      (teamAGames < MIN_GAMES_FOR_VALUE || teamBGames < MIN_GAMES_FOR_VALUE)
+
+    if (eitherTeamLacksData) {
       this.logger.debug(
-        `Rejecting corners line ${line}: insufficient data (${sampleSize} games < ${MIN_GAMES_FOR_VALUE} required)`
+        `Rejecting corners line ${line}: insufficient data ` +
+        `(teamA=${teamAGames}, teamB=${teamBGames}, BOTH need >= ${MIN_GAMES_FOR_VALUE})`
       )
       return {
         hasValue: false,
@@ -427,9 +436,14 @@ export class ValueDetectionService {
     }
 
     // Check statistical significance if sample size provided
+    // Use minimum of both teams for conservative estimate
     let isStatisticallySignificant = true
     let marginOfError = 0
-    if (sampleSize) {
+    const sampleSize = teamAGames !== undefined && teamBGames !== undefined
+      ? Math.min(teamAGames, teamBGames)
+      : undefined
+
+    if (sampleSize && sampleSize >= 3) {
       const significance = this.isEdgeSignificant(probOwn, probImplied, sampleSize)
       isStatisticallySignificant = significance.isSignificant
       marginOfError = significance.marginOfError

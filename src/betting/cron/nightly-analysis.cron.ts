@@ -1779,7 +1779,9 @@ export class NightlyAnalysisCron {
                 line,
                 cornersOdds.over,
                 cornersOdds.under,
-                'API-Football'
+                'API-Football',
+                teamAStats.gamesPlayed,
+                teamBStats.gamesPlayed
               )
 
               if (valueResult.hasValue) {
