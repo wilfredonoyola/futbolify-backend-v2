@@ -336,9 +336,8 @@ export class NightlyAnalysisCron {
   })
   async runPickScanner(): Promise<void> {
     // At 7 PM, always scan tomorrow's matches
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const targetDate = tomorrow.toISOString().split('T')[0]
+    // IMPORTANT: Use El Salvador timezone, not server timezone (UTC on Heroku)
+    const targetDate = this.getTomorrowDateString()
 
     this.logger.log(
       `🔍 Pick Scanner triggered at 7 PM - Scanning MAÑANA (${targetDate})`
