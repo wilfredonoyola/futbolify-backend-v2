@@ -336,8 +336,8 @@ export class NightlyAnalysisCron {
   })
   async runPickScanner(): Promise<void> {
     // At 7 PM, always scan tomorrow's matches
-    // IMPORTANT: Use El Salvador timezone, not server timezone (UTC on Heroku)
-    const targetDate = this.getTomorrowDateString()
+    // Use user's timezone from settings (not server timezone)
+    const targetDate = await this.getTomorrowDateStringAsync()
 
     this.logger.log(
       `🔍 Pick Scanner triggered at 7 PM - Scanning MAÑANA (${targetDate})`
@@ -347,33 +347,34 @@ export class NightlyAnalysisCron {
   }
 
   /**
-   * Determine which date to scan based on current hour (El Salvador time)
+   * Determine which date to scan based on current hour (user's timezone)
    *
    * 6 AM - 6 PM: Scan today (markets for today's matches are available)
    * 6 PM - 6 AM: Scan tomorrow (prepare for next day)
    */
-  private getSmartTargetDate(): { targetDate: string; isToday: boolean; hour: number } {
+  private async getSmartTargetDate(): Promise<{ targetDate: string; isToday: boolean; hour: number; timezone: string }> {
+    const timezone = await this.getUserTimezone()
     const now = new Date()
-    const elSalvadorTime = new Date(
-      now.toLocaleString('en-US', { timeZone: 'America/El_Salvador' })
+    const localTime = new Date(
+      now.toLocaleString('en-US', { timeZone: timezone })
     )
 
-    const hour = elSalvadorTime.getHours()
+    const hour = localTime.getHours()
     const isToday = hour >= 6 && hour < 18 // 6 AM to 6 PM = scan today
 
     if (isToday) {
       // Return today's date
-      const year = elSalvadorTime.getFullYear()
-      const month = String(elSalvadorTime.getMonth() + 1).padStart(2, '0')
-      const day = String(elSalvadorTime.getDate()).padStart(2, '0')
-      return { targetDate: `${year}-${month}-${day}`, isToday: true, hour }
+      const year = localTime.getFullYear()
+      const month = String(localTime.getMonth() + 1).padStart(2, '0')
+      const day = String(localTime.getDate()).padStart(2, '0')
+      return { targetDate: `${year}-${month}-${day}`, isToday: true, hour, timezone }
     } else {
       // Return tomorrow's date
-      elSalvadorTime.setDate(elSalvadorTime.getDate() + 1)
-      const year = elSalvadorTime.getFullYear()
-      const month = String(elSalvadorTime.getMonth() + 1).padStart(2, '0')
-      const day = String(elSalvadorTime.getDate()).padStart(2, '0')
-      return { targetDate: `${year}-${month}-${day}`, isToday: false, hour }
+      localTime.setDate(localTime.getDate() + 1)
+      const year = localTime.getFullYear()
+      const month = String(localTime.getMonth() + 1).padStart(2, '0')
+      const day = String(localTime.getDate()).padStart(2, '0')
+      return { targetDate: `${year}-${month}-${day}`, isToday: false, hour, timezone }
     }
   }
 
@@ -2393,20 +2394,43 @@ export class NightlyAnalysisCron {
   }
 
   /**
-   * Get tomorrow's date string in El Salvador timezone
+   * Get user's timezone from settings
+   * Falls back to America/El_Salvador if not configured
    */
-  private getTomorrowDateString(): string {
-    // Get current date in El Salvador timezone
+  private async getUserTimezone(): Promise<string> {
+    const settings = await this.bettingSettingsModel.findOne().exec()
+    return settings?.timezone || 'America/El_Salvador'
+  }
+
+  /**
+   * Get tomorrow's date string in user's timezone (from settings)
+   */
+  private async getTomorrowDateStringAsync(): Promise<string> {
+    const timezone = await this.getUserTimezone()
+    return this.calculateTomorrowDate(timezone)
+  }
+
+  /**
+   * Get tomorrow's date string (sync version with explicit timezone)
+   */
+  private getTomorrowDateString(timezone: string = 'America/El_Salvador'): string {
+    return this.calculateTomorrowDate(timezone)
+  }
+
+  /**
+   * Calculate tomorrow's date in a specific timezone
+   */
+  private calculateTomorrowDate(timezone: string): string {
     const now = new Date()
-    const elSalvadorTime = new Date(
-      now.toLocaleString('en-US', { timeZone: 'America/El_Salvador' })
+    const localTime = new Date(
+      now.toLocaleString('en-US', { timeZone: timezone })
     )
     // Add 1 day
-    elSalvadorTime.setDate(elSalvadorTime.getDate() + 1)
+    localTime.setDate(localTime.getDate() + 1)
     // Format as YYYY-MM-DD
-    const year = elSalvadorTime.getFullYear()
-    const month = String(elSalvadorTime.getMonth() + 1).padStart(2, '0')
-    const day = String(elSalvadorTime.getDate()).padStart(2, '0')
+    const year = localTime.getFullYear()
+    const month = String(localTime.getMonth() + 1).padStart(2, '0')
+    const day = String(localTime.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
   }
 
