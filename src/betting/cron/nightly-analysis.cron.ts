@@ -1813,6 +1813,17 @@ export class NightlyAnalysisCron {
                   continue
                 }
 
+                // FILTER: Minimum sample size for corners (higher than goals)
+                // Corners data is less reliable, need more games for confidence
+                const MIN_GAMES_CORNERS = 5
+                if (teamAStats.gamesPlayed < MIN_GAMES_CORNERS || teamBStats.gamesPlayed < MIN_GAMES_CORNERS) {
+                  this.logger.debug(
+                    `Skip corners ${fixture.homeTeamName} vs ${fixture.awayTeamName}: insufficient data ` +
+                    `(${teamAStats.gamesPlayed}+${teamBStats.gamesPlayed} games, need ${MIN_GAMES_CORNERS}+ each)`
+                  )
+                  continue
+                }
+
                 const market = this.getCornersMarketType(
                   line,
                   valueResult.direction

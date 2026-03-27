@@ -75,7 +75,26 @@
       "Bash(npx:*)",
       "Bash(mongo:*)",
       "Bash(git reset:*)",
-      "WebFetch(domain:thepickspro.com)"
+      "WebFetch(domain:thepickspro.com)",
+      "Bash(npm run typecheck:*)",
+      "Bash(xargs:*)",
+      "Bash(for file in /Users/wilfredonoyola/workspace/futbolify/futbolify-backend-v2/src/betting/cron/*.ts)",
+      "Bash(do basename $file grep -A1 @Cron $file)",
+      "Bash(git -C /Users/wilfredonoyola/workspace/futbolify/futbolify-web-v2 status)",
+      "Bash(git tag:*)",
+      "Bash(wc:*)",
+      "Bash(for date in 2026-03-29 2026-03-30 2026-03-31)",
+      "Bash(do echo \"=== $date ===\" curl -s \"http://localhost:3001/betting/test/diagnose-all?date=$date\")",
+      "WebFetch(domain:maestro.dev)",
+      "WebFetch(domain:docs.maestro.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api-sports.io)",
+      "Bash(node /tmp/check-results.js:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:help.bet365.com)",
+      "WebFetch(domain:www.pinnacle.com)",
+      "WebFetch(domain:www.pinnacleoddsdropper.com)",
+      "WebFetch(domain:www.thepunterspage.com)"
     ]
   }
 }
