@@ -1542,6 +1542,14 @@ export class NightlyAnalysisCron {
             )
 
             if (valueResult.hasValue) {
+              // FILTER: Minimum stars (exclude weak picks)
+              const MIN_STARS = 3
+              const stars = this.calculateStars(valueResult.edge)
+              if (stars < MIN_STARS) {
+                this.logger.debug(
+                  `Skip Over 0.5 1H ${fixture.homeTeamName} vs ${fixture.awayTeamName}: ${stars} stars < ${MIN_STARS} required`
+                )
+              } else {
               // Check if pick already exists for this fixture+market
               const alreadyExists = await this.pickExists(fixture.fixtureId, MarketType.OVER_05_1H)
               if (alreadyExists) {
@@ -1636,6 +1644,7 @@ export class NightlyAnalysisCron {
               })
               fixtureGeneratedPick = true
               } // end else (not duplicate)
+              } // end else (stars >= MIN_STARS)
             }
           }
         }
@@ -1785,6 +1794,25 @@ export class NightlyAnalysisCron {
               )
 
               if (valueResult.hasValue) {
+                // FILTER: Minimum odds for corners (same as Over 0.5 1H)
+                const MIN_ODDS_CORNERS = 1.40
+                if (valueResult.bestOdds < MIN_ODDS_CORNERS) {
+                  this.logger.debug(
+                    `Skip corners ${fixture.homeTeamName} vs ${fixture.awayTeamName}: odds ${valueResult.bestOdds} < ${MIN_ODDS_CORNERS}`
+                  )
+                  continue
+                }
+
+                // FILTER: Minimum stars (exclude weak picks)
+                const MIN_STARS = 3
+                const stars = this.calculateStars(valueResult.edge)
+                if (stars < MIN_STARS) {
+                  this.logger.debug(
+                    `Skip corners ${fixture.homeTeamName} vs ${fixture.awayTeamName}: ${stars} stars < ${MIN_STARS} required`
+                  )
+                  continue
+                }
+
                 const market = this.getCornersMarketType(
                   line,
                   valueResult.direction
