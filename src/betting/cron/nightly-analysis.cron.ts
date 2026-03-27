@@ -2037,11 +2037,9 @@ export class NightlyAnalysisCron {
           }
 
           // ============================================================
-          // DISABLED: Asian Corners Handicap
-          // Reason: Not reliably available on betting sites like Bet365
-          // Use Over/Under Total Corners instead (see detectAllCornersValue)
+          // Asian Corners Handicap
+          // Note: Bet365 may show lines as whole numbers (9, 10) instead of 9.5
           // ============================================================
-          /*
           const handicapOdds = this.findCornersHandicapOdds(odds)
           if (handicapOdds) {
             const handicapValue =
@@ -2145,11 +2143,9 @@ export class NightlyAnalysisCron {
                 },
               })
               fixtureGeneratedPick = true
-              fixtureGeneratedPick = true
               } // end else (not duplicate)
             }
           }
-          */
         }
 
         // ====================================================================

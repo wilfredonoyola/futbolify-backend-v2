@@ -1,8 +1,18 @@
 # Sistema de Betting GolPicks - Documentación Técnica Completa
 
-> **Versión:** 1.0.0
-> **Última actualización:** 2026-03-26
+> **Versión:** 1.1.0
+> **Última actualización:** 2026-03-27
 > **Changelog:** [CHANGELOG.md](./CHANGELOG.md)
+
+---
+
+## Estado Actual de Mercados
+
+| Mercado | Estado | Filtros |
+|---------|--------|---------|
+| **Goles 1H (Over 0.5)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=3 |
+| **Corners (Over/Under)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=5 |
+| **Corners Handicap** | ✅ ACTIVO | Líneas pueden ser enteras (9, 10) en Bet365 |
 
 ---
 
