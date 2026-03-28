@@ -871,8 +871,11 @@ export class NightlyAnalysisCron {
 
       // Smart Telegram Alerts: Only notify for NEW picks (not already notified)
       // Use MUTEX + ATOMIC approach to prevent duplicate alerts when multiple scans run concurrently
-      const targetDateStart = new Date(`${tomorrowDate}T00:00:00.000Z`)
-      const targetDateEnd = new Date(`${tomorrowDate}T23:59:59.999Z`)
+      // IMPORTANT: Convert local date to UTC range for correct querying
+      // For date "2026-03-28" in El Salvador (UTC-6):
+      //   Start: 2026-03-28 00:00 local = 2026-03-28 06:00 UTC
+      //   End: 2026-03-28 23:59 local = 2026-03-29 05:59 UTC
+      const { start: targetDateStart, end: targetDateEnd } = this.getLocalDateRangeInUTC(tomorrowDate, timezone)
 
       // Check if another scan is already handling notifications for this date
       if (this.telegramNotificationLocks.get(tomorrowDate)) {
@@ -2437,6 +2440,57 @@ export class NightlyAnalysisCron {
     const month = String(localTime.getMonth() + 1).padStart(2, '0')
     const day = String(localTime.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
+  }
+
+  /**
+   * Convert a local date string to UTC date range for database queries
+   *
+   * Example for "2026-03-28" in El Salvador (UTC-6):
+   *   Start: 2026-03-28 00:00 local = 2026-03-28 06:00 UTC
+   *   End: 2026-03-28 23:59 local = 2026-03-29 05:59 UTC
+   *
+   * This ensures that queries by kickoff time correctly match local dates
+   */
+  private getLocalDateRangeInUTC(localDate: string, timezone: string): { start: Date; end: Date } {
+    // Create start and end of day in local timezone, then convert to UTC
+    // Use Intl.DateTimeFormat to get the UTC offset for this timezone
+    const startLocal = new Date(`${localDate}T00:00:00`)
+    const endLocal = new Date(`${localDate}T23:59:59.999`)
+
+    // Get the offset by comparing local interpretation vs UTC
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    })
+
+    // Parse the local date in the target timezone
+    // Create a reference date at midnight local time
+    const refDate = new Date(`${localDate}T12:00:00Z`) // Noon UTC to avoid DST edge cases
+    const parts = formatter.formatToParts(refDate)
+
+    const refHour = parseInt(parts.find(p => p.type === 'hour')?.value || '12')
+    const offsetHours = refHour - 12 // Difference from UTC
+
+    // Calculate UTC times
+    // For El Salvador (UTC-6): offsetHours = 6 (local is 6 hours behind UTC)
+    // So midnight local = 06:00 UTC
+    const startUTC = new Date(`${localDate}T00:00:00Z`)
+    startUTC.setHours(startUTC.getHours() - offsetHours)
+
+    const endUTC = new Date(`${localDate}T23:59:59.999Z`)
+    endUTC.setHours(endUTC.getHours() - offsetHours)
+
+    this.logger.debug(
+      `Local date ${localDate} (${timezone}) -> UTC range: ${startUTC.toISOString()} to ${endUTC.toISOString()}`
+    )
+
+    return { start: startUTC, end: endUTC }
   }
 
   /**
