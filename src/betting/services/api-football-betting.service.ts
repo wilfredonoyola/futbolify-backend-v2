@@ -243,6 +243,89 @@ export class ApiFootballBettingService {
   }
 
   /**
+   * Get fixtures for a specific LOCAL date accounting for UTC timezone issues
+   *
+   * API-Football stores fixtures in UTC, so evening matches (e.g., 7 PM local)
+   * appear as the next day in UTC. This method:
+   * 1. Queries both the target date AND the next day (UTC)
+   * 2. Filters to only include fixtures that fall on the target date in user's timezone
+   *
+   * @param localDate - Target date in YYYY-MM-DD format (user's local date)
+   * @param leagueId - League ID
+   * @param season - Season year
+   * @param timezone - User's timezone (e.g., 'America/El_Salvador')
+   */
+  async getFixturesForLocalDate(
+    localDate: string,
+    leagueId: number,
+    season: string = '2025',
+    timezone: string = 'America/El_Salvador'
+  ): Promise<BettingFixture[]> {
+    const cacheKey = `betting:fixtures:local:${localDate}:${leagueId}:${timezone}`
+
+    const cached = await this.redisCache.get<BettingFixture[]>(cacheKey)
+    if (cached) {
+      this.logger.debug(`Cache hit for local fixtures ${localDate} league ${leagueId}`)
+      return cached
+    }
+
+    // Calculate the next day to also query
+    const targetDate = new Date(localDate + 'T00:00:00Z')
+    const nextDate = new Date(targetDate)
+    nextDate.setDate(nextDate.getDate() + 1)
+    const nextDateStr = nextDate.toISOString().split('T')[0]
+
+    this.logger.debug(
+      `Querying fixtures for local date ${localDate} (timezone: ${timezone}): ` +
+      `UTC dates ${localDate} and ${nextDateStr}`
+    )
+
+    // Fetch from both dates
+    const [fixturesDay1, fixturesDay2] = await Promise.all([
+      this.getFixtures(localDate, leagueId, season),
+      this.getFixtures(nextDateStr, leagueId, season)
+    ])
+
+    // Combine and dedupe
+    const allFixtures = [...fixturesDay1, ...fixturesDay2]
+    const uniqueFixtures = allFixtures.filter(
+      (f, idx, arr) => arr.findIndex(x => x.fixtureId === f.fixtureId) === idx
+    )
+
+    // Filter to only fixtures that fall on localDate in user's timezone
+    const filtered = uniqueFixtures.filter(f => {
+      const kickoffDate = new Date(f.kickoff)
+      const localDateStr = this.getLocalDateString(kickoffDate, timezone)
+      return localDateStr === localDate
+    })
+
+    this.logger.log(
+      `Fetched ${filtered.length} fixtures for local date ${localDate} ` +
+      `(from ${fixturesDay1.length} + ${fixturesDay2.length} UTC fixtures)`
+    )
+
+    await this.redisCache.set(cacheKey, filtered, CACHE_TTL.FIXTURES)
+    return filtered
+  }
+
+  /**
+   * Convert a UTC date to local date string (YYYY-MM-DD) in specified timezone
+   */
+  private getLocalDateString(utcDate: Date, timezone: string): string {
+    const options: Intl.DateTimeFormatOptions = {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }
+    const parts = new Intl.DateTimeFormat('en-CA', options).formatToParts(utcDate)
+    const year = parts.find(p => p.type === 'year')?.value
+    const month = parts.find(p => p.type === 'month')?.value
+    const day = parts.find(p => p.type === 'day')?.value
+    return `${year}-${month}-${day}`
+  }
+
+  /**
    * Get team statistics for betting analysis
    * Combines multiple API calls to build complete stats profile
    */

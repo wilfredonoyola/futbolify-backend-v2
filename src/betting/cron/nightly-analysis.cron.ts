@@ -523,9 +523,10 @@ export class NightlyAnalysisCron {
         return
       }
 
-      // Get target date (use override if provided, otherwise tomorrow)
-      const tomorrowDate = overrideDate || this.getTomorrowDateString()
-      this.logger.log(`Analyzing fixtures for ${dayLabel}: ${tomorrowDate}`)
+      // Get target date and timezone
+      const timezone = settings?.timezone || 'America/El_Salvador'
+      const tomorrowDate = overrideDate || this.getTomorrowDateString(timezone)
+      this.logger.log(`Analyzing fixtures for ${dayLabel}: ${tomorrowDate} (timezone: ${timezone})`)
 
       // Get active leagues
       const activeLeagues = await this.bettingLeagueModel
@@ -546,7 +547,8 @@ export class NightlyAnalysisCron {
           league,
           tomorrowDate,
           contexts,
-          settings.bankroll
+          settings.bankroll,
+          timezone
         )
 
         for (const pick of leaguePicks) {
@@ -1168,17 +1170,20 @@ export class NightlyAnalysisCron {
     league: BettingLeagueDocument,
     date: string,
     contexts: Map<number, any>,
-    bankroll: number
+    bankroll: number,
+    timezone: string = 'America/El_Salvador'
   ): Promise<{ picks: Array<{ leg: ComboLeg; document: Partial<BettingPick> }>; fixturesCount: number }> {
     const picks: Array<{ leg: ComboLeg; document: Partial<BettingPick> }> = []
     let fixturesCount = 0
 
     try {
-      // Get fixtures for this league (cheap: 1 API call)
-      const fixtures = await this.apiFootballService.getFixtures(
+      // Get fixtures for this league using LOCAL date with timezone
+      // This handles UTC date issues where evening matches appear as next day in UTC
+      const fixtures = await this.apiFootballService.getFixturesForLocalDate(
         date,
         league.apiFootballId,
-        league.season || '2025'
+        league.season || '2025',
+        timezone
       )
 
       if (!fixtures || fixtures.length === 0) {
