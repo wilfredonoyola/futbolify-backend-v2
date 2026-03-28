@@ -670,22 +670,33 @@ export class BettingTestController {
         return { error: 'No settings found' }
       }
 
-      // Use provided date or default to tomorrow
-      let targetDate: Date
-      if (date) {
-        targetDate = new Date(`${date}T00:00:00.000Z`)
-      } else {
-        targetDate = new Date()
-        targetDate.setDate(targetDate.getDate() + 1)
-        targetDate.setHours(0, 0, 0, 0)
-      }
-      const dayAfter = new Date(targetDate)
-      dayAfter.setDate(dayAfter.getDate() + 1)
+      // Get user's timezone from settings
+      const timezone = settings.timezone || 'America/El_Salvador'
 
-      // Get picks for target date
+      // Use provided date or default to tomorrow in user's timezone
+      let localDateStr: string
+      if (date) {
+        localDateStr = date
+      } else {
+        const now = new Date()
+        const tomorrow = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        const year = tomorrow.getFullYear()
+        const month = String(tomorrow.getMonth() + 1).padStart(2, '0')
+        const day = String(tomorrow.getDate()).padStart(2, '0')
+        localDateStr = `${year}-${month}-${day}`
+      }
+
+      // Convert local date to UTC range for querying
+      // For "2026-03-28" in El Salvador (UTC-6):
+      //   Start: 2026-03-28 00:00 local = 2026-03-28 06:00 UTC
+      //   End: 2026-03-28 23:59 local = 2026-03-29 05:59 UTC
+      const { start: targetDateStart, end: targetDateEnd } = this.getLocalDateRangeInUTC(localDateStr, timezone)
+
+      // Get picks for target local date (using UTC range)
       const picks = await this.bettingPickModel
         .find({
-          kickoff: { $gte: targetDate, $lt: dayAfter },
+          kickoff: { $gte: targetDateStart, $lte: targetDateEnd },
         })
         .sort({ confidenceScore: -1 })
         .exec()
@@ -693,19 +704,22 @@ export class BettingTestController {
       // Get combos for target date
       const combos = await this.bettingComboModel
         .find({
-          'legs.kickoff': { $gte: targetDate, $lt: dayAfter },
+          'legs.kickoff': { $gte: targetDateStart, $lte: targetDateEnd },
         })
         .exec()
 
       if (picks.length === 0 && combos.length === 0) {
-        return { error: 'No picks or combos for date', date: targetDate.toISOString().split('T')[0] }
+        return { error: 'No picks or combos for date', date: localDateStr, timezone }
       }
 
       const totalExposure = picks.reduce((sum, p) => sum + (p.stake || 0), 0) +
         combos.reduce((sum, c) => sum + (c.stake || 0), 0)
 
+      // Create a date object for display that represents the local date
+      const displayDate = new Date(`${localDateStr}T12:00:00Z`)
+
       await this.telegramService.sendNightlyAnalysisAlert(
-        targetDate,
+        displayDate,
         picks,
         combos,
         picks.length,  // fixturesAnalyzed
@@ -718,7 +732,12 @@ export class BettingTestController {
       return {
         success: true,
         message: 'Nightly analysis alert sent',
-        date: targetDate.toISOString().split('T')[0],
+        date: localDateStr,
+        timezone,
+        utcRange: {
+          start: targetDateStart.toISOString(),
+          end: targetDateEnd.toISOString()
+        },
         picks: picks.length,
         combos: combos.length,
         totalExposure,
@@ -726,6 +745,29 @@ export class BettingTestController {
     } catch (error) {
       return { error: String(error) }
     }
+  }
+
+  /**
+   * Convert a local date string to UTC date range for database queries
+   */
+  private getLocalDateRangeInUTC(localDate: string, timezone: string): { start: Date; end: Date } {
+    const refDate = new Date(`${localDate}T12:00:00Z`)
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      hour12: false
+    })
+    const parts = formatter.formatToParts(refDate)
+    const refHour = parseInt(parts.find(p => p.type === 'hour')?.value || '12')
+    const offsetHours = refHour - 12
+
+    const startUTC = new Date(`${localDate}T00:00:00Z`)
+    startUTC.setHours(startUTC.getHours() - offsetHours)
+
+    const endUTC = new Date(`${localDate}T23:59:59.999Z`)
+    endUTC.setHours(endUTC.getHours() - offsetHours)
+
+    return { start: startUTC, end: endUTC }
   }
 
   /**
