@@ -41,26 +41,33 @@ function formatConfidenceBar(score: number): string {
 }
 
 /**
- * Format date for display (Spanish format)
- * Uses UTC to avoid timezone issues when date was created from ISO string
+ * Default timezone for display (user's local timezone)
  */
-function formatDate(date: Date): string {
+const DEFAULT_TIMEZONE = 'America/El_Salvador'
+
+/**
+ * Format date for display (Spanish format)
+ * Uses user's local timezone to show correct day
+ */
+function formatDate(date: Date, timezone: string = DEFAULT_TIMEZONE): string {
   return date.toLocaleDateString('es-ES', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    timeZone: 'UTC',
+    timeZone: timezone,
   }).toUpperCase()
 }
 
 /**
  * Format time for display (24h format)
+ * Uses user's local timezone
  */
-function formatTime(date: Date): string {
+function formatTime(date: Date, timezone: string = DEFAULT_TIMEZONE): string {
   return date.toLocaleTimeString('es-ES', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
+    timeZone: timezone,
   })
 }
 
