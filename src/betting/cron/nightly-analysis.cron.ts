@@ -2046,9 +2046,11 @@ export class NightlyAnalysisCron {
 
           // ============================================================
           // Asian Corners Handicap
-          // Note: Bet365 may show lines as whole numbers (9, 10) instead of 9.5
+          // DISABLED: Bet365 offers different lines than our model calculates.
+          // Our model calculates -2.5 but Bet365 only offers -1.0.
+          // Need to implement line validation before re-enabling.
           // ============================================================
-          const handicapOdds = this.findCornersHandicapOdds(odds)
+          const handicapOdds = null // DISABLED: this.findCornersHandicapOdds(odds)
           if (handicapOdds) {
             const handicapValue =
               this.valueDetectionService.detectValueCornersHandicap(
