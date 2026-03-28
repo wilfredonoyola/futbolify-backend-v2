@@ -1,6 +1,6 @@
 {
   "name": "futbolify-backend",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Backend API para Futbolify - plataforma de datos de fútbol y sistema de betting inteligente",
   "author": "Futbolify",
   "private": true,

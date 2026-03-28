@@ -1,6 +1,6 @@
 # Sistema de Betting GolPicks - Documentación Técnica Completa
 
-> **Versión:** 1.1.0
+> **Versión:** 1.2.0
 > **Última actualización:** 2026-03-27
 > **Changelog:** [CHANGELOG.md](./CHANGELOG.md)
 
@@ -12,7 +12,31 @@
 |---------|--------|---------|
 | **Goles 1H (Over 0.5)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=3 |
 | **Corners (Over/Under)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=5 |
-| **Corners Handicap** | ✅ ACTIVO | Líneas pueden ser enteras (9, 10) en Bet365 |
+| **Corners Handicap** | ⏸️ DESACTIVADO | Las líneas del modelo no coinciden con Bet365 |
+
+---
+
+## Configuración del Usuario
+
+| Setting | Valor Default | Descripción |
+|---------|---------------|-------------|
+| `maxPicksPerDay` | 5 | Máximo de picks generados por día |
+| `timezone` | America/El_Salvador | Zona horaria para fechas y alertas |
+| `bankroll` | 100 | Bankroll inicial en USD |
+
+---
+
+## Fixes v1.2.0 (2026-03-27)
+
+### Timezone Fixes
+- **Fixtures UTC**: Partidos nocturnos (ej. 11 PM local) ahora se encuentran correctamente
+  - El sistema consulta fecha local + fecha UTC siguiente y filtra por timezone
+- **Telegram fecha**: Header muestra fecha local correcta (no UTC)
+- **Filtro picks**: Picks se filtran por rango UTC convertido a timezone local
+
+### Corners Handicap
+- **Desactivado temporalmente**: El modelo calcula líneas (ej. -2.5) que no existen en Bet365
+- **Pendiente**: Implementar validación de líneas disponibles antes de generar pick
 
 ---
 
