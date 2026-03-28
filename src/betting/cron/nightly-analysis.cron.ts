@@ -564,13 +564,15 @@ export class NightlyAnalysisCron {
       )
 
       // PICK SELECTION WITH DIVERSIFICATION:
-      // 1. Filter picks with probability >= 60%
+      // 1. Filter picks with probability >= 65%
       // 2. Sort by probability (higher = better)
       // 3. Max 2 picks per match (fixtureId) for diversification
-      // 4. Max 5 picks total
-      const maxPicks = 5
+      // 4. Max picks from settings (default 5)
+      const maxPicks = settings.stakes?.maxPicksPerDay || 5
       const maxPicksPerMatch = 2
       const minProbability = 0.65 // Minimum 65% win probability
+
+      this.logger.log(`Pick limits: max ${maxPicks} picks/day, max ${maxPicksPerMatch} per match`)
 
       // Filter picks by minimum probability
       const qualifiedPicks = allValuePicks.filter(
