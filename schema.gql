@@ -2680,6 +2680,7 @@ enum TimeWindow {
 enum MarketType {
   OVER_05_1H
   OVER_15_1H
+  BTTS_1H
   OVER_75_CORNERS
   OVER_85_CORNERS
   OVER_95_CORNERS
