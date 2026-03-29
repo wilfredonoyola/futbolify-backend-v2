@@ -29,9 +29,28 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 **Configuración**
 - maxPicksPerDay: 5 → 8 (para alcanzar muestra estadística más rápido)
 
+**Combo Engine Mejorado (Multi-Mercado)**
+- GEMELA ahora soporta cualquier par de mercados correlacionados:
+  - Goals + Corners (clásico)
+  - Goals + Cards
+  - Goals + BTTS
+  - Corners + Cards
+  - BTTS + Corners
+  - BTTS + Cards
+- Nuevo: GEMELA_TRIPLE (3 mercados distintos en mismo partido)
+- Umbrales de correlación mínima variables por tipo de mercado:
+  - Goals + Corners: 0.30
+  - Goals + BTTS: 0.35
+  - Cards + otros: 0.20
+  - Default: 0.25
+- CROSS combos ahora detectan correctamente categorías (GOALS, BTTS, CORNERS, CARDS)
+- Actualizada matriz de correlación con BTTS_1H y Cards
+
 **Archivos modificados:**
 - `src/betting/services/scoring-cards.service.ts` (NUEVO)
 - `src/betting/services/scoring-goals.service.ts` (BTTS 1H)
+- `src/betting/services/combo-engine.service.ts` (multi-mercado GEMELA)
+- `src/betting/services/correlation.service.ts` (matriz actualizada)
 - `src/betting/cron/nightly-analysis.cron.ts` (integración)
 - `src/betting/enums/betting.enums.ts` (nuevos MarketTypes)
 - `src/betting/schemas/betting-pick.schema.ts` (campos cards)

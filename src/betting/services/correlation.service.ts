@@ -24,44 +24,101 @@ export interface CorrelationAdjustment {
 /**
  * Base correlation matrix between markets (same match)
  * From COMBINADAS doc section 1.2
+ *
+ * Updated v1.3.0: Added BTTS 1H and Cards markets
+ *
+ * Correlation logic:
+ * - Goals + BTTS: High (0.65) - both require attacking play
+ * - Goals + Corners: Medium (0.35) - attacking creates corners
+ * - Goals + Cards: Low (0.25) - open games may have fewer fouls
+ * - Corners + Cards: Medium-High (0.45) - pressing = corners + fouls
+ * - BTTS + Corners: Medium (0.40) - both teams attacking
+ * - BTTS + Cards: Medium (0.30) - competitive matches
  */
 const CORRELATION_MATRIX: Record<string, Record<string, number>> = {
   // Goals markets
   OVER_05_1H: {
     OVER_05_1H: 1.0,
     OVER_15_1H: 0.65,
+    BTTS_1H: 0.55,
     OVER_95_CORNERS: 0.35,
     OVER_45_CORNERS_1H: 0.4,
     CORNERS_HANDICAP: 0.15,
+    OVER_35_CARDS: 0.25,
+    OVER_45_CARDS: 0.25,
   },
   OVER_15_1H: {
     OVER_05_1H: 0.65,
     OVER_15_1H: 1.0,
+    BTTS_1H: 0.70,
     OVER_95_CORNERS: 0.45,
     OVER_45_CORNERS_1H: 0.5,
     CORNERS_HANDICAP: 0.2,
+    OVER_35_CARDS: 0.30,
+    OVER_45_CARDS: 0.30,
+  },
+  // BTTS 1H market
+  BTTS_1H: {
+    OVER_05_1H: 0.55,
+    OVER_15_1H: 0.70,
+    BTTS_1H: 1.0,
+    OVER_95_CORNERS: 0.40,
+    OVER_45_CORNERS_1H: 0.45,
+    CORNERS_HANDICAP: 0.15,
+    OVER_35_CARDS: 0.30,
+    OVER_45_CARDS: 0.30,
   },
   // Corners markets
   OVER_95_CORNERS: {
     OVER_05_1H: 0.35,
     OVER_15_1H: 0.45,
+    BTTS_1H: 0.40,
     OVER_95_CORNERS: 1.0,
     OVER_45_CORNERS_1H: 0.75,
     CORNERS_HANDICAP: 0.55,
+    OVER_35_CARDS: 0.45,
+    OVER_45_CARDS: 0.45,
   },
   OVER_45_CORNERS_1H: {
     OVER_05_1H: 0.4,
     OVER_15_1H: 0.5,
+    BTTS_1H: 0.45,
     OVER_95_CORNERS: 0.75,
     OVER_45_CORNERS_1H: 1.0,
     CORNERS_HANDICAP: 0.5,
+    OVER_35_CARDS: 0.40,
+    OVER_45_CARDS: 0.40,
   },
   CORNERS_HANDICAP: {
     OVER_05_1H: 0.15,
     OVER_15_1H: 0.2,
+    BTTS_1H: 0.15,
     OVER_95_CORNERS: 0.55,
     OVER_45_CORNERS_1H: 0.5,
     CORNERS_HANDICAP: 1.0,
+    OVER_35_CARDS: 0.35,
+    OVER_45_CARDS: 0.35,
+  },
+  // Cards markets
+  OVER_35_CARDS: {
+    OVER_05_1H: 0.25,
+    OVER_15_1H: 0.30,
+    BTTS_1H: 0.30,
+    OVER_95_CORNERS: 0.45,
+    OVER_45_CORNERS_1H: 0.40,
+    CORNERS_HANDICAP: 0.35,
+    OVER_35_CARDS: 1.0,
+    OVER_45_CARDS: 0.80,
+  },
+  OVER_45_CARDS: {
+    OVER_05_1H: 0.25,
+    OVER_15_1H: 0.30,
+    BTTS_1H: 0.30,
+    OVER_95_CORNERS: 0.45,
+    OVER_45_CORNERS_1H: 0.40,
+    CORNERS_HANDICAP: 0.35,
+    OVER_35_CARDS: 0.80,
+    OVER_45_CARDS: 1.0,
   },
 }
 
@@ -392,13 +449,20 @@ export class CorrelationService {
   private normalizeMarketKey(market: MarketType | string): string {
     const m = String(market).toUpperCase()
 
-    // Map to matrix keys
-    if (m.includes('OVER') && m.includes('05') && m.includes('1H')) {
+    // BTTS 1H
+    if (m.includes('BTTS') && m.includes('1H')) {
+      return 'BTTS_1H'
+    }
+
+    // Goals markets
+    if (m.includes('OVER') && m.includes('05') && m.includes('1H') && !m.includes('CORNER') && !m.includes('CARD')) {
       return 'OVER_05_1H'
     }
-    if (m.includes('OVER') && m.includes('15') && m.includes('1H')) {
+    if (m.includes('OVER') && m.includes('15') && m.includes('1H') && !m.includes('CORNER') && !m.includes('CARD')) {
       return 'OVER_15_1H'
     }
+
+    // Corners markets
     if (m.includes('CORNER') && (m.includes('95') || m.includes('9.5'))) {
       return 'OVER_95_CORNERS'
     }
@@ -413,17 +477,37 @@ export class CorrelationService {
       return 'CORNERS_HANDICAP'
     }
 
+    // Cards markets
+    if (m.includes('CARD') && (m.includes('35') || m.includes('3.5'))) {
+      return 'OVER_35_CARDS'
+    }
+    if (m.includes('CARD') && (m.includes('45') || m.includes('4.5'))) {
+      return 'OVER_45_CARDS'
+    }
+    if (m.includes('CARD') && (m.includes('55') || m.includes('5.5'))) {
+      return 'OVER_45_CARDS' // Map to 4.5 for correlation purposes
+    }
+    if (m.includes('CARD') && (m.includes('25') || m.includes('2.5'))) {
+      return 'OVER_35_CARDS' // Map to 3.5 for correlation purposes
+    }
+
     // Return as-is if already normalized
     if (CORRELATION_MATRIX[m]) {
       return m
     }
 
-    // Default to OVER_05_1H for goals, OVER_95_CORNERS for corners
+    // Defaults by market type
+    if (this.isBTTSMarket(m)) {
+      return 'BTTS_1H'
+    }
     if (this.isGoalsMarket(m)) {
       return 'OVER_05_1H'
     }
     if (this.isCornersMarket(m)) {
       return 'OVER_95_CORNERS'
+    }
+    if (this.isCardsMarket(m)) {
+      return 'OVER_35_CARDS'
     }
 
     return m
@@ -432,13 +516,25 @@ export class CorrelationService {
   private isGoalsMarket(market: string): boolean {
     const m = market.toUpperCase()
     return (
-      m.includes('GOAL') ||
-      (m.includes('OVER') && m.includes('1H') && !m.includes('CORNER'))
+      (m.includes('GOAL') || (m.includes('OVER') && m.includes('1H'))) &&
+      !m.includes('CORNER') &&
+      !m.includes('CARD') &&
+      !m.includes('BTTS')
     )
   }
 
   private isCornersMarket(market: string): boolean {
     const m = market.toUpperCase()
     return m.includes('CORNER')
+  }
+
+  private isCardsMarket(market: string): boolean {
+    const m = market.toUpperCase()
+    return m.includes('CARD') || m.includes('TARJETA')
+  }
+
+  private isBTTSMarket(market: string): boolean {
+    const m = market.toUpperCase()
+    return m.includes('BTTS')
   }
 }

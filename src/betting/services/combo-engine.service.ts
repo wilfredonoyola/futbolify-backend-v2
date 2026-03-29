@@ -128,7 +128,7 @@ export class ComboEngineService {
     const timeWindows = this.groupByTimeWindow(valuePicks)
 
     // ================================================
-    // STEP 1: Generate GEMELA combos (same match)
+    // STEP 1: Generate GEMELA combos (same match, multiple markets)
     // ================================================
     const gemelas: GeneratedCombo[] = []
 
@@ -137,18 +137,66 @@ export class ComboEngineService {
       const cornersPicks = fixturePicks.filter((p) =>
         this.isCornersMarket(p.market)
       )
+      const cardsPicks = fixturePicks.filter((p) => this.isCardsMarket(p.market))
+      const bttsPicks = fixturePicks.filter((p) => this.isBTTSMarket(p.market))
 
-      if (goalsPicks.length > 0 && cornersPicks.length > 0) {
-        // Find best goal and corner pick
-        const bestGoal = this.selectBestPick(goalsPicks)
-        const bestCorner = this.selectBestPick(cornersPicks)
+      const context = contexts.get(fixtureId)
 
-        const context = contexts.get(fixtureId)
-        const gemela = this.createGemela(bestGoal, bestCorner, context)
+      // Define all valid market pairs for GEMELA (correlation > 0.25)
+      const marketPairs: Array<{
+        pickListA: ComboLeg[]
+        pickListB: ComboLeg[]
+        name: string
+      }> = [
+        { pickListA: goalsPicks, pickListB: cornersPicks, name: 'Goals+Corners' },
+        { pickListA: goalsPicks, pickListB: cardsPicks, name: 'Goals+Cards' },
+        { pickListA: goalsPicks, pickListB: bttsPicks, name: 'Goals+BTTS' },
+        { pickListA: cornersPicks, pickListB: cardsPicks, name: 'Corners+Cards' },
+        { pickListA: bttsPicks, pickListB: cornersPicks, name: 'BTTS+Corners' },
+        { pickListA: bttsPicks, pickListB: cardsPicks, name: 'BTTS+Cards' },
+      ]
 
-        if (gemela && gemela.evReal >= EV_THRESHOLDS[ComboType.GEMELA].min) {
-          gemelas.push(gemela)
-          allCombos.push(gemela)
+      // Generate GEMELA for each valid pair
+      for (const { pickListA, pickListB, name } of marketPairs) {
+        if (pickListA.length > 0 && pickListB.length > 0) {
+          const bestA = this.selectBestPick(pickListA)
+          const bestB = this.selectBestPick(pickListB)
+
+          const gemela = this.createGemela(bestA, bestB, context)
+
+          if (gemela && gemela.evReal >= EV_THRESHOLDS[ComboType.GEMELA].min) {
+            this.logger.debug(
+              `GEMELA ${name}: fixture ${fixtureId}, EV=${(gemela.evReal * 100).toFixed(1)}%`
+            )
+            gemelas.push(gemela)
+            allCombos.push(gemela)
+          }
+        }
+      }
+
+      // Generate GEMELA_TRIPLE if 3+ different market categories available
+      const marketCategories = [
+        { picks: goalsPicks, category: 'GOALS' },
+        { picks: cornersPicks, category: 'CORNERS' },
+        { picks: cardsPicks, category: 'CARDS' },
+        { picks: bttsPicks, category: 'BTTS' },
+      ].filter((m) => m.picks.length > 0)
+
+      if (marketCategories.length >= 3) {
+        // Select best pick from each category
+        const bestPicks = marketCategories
+          .map((m) => this.selectBestPick(m.picks))
+          .slice(0, 3) // Take top 3
+
+        const tripleGemela = this.createTripleGemela(bestPicks, context)
+        if (
+          tripleGemela &&
+          tripleGemela.evReal >= EV_THRESHOLDS[ComboType.TRIPLE_CORRELACIONADO].min
+        ) {
+          this.logger.debug(
+            `GEMELA_TRIPLE: fixture ${fixtureId}, EV=${(tripleGemela.evReal * 100).toFixed(1)}%`
+          )
+          allCombos.push(tripleGemela)
         }
       }
     }
@@ -234,42 +282,43 @@ export class ComboEngineService {
   }
 
   /**
-   * Create a GEMELA combo (same match: goals + corners)
+   * Create a GEMELA combo (same match: any two correlated markets)
    */
   createGemela(
-    goalsLeg: ComboLeg,
-    cornersLeg: ComboLeg,
+    legA: ComboLeg,
+    legB: ComboLeg,
     context?: MatchContext
   ): GeneratedCombo | null {
     // Calculate correlation
     const corrResult = this.correlationService.calculateDynamicCorrelation(
-      { fixtureId: goalsLeg.fixtureId, leagueId: goalsLeg.leagueId } as BettingFixture,
-      goalsLeg.market,
-      cornersLeg.market,
-      goalsLeg.teamAStats!,
-      goalsLeg.teamBStats!
+      { fixtureId: legA.fixtureId, leagueId: legA.leagueId } as BettingFixture,
+      legA.market,
+      legB.market,
+      legA.teamAStats!,
+      legA.teamBStats!
     )
 
-    // Check minimum correlation threshold
-    if (corrResult.finalCorrelation < 0.3) {
+    // Check minimum correlation threshold (lower for niche markets)
+    const minCorrelation = this.getMinCorrelationForMarkets(legA.market, legB.market)
+    if (corrResult.finalCorrelation < minCorrelation) {
       this.logger.debug(
-        `GEMELA rejected: correlation ${corrResult.finalCorrelation.toFixed(2)} < 0.30`
+        `GEMELA rejected: correlation ${corrResult.finalCorrelation.toFixed(2)} < ${minCorrelation.toFixed(2)}`
       )
       return null
     }
 
     // Combined odds
-    const combinedOdds = goalsLeg.odds * cornersLeg.odds
+    const combinedOdds = legA.odds * legB.odds
 
     // Joint probability with correlation
     const pJoint = this.correlationService.jointProbability(
-      goalsLeg.probOwn,
-      cornersLeg.probOwn,
+      legA.probOwn,
+      legB.probOwn,
       corrResult.finalCorrelation
     )
 
     // Independent probability (bookmaker's assumption)
-    const pCasa = goalsLeg.probOwn * cornersLeg.probOwn
+    const pCasa = legA.probOwn * legB.probOwn
 
     // EV calculations
     const evReal = pJoint * combinedOdds - 1
@@ -277,7 +326,7 @@ export class ComboEngineService {
     const hiddenEdge = evReal - evCasa
 
     // Build legs array
-    const legs: ComboLeg[] = [goalsLeg, cornersLeg]
+    const legs: ComboLeg[] = [legA, legB]
 
     // Calculate score
     const { score, breakdown } = this.scoreCombo(
@@ -336,15 +385,18 @@ export class ComboEngineService {
         // Skip if same fixture
         if (pickA.fixtureId === pickB.fixtureId) continue
 
-        // Determine combo type
-        const sameMarketType =
-          this.isGoalsMarket(pickA.market) === this.isGoalsMarket(pickB.market)
+        // Determine combo type using market categories
+        const catA = this.getMarketCategory(pickA.market)
+        const catB = this.getMarketCategory(pickB.market)
+        const sameMarketCategory = catA === catB
         const sameLeague = pickA.leagueId === pickB.leagueId
 
         // Skip same league (correlated by external factors)
         if (sameLeague) continue
 
-        const comboType = sameMarketType
+        // CROSS_LIGA = same market, different league
+        // CROSS_MERCADO = different markets, different leagues
+        const comboType = sameMarketCategory
           ? ComboType.CROSS_LIGA
           : ComboType.CROSS_MERCADO
 
@@ -519,6 +571,127 @@ export class ComboEngineService {
   }
 
   /**
+   * Create a TRIPLE_GEMELA combo (same match: 3 different markets)
+   * High correlation same-match combo with 3 picks
+   */
+  createTripleGemela(
+    picks: ComboLeg[],
+    context?: MatchContext
+  ): GeneratedCombo | null {
+    if (picks.length < 3) return null
+
+    const [legA, legB, legC] = picks
+
+    // Calculate pairwise correlations
+    const corrAB = this.correlationService.calculateDynamicCorrelation(
+      { fixtureId: legA.fixtureId, leagueId: legA.leagueId } as BettingFixture,
+      legA.market,
+      legB.market,
+      legA.teamAStats!,
+      legA.teamBStats!
+    )
+
+    const corrBC = this.correlationService.calculateDynamicCorrelation(
+      { fixtureId: legB.fixtureId, leagueId: legB.leagueId } as BettingFixture,
+      legB.market,
+      legC.market,
+      legB.teamAStats!,
+      legB.teamBStats!
+    )
+
+    const corrAC = this.correlationService.calculateDynamicCorrelation(
+      { fixtureId: legA.fixtureId, leagueId: legA.leagueId } as BettingFixture,
+      legA.market,
+      legC.market,
+      legA.teamAStats!,
+      legA.teamBStats!
+    )
+
+    // Average correlation for the triple
+    const avgCorrelation =
+      (corrAB.finalCorrelation + corrBC.finalCorrelation + corrAC.finalCorrelation) / 3
+
+    // Minimum average correlation for triple gemela
+    if (avgCorrelation < 0.25) {
+      this.logger.debug(
+        `TRIPLE_GEMELA rejected: avg correlation ${avgCorrelation.toFixed(2)} < 0.25`
+      )
+      return null
+    }
+
+    // Combined odds
+    const combinedOdds = legA.odds * legB.odds * legC.odds
+
+    // Joint probability with correlation (simplified for 3 legs)
+    // P(A ∩ B ∩ C) ≈ P(A) × P(B|A) × P(C|A,B)
+    // Using average correlation as approximation
+    const pJoint_AB = this.correlationService.jointProbability(
+      legA.probOwn,
+      legB.probOwn,
+      corrAB.finalCorrelation
+    )
+    const pJoint = this.correlationService.jointProbability(
+      pJoint_AB,
+      legC.probOwn,
+      (corrAC.finalCorrelation + corrBC.finalCorrelation) / 2
+    )
+
+    // Independent probability (bookmaker's assumption)
+    const pCasa = legA.probOwn * legB.probOwn * legC.probOwn
+
+    // EV calculations
+    const evReal = pJoint * combinedOdds - 1
+    const evCasa = pCasa * combinedOdds - 1
+    const hiddenEdge = evReal - evCasa
+
+    // Build legs array
+    const legs: ComboLeg[] = [legA, legB, legC]
+
+    // Calculate score
+    const { score, breakdown } = this.scoreCombo(
+      ComboType.TRIPLE_CORRELACIONADO,
+      legs,
+      evReal,
+      hiddenEdge,
+      avgCorrelation
+    )
+
+    // Determine time window
+    const timeWindow = this.determineTimeWindow(new Date())
+
+    // Context flags
+    const contextFlags = context?.flags || []
+
+    return {
+      id: this.generateComboId(ComboType.TRIPLE_CORRELACIONADO, legs),
+      type: ComboType.TRIPLE_CORRELACIONADO,
+      legs,
+      combinedOdds,
+      pJoint,
+      pCasa,
+      evReal,
+      evCasa,
+      hiddenEdge,
+      correlation: {
+        base: avgCorrelation,
+        dynamic: avgCorrelation,
+        adjustments: [
+          ...corrAB.adjustments,
+          ...corrBC.adjustments,
+          ...corrAC.adjustments,
+        ],
+      },
+      score,
+      scoreLevel: this.getScoreLevel(score),
+      scoreBreakdown: breakdown,
+      sharpConfirmed: false,
+      timeWindow,
+      warnings: [],
+      contextFlags,
+    }
+  }
+
+  /**
    * Score a combo (0-100)
    * Implements score_combo from COMBINADAS doc section 6
    */
@@ -672,7 +845,12 @@ export class ComboEngineService {
 
   private isGoalsMarket(market: MarketType | string): boolean {
     const m = String(market).toUpperCase()
-    return m.includes('GOAL') || (m.includes('OVER') && m.includes('1H') && !m.includes('CORNER'))
+    return (
+      (m.includes('GOAL') || (m.includes('OVER') && m.includes('1H'))) &&
+      !m.includes('CORNER') &&
+      !m.includes('CARD') &&
+      !m.includes('BTTS')
+    )
   }
 
   private isCornersMarket(market: MarketType | string): boolean {
@@ -680,9 +858,21 @@ export class ComboEngineService {
     return m.includes('CORNER')
   }
 
+  private isCardsMarket(market: MarketType | string): boolean {
+    const m = String(market).toUpperCase()
+    return m.includes('CARD') || m.includes('TARJETA')
+  }
+
+  private isBTTSMarket(market: MarketType | string): boolean {
+    const m = String(market).toUpperCase()
+    return m.includes('BTTS')
+  }
+
   private getMarketCategory(market: MarketType | string): string {
     if (this.isGoalsMarket(market)) return 'GOALS'
+    if (this.isBTTSMarket(market)) return 'BTTS'
     if (this.isCornersMarket(market)) return 'CORNERS'
+    if (this.isCardsMarket(market)) return 'CARDS'
     return 'OTHER'
   }
 
@@ -705,5 +895,50 @@ export class ComboEngineService {
     if (score >= 50) return ComboScoreLevel.SOLIDA
     if (score >= 35) return ComboScoreLevel.MARGINAL
     return ComboScoreLevel.DESCARTAR
+  }
+
+  /**
+   * Get minimum correlation threshold for market pair
+   * Niche markets (Cards, BTTS) have lower thresholds since
+   * bookmakers don't model their correlations as precisely
+   */
+  private getMinCorrelationForMarkets(
+    marketA: MarketType | string,
+    marketB: MarketType | string
+  ): number {
+    const catA = this.getMarketCategory(marketA)
+    const catB = this.getMarketCategory(marketB)
+
+    // Standard Goals + Corners combo - well-studied
+    if (
+      (catA === 'GOALS' && catB === 'CORNERS') ||
+      (catA === 'CORNERS' && catB === 'GOALS')
+    ) {
+      return 0.30
+    }
+
+    // BTTS correlates well with goals
+    if (
+      (catA === 'GOALS' && catB === 'BTTS') ||
+      (catA === 'BTTS' && catB === 'GOALS')
+    ) {
+      return 0.35 // Higher threshold since BTTS is essentially a goals market
+    }
+
+    // Cards are niche - lower threshold
+    if (catA === 'CARDS' || catB === 'CARDS') {
+      return 0.20
+    }
+
+    // BTTS + Corners - moderate correlation
+    if (
+      (catA === 'BTTS' && catB === 'CORNERS') ||
+      (catA === 'CORNERS' && catB === 'BTTS')
+    ) {
+      return 0.25
+    }
+
+    // Default
+    return 0.25
   }
 }

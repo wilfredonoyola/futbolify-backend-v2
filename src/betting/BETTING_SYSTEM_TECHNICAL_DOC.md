@@ -1037,12 +1037,68 @@ if (currentDailyExposure + newStake > maxDailyExposure) {
 
 | Tipo | Descripción | Legs | Correlación |
 |------|-------------|------|-------------|
-| GEMELA | 2 picks mismo partido | 2 | Alta |
-| CROSS_LIGA | Picks de diferentes ligas | 2-4 | Baja |
-| MISMO_MERCADO | Mismo mercado, diferentes partidos | 2-3 | Media |
+| GEMELA | 2 picks mismo partido, diferentes mercados | 2 | Alta |
+| GEMELA_TRIPLE | 3 picks mismo partido, 3 mercados distintos | 3 | Alta |
+| CROSS_LIGA | Mismo mercado, diferentes ligas | 2-4 | Baja |
+| CROSS_MERCADO | Diferentes mercados, diferentes partidos | 2-4 | Baja |
+| TRIPLE_CORRELACIONADO | Gemela + pick adicional | 3 | Media-Alta |
 | SHARP_GEMELA | Gemela confirmada por Pinnacle | 2 | Alta |
+| DOBLE_GEMELA | 2 gemelas combinadas | 4 | Alta |
 
-### 7.2 Cálculo de Probabilidad Conjunta
+### 7.2 GEMELA Multi-Mercado (v1.3.0)
+
+Con la adición de múltiples mercados (Goals, BTTS, Corners, Cards), el sistema
+ahora genera GEMELA combos para cualquier par de mercados correlacionados:
+
+**Pares válidos:**
+- Goals + Corners (clásico, correlación ~0.35-0.55)
+- Goals + Cards (correlación ~0.25-0.30)
+- Goals + BTTS (correlación ~0.55-0.70)
+- Corners + Cards (correlación ~0.40-0.45)
+- BTTS + Corners (correlación ~0.40-0.45)
+- BTTS + Cards (correlación ~0.30)
+
+**Umbrales de correlación mínima:**
+```typescript
+function getMinCorrelationForMarkets(marketA, marketB): number {
+  // Goals + Corners: bien estudiado
+  if (isGoals(A) && isCorners(B)) return 0.30
+
+  // Goals + BTTS: ambos son mercados de goles
+  if (isGoals(A) && isBTTS(B)) return 0.35
+
+  // Cards: mercado nicho, umbral bajo
+  if (isCards(A) || isCards(B)) return 0.20
+
+  // BTTS + Corners
+  if (isBTTS(A) && isCorners(B)) return 0.25
+
+  // Default
+  return 0.25
+}
+```
+
+**GEMELA_TRIPLE:**
+
+Cuando un mismo partido tiene picks en 3+ categorías de mercado distintas,
+se genera un GEMELA_TRIPLE:
+
+```typescript
+// Ejemplo: Almería vs Real Sociedad II
+{
+  legs: [
+    { market: 'OVER_05_1H', prob: 0.75 },    // Goals
+    { market: 'OVER_95_CORNERS', prob: 0.62 }, // Corners
+    { market: 'OVER_35_CARDS', prob: 0.58 }   // Cards
+  ],
+  // Correlación promedio de los 3 pares
+  avgCorrelation: (corrAB + corrBC + corrAC) / 3,
+  // Probabilidad conjunta usando cadena de Bayes
+  pJoint: P(A) × P(B|A) × P(C|A,B)
+}
+```
+
+### 7.3 Cálculo de Probabilidad Conjunta
 
 **Sin correlación (eventos independientes):**
 
