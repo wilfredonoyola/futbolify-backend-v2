@@ -141,12 +141,14 @@ Primera versión estable del sistema de betting con todas las correcciones matem
 
 ### Por implementar
 - [ ] Dashboard de métricas en tiempo real
-- [ ] Tracking de ROI por mercado
-- [ ] Alertas de CLV después de cada partido
-- [ ] Integración con más bookmakers
+- [ ] Tracking de ROI por mercado y por liga
+- [ ] Alertas de CLV (Closing Line Value) después de cada partido
+- [ ] Integración con más bookmakers (Pinnacle directo, Betfair)
 - [ ] Machine Learning para ajustar probabilidades
 - [ ] Mercado BTTS Full Time (si encontramos ineficiencias)
-- [ ] Mercado Over/Under goles FT
+- [ ] Mercado Over/Under goles Full Time
+- [ ] Corners Handicap con validación de líneas disponibles
+- [ ] Análisis de rendimiento histórico por mercado
 
 ---
 

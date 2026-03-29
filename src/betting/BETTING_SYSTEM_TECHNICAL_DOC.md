@@ -30,7 +30,7 @@ Los mercados nicho como **BTTS 1H**, **Corners** y **Tarjetas** son menos eficie
 
 | Setting | Valor Default | Descripción |
 |---------|---------------|-------------|
-| `maxPicksPerDay` | 5 | Máximo de picks generados por día |
+| `maxPicksPerDay` | 8 | Máximo de picks generados por día (aumentado en v1.3.0) |
 | `timezone` | America/El_Salvador | Zona horaria para fechas y alertas |
 | `bankroll` | 100 | Bankroll inicial en USD |
 
@@ -1131,7 +1131,7 @@ function calculateJointProbability(
 }
 ```
 
-### 7.3 Expected Value del Combo
+### 7.4 Expected Value del Combo
 
 ```typescript
 function calculateComboEV(combo: GeneratedCombo): number {
