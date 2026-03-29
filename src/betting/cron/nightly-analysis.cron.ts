@@ -938,8 +938,11 @@ export class NightlyAnalysisCron {
             }
 
             try {
+              // Use T12:00:00Z so the date displays correctly in any timezone
+              // (midnight UTC would show previous day in negative UTC offsets like America/El_Salvador)
+              const displayDate = new Date(`${tomorrowDate}T12:00:00Z`)
               await this.telegramService.sendNightlyAnalysisAlert(
-                new Date(tomorrowDate),
+                displayDate,
                 unnotifiedPicks,
                 unnotifiedCombos,
                 fixturesAnalyzed,
