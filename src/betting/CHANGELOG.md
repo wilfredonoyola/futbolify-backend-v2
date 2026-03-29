@@ -7,6 +7,46 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [1.3.0] - 2026-03-29
+
+### Nuevos Mercados: Tarjetas y BTTS 1H
+
+**Tarjetas (Cards)**
+- Nuevo servicio: `scoring-cards.service.ts`
+- Modelo: Poisson con λ = tarjetas esperadas
+- Pesos: Team card avg (65%), Form (15%), Locality (10%), H2H (10%)
+- Líneas: 3.5, 4.5, 5.5 (full match), 1.5 (1H)
+- Filtros: MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=8
+- Razón: Mercado nicho menos eficiente que 1X2
+
+**BTTS 1H (Ambos Marcan Primera Mitad)**
+- Integrado en `scoring-goals.service.ts`
+- Fórmula: `P(BTTS 1H) = P(Local ≥1 en 1H) × P(Visitante ≥1 en 1H)`
+- Cada equipo: `P(≥1) = 1 - e^(-λ)` usando Poisson
+- Filtros: MIN_ODDS=1.40, MIN_EDGE=5%, MIN_STARS=3
+- Razón: Casas derivan odds de BTTS FT en lugar de modelar 1H específicamente
+
+**Configuración**
+- maxPicksPerDay: 5 → 8 (para alcanzar muestra estadística más rápido)
+
+**Archivos modificados:**
+- `src/betting/services/scoring-cards.service.ts` (NUEVO)
+- `src/betting/services/scoring-goals.service.ts` (BTTS 1H)
+- `src/betting/cron/nightly-analysis.cron.ts` (integración)
+- `src/betting/enums/betting.enums.ts` (nuevos MarketTypes)
+- `src/betting/schemas/betting-pick.schema.ts` (campos cards)
+- `src/betting/telegram/betting-telegram.formatters.ts`
+
+---
+
+## [1.2.0] - 2026-03-27
+
+### Timezone Fixes
+- Partidos nocturnos ahora se encuentran correctamente
+- Telegram header muestra fecha local correcta
+
+---
+
 ## [1.0.1] - 2026-03-26
 
 ### Fix: Validación de Tamaño de Muestra Mínimo
@@ -86,6 +126,8 @@ Primera versión estable del sistema de betting con todas las correcciones matem
 - [ ] Alertas de CLV después de cada partido
 - [ ] Integración con más bookmakers
 - [ ] Machine Learning para ajustar probabilidades
+- [ ] Mercado BTTS Full Time (si encontramos ineficiencias)
+- [ ] Mercado Over/Under goles FT
 
 ---
 

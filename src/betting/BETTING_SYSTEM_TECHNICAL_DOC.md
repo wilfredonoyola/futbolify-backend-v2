@@ -1,18 +1,28 @@
 # Sistema de Betting GolPicks - Documentación Técnica Completa
 
-> **Versión:** 1.2.0
-> **Última actualización:** 2026-03-27
+> **Versión:** 1.3.0
+> **Última actualización:** 2026-03-29
 > **Changelog:** [CHANGELOG.md](./CHANGELOG.md)
 
 ---
 
 ## Estado Actual de Mercados
 
-| Mercado | Estado | Filtros |
-|---------|--------|---------|
-| **Goles 1H (Over 0.5)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=3 |
-| **Corners (Over/Under)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=5 |
-| **Corners Handicap** | ⏸️ DESACTIVADO | Las líneas del modelo no coinciden con Bet365 |
+| Mercado | Estado | Filtros | Eficiencia |
+|---------|--------|---------|------------|
+| **Goles 1H (Over 0.5/1.5)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=3 | Media |
+| **BTTS 1H** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_EDGE=5%, MIN_STARS=3 | Baja (nicho) |
+| **Corners (Over/Under)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=5 | Baja (nicho) |
+| **Tarjetas (Over/Under)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=8 | Baja (nicho) |
+| **Corners Handicap** | ⏸️ DESACTIVADO | Las líneas del modelo no coinciden con Bet365 | - |
+
+### Mercados Nicho (Menos Eficientes)
+
+Los mercados nicho como **BTTS 1H**, **Corners** y **Tarjetas** son menos eficientes porque:
+1. Menor volumen de apuestas → menos datos para calibrar odds
+2. Casas derivan odds de mercados principales en lugar de modelar específicamente
+3. Menos escrutinio de apostadores profesionales (sharps)
+4. Mayor potencial para encontrar value
 
 ---
 
@@ -23,6 +33,28 @@
 | `maxPicksPerDay` | 5 | Máximo de picks generados por día |
 | `timezone` | America/El_Salvador | Zona horaria para fechas y alertas |
 | `bankroll` | 100 | Bankroll inicial en USD |
+
+---
+
+## Cambios v1.3.0 (2026-03-29)
+
+### Nuevos Mercados
+
+#### Tarjetas (Cards)
+- **Servicio:** `scoring-cards.service.ts`
+- **Líneas:** 3.5, 4.5, 5.5 (full match), 1.5 (1H)
+- **Modelo:** Poisson con λ = tarjetas esperadas
+- **Pesos:** Team card avg (65%), Form (15%), Locality (10%), H2H (10%)
+- **Filtros:** MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=8
+
+#### BTTS 1H (Ambos Marcan Primera Mitad)
+- **Fórmula:** `P(BTTS 1H) = P(Local ≥1 en 1H) × P(Visitante ≥1 en 1H)`
+- **Cálculo por equipo:** `P(≥1) = 1 - e^(-λ)` donde λ = xG 1H del equipo
+- **Filtros:** MIN_ODDS=1.40, MIN_EDGE=5%, MIN_STARS=3
+- **Mercado nicho:** Casas no lo modelan tan bien como BTTS Full Time
+
+### maxPicksPerDay
+- Incrementado de 5 a 8 picks/día para alcanzar muestra estadística más rápido
 
 ---
 
@@ -127,12 +159,13 @@
 ```
 src/betting/
 ├── cron/
-│   ├── nightly-analysis.cron.ts    # Análisis diario 7PM
+│   ├── nightly-analysis.cron.ts    # Análisis cada 30 min (pick scanner)
 │   ├── odds-monitor.cron.ts        # Monitor de steam moves
 │   └── result-collector.cron.ts    # Liquidación de picks
 ├── services/
-│   ├── scoring-goals.service.ts    # Probabilidades goles
+│   ├── scoring-goals.service.ts    # Probabilidades goles + BTTS 1H
 │   ├── scoring-corners.service.ts  # Probabilidades corners
+│   ├── scoring-cards.service.ts    # Probabilidades tarjetas (v1.3.0)
 │   ├── value-detection.service.ts  # Detección de value
 │   ├── stake-calculator.service.ts # Cálculo de stakes
 │   ├── combo-engine.service.ts     # Generación de combos
@@ -465,6 +498,122 @@ function normalCDF(z: number): number {
 
   return 0.5 * (1.0 + sign * y)
 }
+```
+
+### 3.6 BTTS 1H (Both Teams To Score First Half)
+
+**Archivo:** `scoring-goals.service.ts`
+
+**Fórmula:**
+
+```
+P(BTTS 1H) = P(Local marca ≥1 en 1H) × P(Visitante marca ≥1 en 1H)
+```
+
+Donde cada probabilidad se calcula con Poisson:
+
+```
+P(equipo marca ≥1) = 1 - P(X = 0) = 1 - e^(-λ)
+```
+
+**Cálculo de λ por equipo:**
+
+```typescript
+// Expected goals 1H para cada equipo
+const expectedGoalsHome1H = (teamAStats.avg_goals_1h + teamBStats.avg_conceded_1h) / 2
+const expectedGoalsAway1H = (teamBStats.avg_goals_1h + teamAStats.avg_conceded_1h) / 2
+
+// Probabilidad de marcar ≥1 gol
+const probHomeScores1H = 1 - Math.exp(-expectedGoalsHome1H)
+const probAwayScores1H = 1 - Math.exp(-expectedGoalsAway1H)
+
+// Probabilidad BTTS 1H
+let probBTTS_1H = probHomeScores1H * probAwayScores1H
+```
+
+**Ejemplo numérico:**
+
+```
+Local: avg_goals_1h = 0.6, Visitante: avg_conceded_1h = 0.5
+Visitante: avg_goals_1h = 0.4, Local: avg_conceded_1h = 0.6
+
+λ_local = (0.6 + 0.5) / 2 = 0.55
+λ_visitante = (0.4 + 0.6) / 2 = 0.50
+
+P(Local ≥1) = 1 - e^(-0.55) = 42.3%
+P(Visitante ≥1) = 1 - e^(-0.50) = 39.3%
+
+P(BTTS 1H) = 0.423 × 0.393 = 16.6%
+```
+
+**¿Por qué BTTS 1H es un mercado ineficiente?**
+
+1. **Menos volumen** - Mucho menos apostado que BTTS Full Time
+2. **Pricing derivado** - Casas derivan odds de BTTS FT en lugar de modelar 1H específicamente
+3. **Menos datos** - Casas tienen menos datos históricos de goles por mitad
+4. **Menos escrutinio** - Sharps se enfocan en mercados principales
+
+### 3.7 Tarjetas (Cards)
+
+**Archivo:** `scoring-cards.service.ts`
+
+**Modelo:** Distribución de Poisson
+
+```
+P(X = k) = (λ^k × e^(-λ)) / k!
+```
+
+Donde λ = tarjetas esperadas totales
+
+**Cálculo de tarjetas esperadas:**
+
+```typescript
+// Base: suma de promedios de ambos equipos
+let cardsExpected = teamAStats.avg_cards_total + teamBStats.avg_cards_total
+
+// Ajuste por localía (10%)
+const localityAdj = ((homeCardFactor + awayCardFactor) / 2 - 1.0) * cardsExpected * 0.1
+
+// Ajuste por forma reciente (15%)
+const avgFormCards = teamAStats.form_cards_5 + teamBStats.form_cards_5
+const formAdj = (avgFormCards - cardsExpected) * 0.15
+
+// Ajuste por H2H (10%)
+let h2hAdj = 0
+if (h2h?.avg_cards > 0) {
+  h2hAdj = (h2h.avg_cards - cardsExpected) * 0.1
+}
+
+// Final
+cardsExpected = cardsExpected + localityAdj + formAdj + h2hAdj
+```
+
+**Promedios por liga (tarjetas amarillas/partido):**
+
+| Liga | Promedio |
+|------|----------|
+| La Liga | 4.5 |
+| La Liga 2 | 4.8 |
+| Liga BetPlay | 4.6 |
+| Serie A | 4.2 |
+| Liga MX | 4.5 |
+| Primeira Liga | 4.0 |
+| MLS | 3.8 |
+| Eredivisie | 3.8 |
+| Ligue 1 | 3.6 |
+| Bundesliga | 3.5 |
+| Championship | 3.4 |
+| Premier League | 3.2 |
+| J1 League | 3.0 |
+
+**Líneas analizadas:**
+- Full match: 3.5, 4.5, 5.5
+- Primera mitad: 1.5
+
+**Primera mitad:**
+```typescript
+// ~38% de tarjetas caen en primera mitad
+const cardsExpected1H = cardsExpected * 0.38
 ```
 
 ---
@@ -1404,5 +1553,5 @@ const LEAGUE_TIER_BONUS = {
 ---
 
 *Documento generado: 26 de Marzo 2026*
-*Sistema: GolPicks v2.0*
-*Última actualización: Edge mínimo 5%, fórmulas validadas*
+*Sistema: GolPicks v1.3.0*
+*Última actualización: 29 de Marzo 2026 - Tarjetas y BTTS 1H*
