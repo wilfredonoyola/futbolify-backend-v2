@@ -85,6 +85,19 @@ export class TeamStatsInput {
 
   @Field({ nullable: true, description: 'Data quality indicator (real or estimated)' })
   dataQuality?: string
+
+  // Cards stats
+  @Field(() => Float, { nullable: true, description: 'Average total cards per match' })
+  avgCardsTotal?: number
+
+  @Field(() => Float, { nullable: true, description: 'Average cards when playing at home' })
+  homeCardsTotal?: number
+
+  @Field(() => Float, { nullable: true, description: 'Average cards when playing away' })
+  awayCardsTotal?: number
+
+  @Field(() => Float, { nullable: true, description: 'Average cards in last 5 matches (form)' })
+  formCards5?: number
 }
 
 @ObjectType({ description: 'Model inputs and data sources used for pick calculation' })
@@ -127,6 +140,13 @@ export class ModelInputs {
 
   @Field(() => Float, { nullable: true, description: 'Expected corners in first half' })
   cornersExpected1H?: number
+
+  // Cards specific
+  @Field(() => Float, { nullable: true, description: 'Expected total cards in match' })
+  cardsExpected?: number
+
+  @Field(() => Float, { nullable: true, description: 'Expected cards in first half' })
+  cardsExpected1H?: number
 
   // Corners handicap specific
   @Field(() => Float, { nullable: true, description: 'Handicap line calculated by our model (positive = home advantage)' })
@@ -175,6 +195,19 @@ export class MatchResult {
 
   @Field(() => Int, { nullable: true })
   cornersAway?: number
+
+  // Cards
+  @Field(() => Int, { nullable: true })
+  cardsTotal?: number
+
+  @Field(() => Int, { nullable: true })
+  cardsHT?: number
+
+  @Field(() => Int, { nullable: true })
+  cardsHome?: number
+
+  @Field(() => Int, { nullable: true })
+  cardsAway?: number
 }
 
 @ObjectType()

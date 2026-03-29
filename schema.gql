@@ -2556,6 +2556,18 @@ type TeamStatsInput {
 
   """Data quality indicator (real or estimated)"""
   dataQuality: String
+
+  """Average total cards per match"""
+  avgCardsTotal: Float
+
+  """Average cards when playing at home"""
+  homeCardsTotal: Float
+
+  """Average cards when playing away"""
+  awayCardsTotal: Float
+
+  """Average cards in last 5 matches (form)"""
+  formCards5: Float
 }
 
 """Model inputs and data sources used for pick calculation"""
@@ -2585,6 +2597,12 @@ type ModelInputs {
 
   """Expected corners in first half"""
   cornersExpected1H: Float
+
+  """Expected total cards in match"""
+  cardsExpected: Float
+
+  """Expected cards in first half"""
+  cardsExpected1H: Float
 
   """Handicap line calculated by our model (positive = home advantage)"""
   handicapLineExpected: Float
@@ -2618,6 +2636,10 @@ type MatchResult {
   cornersHT: Int
   cornersHome: Int
   cornersAway: Int
+  cardsTotal: Int
+  cardsHT: Int
+  cardsHome: Int
+  cardsAway: Int
 }
 
 type BettingPickOutput {
