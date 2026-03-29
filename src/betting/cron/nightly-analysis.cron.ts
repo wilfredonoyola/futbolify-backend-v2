@@ -2284,18 +2284,27 @@ export class NightlyAnalysisCron {
             `1H=${cardsResult.cardsExpected1H.toFixed(1)}, quality=${cardsResult.dataQuality}`
         )
 
-        // Detect value for cards (multiple lines: 3.5, 4.5, 5.5)
+        // Detect value for cards
+        // API-Football uses .5 lines (4.5, 5.5) in the main "Cards Over/Under" market
+        // Note: The main market typically doesn't have 3.5, but we try anyway
         if (cardsResult.cardsExpected > 0 && odds) {
-          const cardLines = [3.5, 4.5, 5.5]
+          const cardLines = [4.5, 5.5] // Main market lines (removed 3.5 - not in main market)
           const timeWindow = this.determineTimeWindow(new Date(fixture.kickoff))
 
           for (const line of cardLines) {
             const cardsOdds = this.findCardsOdds(odds, line)
 
             if (cardsOdds) {
+              // API already uses .5 format, so actualLine is ready to use
+              const effectiveLine = cardsOdds.actualLine
+
+              this.logger.debug(
+                `Cards odds matched: line=${line}, odds=${cardsOdds.over}/${cardsOdds.under}`
+              )
+
               const edgeResult = this.scoringCardsService.calculateEdge(
                 cardsResult,
-                line,
+                effectiveLine,
                 cardsOdds.over,
                 cardsOdds.under
               )
@@ -2330,10 +2339,10 @@ export class NightlyAnalysisCron {
                   continue
                 }
 
-                const market = this.getCardsMarketType(line, edgeResult.direction)
+                const market = this.getCardsMarketType(effectiveLine, edgeResult.direction)
                 const probOwn = this.scoringCardsService.getProbabilityForLine(
                   cardsResult,
-                  line,
+                  effectiveLine,
                   edgeResult.direction
                 )
                 const probImplied = 1 / edgeResult.selectedOdds
@@ -2351,7 +2360,7 @@ export class NightlyAnalysisCron {
                     awayTeam: fixture.awayTeamName,
                     market,
                     direction: edgeResult.direction,
-                    line,
+                    line: effectiveLine,
                     odds: edgeResult.selectedOdds,
                     probOwn,
                     edge: edgeResult.edge,
@@ -2383,7 +2392,7 @@ export class NightlyAnalysisCron {
                       edgeResult.direction === 'OVER'
                         ? MarketDirection.OVER
                         : MarketDirection.UNDER,
-                    line,
+                    line: effectiveLine,
                     probOwn,
                     probImplied,
                     edge: edgeResult.edge,
@@ -2393,7 +2402,7 @@ export class NightlyAnalysisCron {
                     status: PickStatus.PENDING,
                     stars: this.calculateStars(edgeResult.edge),
                     reasons: this.generateCardsReasons(
-                      line,
+                      effectiveLine,
                       edgeResult.direction,
                       teamAStats,
                       teamBStats,
@@ -2417,7 +2426,7 @@ export class NightlyAnalysisCron {
                         formCards5: teamBStats.form_cards_5,
                         gamesPlayed: teamBStats.gamesPlayed,
                       },
-                      calculationExplanation: `Tarjetas esperadas: ${cardsResult.cardsExpected.toFixed(1)} (Local: ${cardsResult.cardsAExpected.toFixed(1)} + Visitante: ${cardsResult.cardsBExpected.toFixed(1)}). Basado en promedios de ${teamAStats.gamesPlayed} y ${teamBStats.gamesPlayed} partidos.`,
+                      calculationExplanation: `Tarjetas esperadas: ${cardsResult.cardsExpected.toFixed(1)} (Local: ${cardsResult.cardsAExpected.toFixed(1)} + Visitante: ${cardsResult.cardsBExpected.toFixed(1)}). Línea: Over ${effectiveLine}. Basado en promedios de ${teamAStats.gamesPlayed} y ${teamBStats.gamesPlayed} partidos.`,
                       ...this.getWeatherFields(weather, context),
                     },
                   },
@@ -2425,7 +2434,7 @@ export class NightlyAnalysisCron {
                 fixtureGeneratedPick = true
                 this.logger.log(
                   `🟨 Cards pick: ${fixture.homeTeamName} vs ${fixture.awayTeamName} ` +
-                  `${edgeResult.direction} ${line} @${edgeResult.selectedOdds.toFixed(2)} ` +
+                  `${edgeResult.direction} ${effectiveLine} @${edgeResult.selectedOdds.toFixed(2)} ` +
                   `(edge: ${(edgeResult.edge * 100).toFixed(1)}%)`
                 )
               } // end else (not duplicate)
@@ -2436,9 +2445,16 @@ export class NightlyAnalysisCron {
           // First half cards (1.5 line)
           const cards1HOdds = this.findCardsOdds(odds, 1.5, true)
           if (cards1HOdds) {
+            // API already uses .5 format
+            const effectiveLine1H = cards1HOdds.actualLine
+
+            this.logger.debug(
+              `Cards 1H odds matched: line=1.5, odds=${cards1HOdds.over}/${cards1HOdds.under}`
+            )
+
             const edge1HResult = this.scoringCardsService.calculateEdge1H(
               cardsResult,
-              1.5,
+              effectiveLine1H,
               cards1HOdds.over,
               cards1HOdds.under
             )
@@ -2447,7 +2463,7 @@ export class NightlyAnalysisCron {
               const MIN_ODDS_CARDS = 1.40
               if (edge1HResult.selectedOdds >= MIN_ODDS_CARDS) {
                 const market = MarketType.OVER_15_CARDS_1H
-                const probOwn1H = cardsResult.prob1HByLine.get(1.5)?.[edge1HResult.direction === 'OVER' ? 'over' : 'under'] || 0
+                const probOwn1H = cardsResult.prob1HByLine.get(effectiveLine1H)?.[edge1HResult.direction === 'OVER' ? 'over' : 'under'] || 0
                 const probImplied1H = 1 / edge1HResult.selectedOdds
 
                 const alreadyExists = await this.pickExists(fixture.fixtureId, market)
@@ -2460,7 +2476,7 @@ export class NightlyAnalysisCron {
                       awayTeam: fixture.awayTeamName,
                       market,
                       direction: edge1HResult.direction,
-                      line: 1.5,
+                      line: effectiveLine1H,
                       odds: edge1HResult.selectedOdds,
                       probOwn: probOwn1H,
                       edge: edge1HResult.edge,
@@ -2486,7 +2502,7 @@ export class NightlyAnalysisCron {
                         edge1HResult.direction === 'OVER'
                           ? MarketDirection.OVER
                           : MarketDirection.UNDER,
-                      line: 1.5,
+                      line: effectiveLine1H,
                       probOwn: probOwn1H,
                       probImplied: probImplied1H,
                       edge: edge1HResult.edge,
@@ -2504,7 +2520,7 @@ export class NightlyAnalysisCron {
                         contextFlags: context.flags,
                         cardsExpected1H: cardsResult.cardsExpected1H,
                         cardsExpected: cardsResult.cardsExpected,
-                        calculationExplanation: `Tarjetas 1H esperadas: ${cardsResult.cardsExpected1H.toFixed(1)} (38% del total ${cardsResult.cardsExpected.toFixed(1)}).`,
+                        calculationExplanation: `Tarjetas 1H esperadas: ${cardsResult.cardsExpected1H.toFixed(1)} (38% del total ${cardsResult.cardsExpected.toFixed(1)}). Línea: Over ${effectiveLine1H}.`,
                         ...this.getWeatherFields(weather, context),
                       },
                     },
@@ -2512,7 +2528,7 @@ export class NightlyAnalysisCron {
                   fixtureGeneratedPick = true
                   this.logger.log(
                     `🟨 Cards 1H pick: ${fixture.homeTeamName} vs ${fixture.awayTeamName} ` +
-                    `${edge1HResult.direction} 1.5 @${edge1HResult.selectedOdds.toFixed(2)} ` +
+                    `${edge1HResult.direction} ${effectiveLine1H} @${edge1HResult.selectedOdds.toFixed(2)} ` +
                     `(edge: ${(edge1HResult.edge * 100).toFixed(1)}%)`
                   )
                 }
@@ -2782,30 +2798,60 @@ export class NightlyAnalysisCron {
 
   /**
    * Find cards odds for a specific line
+   *
+   * IMPORTANT: API-Football returns multiple cards markets:
+   * - "Cards Over/Under" - main market (WE WANT THIS)
+   * - "Cards Asian Handicap" - handicap market (skip)
+   * - "Home Team Total Cards" - team-specific (skip)
+   * - "Away Team Total Cards" - team-specific (skip)
+   *
+   * We must ONLY use the main "Cards Over/Under" market to get
+   * accurate odds for total cards in the match.
    */
   private findCardsOdds(
     odds: any,
     line: number,
     isFirstHalf = false
-  ): { over: number; under: number } | null {
+  ): { over: number; under: number; actualLine: number } | null {
     if (!odds?.bookmakers) return null
 
     for (const bookmaker of odds.bookmakers) {
       for (const market of bookmaker.markets) {
         const marketName = market.marketName.toLowerCase()
-        const isCardMarket = marketName.includes('card') || marketName.includes('booking')
+
+        // IMPORTANT: Only match the main "Cards Over/Under" market
+        // Skip team-specific markets (Home/Away Team Cards) and handicaps
+        const isMainCardsOverUnder =
+          (marketName.includes('cards over') || marketName.includes('card over')) ||
+          (marketName === 'cards over/under') ||
+          ((marketName.includes('card') || marketName.includes('booking')) &&
+           marketName.includes('over') &&
+           marketName.includes('under') &&
+           !marketName.includes('home') &&
+           !marketName.includes('away') &&
+           !marketName.includes('team') &&
+           !marketName.includes('handicap') &&
+           !marketName.includes('asian'))
+
         const is1HMarket = marketName.includes('half') || marketName.includes('1h')
 
         // Match the right market type
-        if (isCardMarket && (isFirstHalf ? is1HMarket : !is1HMarket)) {
+        if (isMainCardsOverUnder && (isFirstHalf ? is1HMarket : !is1HMarket)) {
           let overOdds = 0
           let underOdds = 0
+          let foundLine = 0
 
           for (const value of market.values) {
             const linePart = value.name.match(/[\d.]+/)
-            if (linePart && parseFloat(linePart[0]) === line) {
+            if (!linePart) continue
+
+            const parsedLine = parseFloat(linePart[0])
+
+            // API uses same .5 format as us (4.5, 5.5), so direct match
+            if (parsedLine === line) {
               if (value.name.toLowerCase().includes('over')) {
                 overOdds = value.odds
+                foundLine = parsedLine
               } else if (value.name.toLowerCase().includes('under')) {
                 underOdds = value.odds
               }
@@ -2813,7 +2859,10 @@ export class NightlyAnalysisCron {
           }
 
           if (overOdds > 0 && underOdds > 0) {
-            return { over: overOdds, under: underOdds }
+            this.logger.debug(
+              `Cards odds found: line=${line}, found=${foundLine}, over=${overOdds}, under=${underOdds}, market=${market.marketName}`
+            )
+            return { over: overOdds, under: underOdds, actualLine: foundLine }
           }
         }
       }

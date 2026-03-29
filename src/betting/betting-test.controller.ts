@@ -1792,4 +1792,43 @@ export class BettingTestController {
       combosReset: combosResult.modifiedCount,
     }
   }
+
+  /**
+   * Inspect raw cards odds from API for a fixture
+   * GET /betting/test/cards-odds?fixtureId=1392114
+   */
+  @Get('cards-odds')
+  async inspectCardsOdds(@Query('fixtureId') fixtureId: string) {
+    if (!fixtureId) {
+      return { error: 'fixtureId required' }
+    }
+
+    const odds = await this.apiFootball.getOdds(parseInt(fixtureId))
+    if (!odds) {
+      return { error: 'No odds data found for this fixture' }
+    }
+
+    // Extract cards markets
+    const cardsMarkets: any[] = []
+
+    for (const bookmaker of odds.bookmakers || []) {
+      for (const market of bookmaker.markets || []) {
+        const marketName = (market.marketName || '').toLowerCase()
+        if (marketName.includes('card') || marketName.includes('booking')) {
+          cardsMarkets.push({
+            bookmaker: bookmaker.bookmakerName,
+            marketName: market.marketName,
+            values: market.values,
+          })
+        }
+      }
+    }
+
+    return {
+      fixtureId: parseInt(fixtureId),
+      totalBookmakers: odds.bookmakers?.length || 0,
+      cardsMarkets,
+      rawSample: cardsMarkets.length > 0 ? cardsMarkets[0] : null,
+    }
+  }
 }
