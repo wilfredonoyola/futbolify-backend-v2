@@ -1790,6 +1790,108 @@ export class NightlyAnalysisCron {
           }
         }
 
+        // ============================================================
+        // BTTS 1H (Both Teams To Score in First Half)
+        // ============================================================
+        if (goalsResult.probBTTS_1H > 0.20 && odds) {
+          const btts1HOdds = this.findBTTS1HOdds(odds)
+
+          if (btts1HOdds && btts1HOdds > 1.40) {
+            const bttsValueResult = this.scoringGoalsService.calculateEdgeBTTS(goalsResult, btts1HOdds)
+
+            this.logger.debug(
+              `BTTS 1H: ${fixture.homeTeamName} vs ${fixture.awayTeamName} ` +
+              `odds=${btts1HOdds}, probOwn=${(goalsResult.probBTTS_1H * 100).toFixed(1)}%, ` +
+              `hasValue=${bttsValueResult.hasValue}, edge=${(bttsValueResult.edge * 100).toFixed(1)}%`
+            )
+
+            if (bttsValueResult.hasValue && bttsValueResult.edge >= 0.05) {
+              // FILTER: Minimum stars
+              const MIN_STARS = 3
+              const stars = this.calculateStars(bttsValueResult.edge)
+              if (stars >= MIN_STARS) {
+                const alreadyExists = await this.pickExists(fixture.fixtureId, MarketType.BTTS_1H)
+                if (!alreadyExists) {
+                  const timeWindow = this.determineTimeWindow(new Date(fixture.kickoff))
+                  const probImplied = 1 / btts1HOdds
+
+                  picks.push({
+                    leg: {
+                      fixtureId: fixture.fixtureId,
+                      leagueId: league.apiFootballId,
+                      homeTeam: fixture.homeTeamName,
+                      awayTeam: fixture.awayTeamName,
+                      market: MarketType.BTTS_1H,
+                      direction: 'OVER',
+                      line: 0,
+                      odds: btts1HOdds,
+                      probOwn: goalsResult.probBTTS_1H,
+                      edge: bttsValueResult.edge,
+                      confidenceScore: Math.min(100, Math.round(bttsValueResult.edge * 500 + 40)),
+                      teamAStats,
+                      teamBStats,
+                    },
+                    document: {
+                      fixtureId: fixture.fixtureId,
+                      date: new Date(date),
+                      league: {
+                        id: league.apiFootballId,
+                        name: league.name,
+                        country: league.country,
+                        tier: league.tier,
+                      },
+                      teamHome: { id: fixture.homeTeamId, name: fixture.homeTeamName },
+                      teamAway: { id: fixture.awayTeamId, name: fixture.awayTeamName },
+                      kickoff: new Date(fixture.kickoff),
+                      timeWindow,
+                      market: MarketType.BTTS_1H,
+                      direction: MarketDirection.OVER,
+                      line: 0,
+                      probOwn: goalsResult.probBTTS_1H,
+                      probImplied,
+                      edge: bttsValueResult.edge,
+                      confidenceScore: Math.min(100, Math.round(bttsValueResult.edge * 500 + 40)),
+                      oddsAtDetection: btts1HOdds,
+                      bestBookmaker: 'API-Football',
+                      status: PickStatus.PENDING,
+                      stars: this.calculateStars(bttsValueResult.edge),
+                      reasons: [
+                        `Ambos equipos marcan en 1H (BTTS 1H)`,
+                        `P(Local marca 1H)=${(goalsResult.expectedGoalsHome1H > 0 ? ((1 - Math.exp(-goalsResult.expectedGoalsHome1H)) * 100) : 0).toFixed(0)}%`,
+                        `P(Visitante marca 1H)=${(goalsResult.expectedGoalsAway1H > 0 ? ((1 - Math.exp(-goalsResult.expectedGoalsAway1H)) * 100) : 0).toFixed(0)}%`,
+                      ],
+                      modelInputs: {
+                        dataSource: 'API-Football',
+                        contextFlags: context.flags,
+                        expectedGoals1H: goalsResult.expectedGoals1H,
+                        teamAStats: {
+                          name: fixture.homeTeamName,
+                          avgGoals1H: teamAStats.avg_goals_1h,
+                          avgConceded1H: teamAStats.avg_conceded_1h,
+                          gamesPlayed: teamAStats.gamesPlayed,
+                        },
+                        teamBStats: {
+                          name: fixture.awayTeamName,
+                          avgGoals1H: teamBStats.avg_goals_1h,
+                          avgConceded1H: teamBStats.avg_conceded_1h,
+                          gamesPlayed: teamBStats.gamesPlayed,
+                        },
+                        calculationExplanation: `BTTS 1H = P(Local≥1) × P(Visitante≥1) usando Poisson. xG Local 1H: ${goalsResult.expectedGoalsHome1H?.toFixed(2)}, xG Visitante 1H: ${goalsResult.expectedGoalsAway1H?.toFixed(2)}.`,
+                        ...this.getWeatherFields(weather, context),
+                      },
+                    },
+                  })
+                  fixtureGeneratedPick = true
+                  this.logger.log(
+                    `⚽⚽ BTTS 1H pick: ${fixture.homeTeamName} vs ${fixture.awayTeamName} ` +
+                    `@${btts1HOdds.toFixed(2)} (edge: ${(bttsValueResult.edge * 100).toFixed(1)}%)`
+                  )
+                }
+              }
+            }
+          }
+        }
+
         // Detect value for corners (multiple lines: 8.5, 9.5, 10.5, 11.5)
         if (cornersResult.cornersExpected > 0 && odds) {
           const cornerLines = [8.5, 9.5, 10.5, 11.5]
@@ -2644,6 +2746,38 @@ export class NightlyAnalysisCron {
           return MarketType.UNDER_95_CORNERS
       }
     }
+  }
+
+  /**
+   * Find BTTS 1H (Both Teams To Score in First Half) odds
+   */
+  private findBTTS1HOdds(odds: any): number | null {
+    if (!odds?.bookmakers) return null
+
+    for (const bookmaker of odds.bookmakers) {
+      for (const market of bookmaker.markets) {
+        const marketName = market.marketName.toLowerCase()
+
+        // Look for BTTS 1H / Both Teams Score First Half market
+        const isBTTS1H =
+          (marketName.includes('both') && marketName.includes('score') && marketName.includes('half')) ||
+          (marketName.includes('btts') && marketName.includes('1h')) ||
+          (marketName.includes('btts') && marketName.includes('first')) ||
+          (marketName.includes('gg') && marketName.includes('1h'))
+
+        if (isBTTS1H) {
+          for (const value of market.values) {
+            const valueName = value.name.toLowerCase()
+            // Look for "Yes" or "Si" value
+            if (valueName === 'yes' || valueName === 'si' || valueName === 'sí') {
+              return value.odds
+            }
+          }
+        }
+      }
+    }
+
+    return null
   }
 
   /**

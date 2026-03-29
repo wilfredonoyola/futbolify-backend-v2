@@ -9,8 +9,11 @@ export interface GoalsScoringResult {
   // Probabilities
   probOver05_1H: number
   probOver15_1H: number
+  probBTTS_1H: number // Both Teams To Score in 1H
   // Expected goals
   expectedGoals1H: number
+  expectedGoalsHome1H: number
+  expectedGoalsAway1H: number
   // Form factors
   formScore: number
   h2hScore: number
@@ -134,14 +137,12 @@ export class ScoringGoalsService {
     // OVER 1.5 1H CALCULATION (Section 2.2 - Poisson)
     // ================================================
 
-    // Calculate expected goals 1H using Poisson model
-    // lambda = (team_a.avg_goals_1h + team_b.avg_conceded_1h + team_b.avg_goals_1h + team_a.avg_conceded_1h) / 2
-    const expectedGoals1H =
-      (teamAStats.avg_goals_1h +
-        teamBStats.avg_conceded_1h +
-        teamBStats.avg_goals_1h +
-        teamAStats.avg_conceded_1h) /
-      2
+    // Calculate expected goals 1H for each team using Poisson model
+    // Home team: (their avg goals 1H + opponent's avg conceded 1H) / 2
+    // Away team: (their avg goals 1H + opponent's avg conceded 1H) / 2
+    const expectedGoalsHome1H = (teamAStats.avg_goals_1h + teamBStats.avg_conceded_1h) / 2
+    const expectedGoalsAway1H = (teamBStats.avg_goals_1h + teamAStats.avg_conceded_1h) / 2
+    const expectedGoals1H = expectedGoalsHome1H + expectedGoalsAway1H
 
     // Poisson: P(X >= 2) = 1 - P(X=0) - P(X=1)
     const lambda = expectedGoals1H
@@ -187,6 +188,27 @@ export class ScoringGoalsService {
     probOver15_1H = Math.max(0, Math.min(0.85, probOver15_1H))
 
     // ================================================
+    // BTTS 1H CALCULATION (Both Teams To Score in 1H)
+    // ================================================
+    // P(BTTS 1H) = P(Home scores ≥1 in 1H) × P(Away scores ≥1 in 1H)
+    // Using Poisson: P(X ≥ 1) = 1 - P(X = 0) = 1 - e^(-λ)
+    const probHomeScores1H = 1 - Math.exp(-expectedGoalsHome1H)
+    const probAwayScores1H = 1 - Math.exp(-expectedGoalsAway1H)
+    let probBTTS_1H = probHomeScores1H * probAwayScores1H
+
+    // Apply form adjustment (reduced weight for BTTS)
+    const formAdjBTTS = (formScore - 0.6) * 0.08
+    probBTTS_1H = probBTTS_1H + formAdjBTTS
+
+    // Clamp probBTTS_1H
+    probBTTS_1H = Math.max(0, Math.min(0.70, probBTTS_1H))
+
+    this.logger.debug(
+      `BTTS 1H: P(Home≥1)=${(probHomeScores1H * 100).toFixed(1)}% × ` +
+      `P(Away≥1)=${(probAwayScores1H * 100).toFixed(1)}% = ${(probBTTS_1H * 100).toFixed(1)}%`
+    )
+
+    // ================================================
     // CONSISTENCY VERIFICATION
     // ================================================
     // Mathematical constraint: P(Over 1.5) <= P(Over 0.5)
@@ -212,14 +234,18 @@ export class ScoringGoalsService {
 
     this.logger.debug(
       `Scored ${fixture.homeTeamName} vs ${fixture.awayTeamName}: ` +
-        `O05=${(probOver05_1H * 100).toFixed(1)}%, O15=${(probOver15_1H * 100).toFixed(1)}%`
+        `O05=${(probOver05_1H * 100).toFixed(1)}%, O15=${(probOver15_1H * 100).toFixed(1)}%, ` +
+        `BTTS=${(probBTTS_1H * 100).toFixed(1)}%`
     )
 
     return {
       fixtureId: fixture.fixtureId,
       probOver05_1H,
       probOver15_1H,
+      probBTTS_1H,
       expectedGoals1H,
+      expectedGoalsHome1H,
+      expectedGoalsAway1H,
       formScore,
       h2hScore,
       sampleSize: minGames,
@@ -278,6 +304,33 @@ export class ScoringGoalsService {
   }
 
   /**
+   * Calculate edge for BTTS 1H (Both Teams To Score in 1H) market
+   */
+  calculateEdgeBTTS(result: GoalsScoringResult, odds: number): {
+    hasValue: boolean
+    edge: number
+    confidence: 'ALTA' | 'MEDIA' | 'BAJA' | 'SIN_VALUE'
+  } {
+    if (result.probBTTS_1H === 0) {
+      return { hasValue: false, edge: -1, confidence: 'SIN_VALUE' }
+    }
+
+    const probImplied = 1 / odds
+    const edge = result.probBTTS_1H - probImplied
+
+    // BTTS 1H has stricter thresholds since it's harder to predict
+    if (edge >= 0.12) {
+      return { hasValue: true, edge, confidence: 'ALTA' }
+    } else if (edge >= 0.07) {
+      return { hasValue: true, edge, confidence: 'MEDIA' }
+    } else if (edge >= 0.04) {
+      return { hasValue: true, edge, confidence: 'BAJA' }
+    } else {
+      return { hasValue: false, edge, confidence: 'SIN_VALUE' }
+    }
+  }
+
+  /**
    * Check if fixture passes minimum thresholds for goals 1H betting
    */
   meetsThresholds(result: GoalsScoringResult): {
@@ -285,12 +338,16 @@ export class ScoringGoalsService {
     over05Strong: boolean
     over15Candidate: boolean
     over15Strong: boolean
+    btts1HCandidate: boolean
+    btts1HStrong: boolean
   } {
     return {
       over05Candidate: result.probOver05_1H > 0.78 && result.sampleSize >= MIN_GAMES_PLAYED,
       over05Strong: result.probOver05_1H > 0.85 && result.sampleSize >= MIN_GAMES_PLAYED,
       over15Candidate: result.probOver15_1H > 0.4 && result.sampleSize >= MIN_GAMES_PLAYED,
       over15Strong: result.probOver15_1H > 0.5 && result.sampleSize >= MIN_GAMES_PLAYED,
+      btts1HCandidate: result.probBTTS_1H > 0.25 && result.sampleSize >= MIN_GAMES_PLAYED,
+      btts1HStrong: result.probBTTS_1H > 0.35 && result.sampleSize >= MIN_GAMES_PLAYED,
     }
   }
 

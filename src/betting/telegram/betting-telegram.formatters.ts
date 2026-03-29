@@ -89,6 +89,7 @@ function formatMarket(market: MarketType, pick?: any): string {
     // Goals markets
     [MarketType.OVER_05_1H]: 'Over 0.5 Goles 1H',
     [MarketType.OVER_15_1H]: 'Over 1.5 Goles 1H',
+    [MarketType.BTTS_1H]: 'Ambos Marcan 1H',
     // Corners markets
     [MarketType.OVER_75_CORNERS]: 'Over 7.5 Corners',
     [MarketType.OVER_85_CORNERS]: 'Over 8.5 Corners',

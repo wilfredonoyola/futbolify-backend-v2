@@ -87,6 +87,7 @@ export enum MarketType {
   // Goals markets
   OVER_05_1H = 'over_05_1h',
   OVER_15_1H = 'over_15_1h',
+  BTTS_1H = 'btts_1h', // Both Teams To Score in 1H (Ambos Marcan 1H)
   // Corners markets
   OVER_75_CORNERS = 'over_75_corners',
   OVER_85_CORNERS = 'over_85_corners',
