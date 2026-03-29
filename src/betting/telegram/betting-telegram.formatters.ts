@@ -86,8 +86,10 @@ function formatMarket(market: MarketType, pick?: any): string {
   }
 
   const marketNames: Record<MarketType, string> = {
+    // Goals markets
     [MarketType.OVER_05_1H]: 'Over 0.5 Goles 1H',
     [MarketType.OVER_15_1H]: 'Over 1.5 Goles 1H',
+    // Corners markets
     [MarketType.OVER_75_CORNERS]: 'Over 7.5 Corners',
     [MarketType.OVER_85_CORNERS]: 'Over 8.5 Corners',
     [MarketType.OVER_95_CORNERS]: 'Over 9.5 Corners',
@@ -100,6 +102,16 @@ function formatMarket(market: MarketType, pick?: any): string {
     [MarketType.UNDER_95_CORNERS]: 'Under 9.5 Corners',
     [MarketType.UNDER_105_CORNERS]: 'Under 10.5 Corners',
     [MarketType.CORNERS_HANDICAP]: 'Corners Handicap',
+    // Cards markets (tarjetas)
+    [MarketType.OVER_25_CARDS]: 'Over 2.5 Tarjetas',
+    [MarketType.OVER_35_CARDS]: 'Over 3.5 Tarjetas',
+    [MarketType.OVER_45_CARDS]: 'Over 4.5 Tarjetas',
+    [MarketType.OVER_55_CARDS]: 'Over 5.5 Tarjetas',
+    [MarketType.UNDER_35_CARDS]: 'Under 3.5 Tarjetas',
+    [MarketType.UNDER_45_CARDS]: 'Under 4.5 Tarjetas',
+    [MarketType.UNDER_55_CARDS]: 'Under 5.5 Tarjetas',
+    [MarketType.OVER_15_CARDS_1H]: 'Over 1.5 Tarjetas 1H',
+    [MarketType.OVER_05_CARDS_1H]: 'Over 0.5 Tarjetas 1H',
   }
   return marketNames[market] || market
 }

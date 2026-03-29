@@ -6,6 +6,7 @@ export * from './open-meteo.service'
 // Phase 3: Scoring Services
 export * from './scoring-goals.service'
 export * from './scoring-corners.service'
+export * from './scoring-cards.service'
 export * from './context.service'
 
 // Phase 4: Value Detection + Combo Engine

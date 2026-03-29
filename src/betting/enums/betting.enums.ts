@@ -84,8 +84,10 @@ registerEnumType(ComboType, {
 
 // Market type
 export enum MarketType {
+  // Goals markets
   OVER_05_1H = 'over_05_1h',
   OVER_15_1H = 'over_15_1h',
+  // Corners markets
   OVER_75_CORNERS = 'over_75_corners',
   OVER_85_CORNERS = 'over_85_corners',
   OVER_95_CORNERS = 'over_95_corners',
@@ -98,6 +100,16 @@ export enum MarketType {
   UNDER_95_CORNERS = 'under_95_corners',
   UNDER_105_CORNERS = 'under_105_corners',
   CORNERS_HANDICAP = 'corners_handicap',
+  // Cards markets (tarjetas)
+  OVER_25_CARDS = 'over_25_cards',
+  OVER_35_CARDS = 'over_35_cards',
+  OVER_45_CARDS = 'over_45_cards',
+  OVER_55_CARDS = 'over_55_cards',
+  UNDER_35_CARDS = 'under_35_cards',
+  UNDER_45_CARDS = 'under_45_cards',
+  UNDER_55_CARDS = 'under_55_cards',
+  OVER_15_CARDS_1H = 'over_15_cards_1h',
+  OVER_05_CARDS_1H = 'over_05_cards_1h',
 }
 
 registerEnumType(MarketType, {

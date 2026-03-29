@@ -67,6 +67,13 @@ export interface BettingTeamStats {
   clean_sheets_pct: number
   failed_to_score_pct: number
 
+  // Cards (tarjetas)
+  avg_cards_total: number // avg yellow cards received per match
+  home_cards_total: number // avg cards at home
+  away_cards_total: number // avg cards away
+  form_cards_5: number // avg cards in last 5 matches
+  cards_1h_pct: number // % of cards that fall in first half
+
   // Data quality indicators
   dataQuality?: DataQuality
 }
@@ -83,6 +90,7 @@ export interface BettingH2H {
   avg_corners: number // avg corners in last 5 H2H
   over95_corners_count: number // of last 5, how many had Over 9.5 corners
   avg_total_goals: number
+  avg_cards?: number // avg cards in last 5 H2H
 }
 
 /**
@@ -426,6 +434,14 @@ export class ApiFootballBettingService {
         )
       }
 
+      // Extract card statistics
+      const cards = stats.cards || {}
+      const yellowCards = cards.yellow || {}
+      const totalYellowCards = this.sumCardsTotal(yellowCards)
+      const yellowCards1H = this.sumCardsFirstHalf(yellowCards)
+      const avgCardsTotal = effectiveGamesPlayed > 0 ? totalYellowCards / effectiveGamesPlayed : 2.0
+      const cards1HPct = totalYellowCards > 0 ? yellowCards1H / totalYellowCards : 0.38
+
       const result: BettingTeamStats = {
         teamId,
         teamName: stats.team?.name || '',
@@ -468,6 +484,13 @@ export class ApiFootballBettingService {
         // Clean sheets
         clean_sheets_pct: (stats.clean_sheet?.total || 0) / Math.max(1, effectiveGamesPlayed),
         failed_to_score_pct: (stats.failed_to_score?.total || 0) / Math.max(1, effectiveGamesPlayed),
+
+        // Cards (tarjetas)
+        avg_cards_total: avgCardsTotal,
+        home_cards_total: avgCardsTotal * 0.95, // home teams get slightly fewer cards
+        away_cards_total: avgCardsTotal * 1.05, // away teams get slightly more cards
+        form_cards_5: avgCardsTotal, // use average as form estimate
+        cards_1h_pct: cards1HPct,
 
         // Data quality indicators
         dataQuality,
@@ -852,6 +875,38 @@ export class ApiFootballBettingService {
     // Also check individual minutes if available
     if (minuteBreakdown['45+']) {
       total += minuteBreakdown['45+'].total || 0
+    }
+
+    return total
+  }
+
+  /**
+   * Sum total cards from minute breakdown
+   */
+  private sumCardsTotal(minuteBreakdown: any): number {
+    let total = 0
+    const ranges = ['0-15', '16-30', '31-45', '46-60', '61-75', '76-90', '91-105', '106-120']
+
+    for (const range of ranges) {
+      if (minuteBreakdown[range]) {
+        total += minuteBreakdown[range].total || 0
+      }
+    }
+
+    return total
+  }
+
+  /**
+   * Sum first half cards from minute breakdown
+   */
+  private sumCardsFirstHalf(minuteBreakdown: any): number {
+    let total = 0
+    const firstHalfRanges = ['0-15', '16-30', '31-45']
+
+    for (const range of firstHalfRanges) {
+      if (minuteBreakdown[range]) {
+        total += minuteBreakdown[range].total || 0
+      }
     }
 
     return total

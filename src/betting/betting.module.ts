@@ -25,6 +25,7 @@ import {
   // Phase 3: Scoring Services
   ScoringGoalsService,
   ScoringCornersService,
+  ScoringCardsService,
   ContextService,
   // Phase 4: Value Detection + Combo Engine
   ValueDetectionService,
@@ -83,6 +84,7 @@ import { BettingTestController } from './betting-test.controller'
     // Phase 3: Scoring Services
     ScoringGoalsService,
     ScoringCornersService,
+    ScoringCardsService,
     ContextService,
     // Phase 4: Value Detection + Combo Engine
     ValueDetectionService,
@@ -115,6 +117,7 @@ import { BettingTestController } from './betting-test.controller'
     // Phase 3: Scoring Services
     ScoringGoalsService,
     ScoringCornersService,
+    ScoringCardsService,
     ContextService,
     // Phase 4: Value Detection + Combo Engine
     ValueDetectionService,

@@ -2440,6 +2440,10 @@ type PickTeamStats {
   avgConceded1H: Float
   over05_1h_pct: Float
   dataQuality: String
+  avgCardsTotal: Float
+  homeCardsTotal: Float
+  awayCardsTotal: Float
+  formCards5: Float
 }
 
 type PickModelInputs {
@@ -2455,6 +2459,8 @@ type PickModelInputs {
   expectedGoals1H: Float
   cornersExpected: Float
   cornersExpected1H: Float
+  cardsExpected: Float
+  cardsExpected1H: Float
   handicapLineExpected: Float
   handicapLineBookmaker: Float
   calculationExplanation: String
@@ -2500,6 +2506,10 @@ type PickMatchResult {
   cornersHT: Int
   cornersHome: Int
   cornersAway: Int
+  cardsTotal: Int
+  cardsHT: Int
+  cardsHome: Int
+  cardsAway: Int
 }
 
 type LeagueInfo {
@@ -2682,6 +2692,15 @@ enum MarketType {
   UNDER_95_CORNERS
   UNDER_105_CORNERS
   CORNERS_HANDICAP
+  OVER_25_CARDS
+  OVER_35_CARDS
+  OVER_45_CARDS
+  OVER_55_CARDS
+  UNDER_35_CARDS
+  UNDER_45_CARDS
+  UNDER_55_CARDS
+  OVER_15_CARDS_1H
+  OVER_05_CARDS_1H
 }
 
 """Direction of the market bet"""

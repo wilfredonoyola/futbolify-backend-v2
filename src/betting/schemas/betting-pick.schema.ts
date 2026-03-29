@@ -85,6 +85,23 @@ export class PickTeamStats {
   @Prop()
   @Field({ nullable: true })
   dataQuality?: string
+
+  // Cards specific
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  avgCardsTotal?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  homeCardsTotal?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  awayCardsTotal?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  formCards5?: number
 }
 
 export const PickTeamStatsSchema = SchemaFactory.createForClass(PickTeamStats)
@@ -143,6 +160,15 @@ export class PickModelInputs {
   @Prop()
   @Field(() => Float, { nullable: true })
   cornersExpected1H?: number
+
+  // Cards specific
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  cardsExpected?: number
+
+  @Prop()
+  @Field(() => Float, { nullable: true })
+  cardsExpected1H?: number
 
   // Corners handicap specific
   @Prop()
@@ -255,6 +281,23 @@ export class PickMatchResult {
   @Prop()
   @Field(() => Int, { nullable: true })
   cornersAway?: number
+
+  // Cards results
+  @Prop()
+  @Field(() => Int, { nullable: true })
+  cardsTotal?: number
+
+  @Prop()
+  @Field(() => Int, { nullable: true })
+  cardsHT?: number
+
+  @Prop()
+  @Field(() => Int, { nullable: true })
+  cardsHome?: number
+
+  @Prop()
+  @Field(() => Int, { nullable: true })
+  cardsAway?: number
 }
 
 export const PickMatchResultSchema =

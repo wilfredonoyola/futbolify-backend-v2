@@ -20,6 +20,7 @@ import { ApiFootballBettingService } from '../services/api-football-betting.serv
 import { OddsApiService } from '../services/odds-api.service'
 import { ScoringGoalsService } from '../services/scoring-goals.service'
 import { ScoringCornersService } from '../services/scoring-corners.service'
+import { ScoringCardsService } from '../services/scoring-cards.service'
 import { ContextService } from '../services/context.service'
 import { ValueDetectionService } from '../services/value-detection.service'
 import { OpenMeteoService, WeatherData } from '../services/open-meteo.service'
@@ -66,8 +67,9 @@ import { NormalizedOdds } from '../services/odds-api.service'
  *   5. Mark fixtures as analyzed in tracking collection
  *
  * MARKETS ANALYZED:
- *   - Goals 1H (Over 0.5 1H)
+ *   - Goals 1H (Over 0.5 1H, Over 1.5 1H)
  *   - Corners (totals and handicaps)
+ *   - Cards/Tarjetas (totals and first half)
  *
  * @schedule Every 30 minutes, 24/7
  * @timezone America/El_Salvador
@@ -109,6 +111,7 @@ export class NightlyAnalysisCron {
     private oddsApiService: OddsApiService,
     private scoringGoalsService: ScoringGoalsService,
     private scoringCornersService: ScoringCornersService,
+    private scoringCardsService: ScoringCardsService,
     private contextService: ContextService,
     private valueDetectionService: ValueDetectionService,
     private comboEngineService: ComboEngineService,
@@ -2164,6 +2167,259 @@ export class NightlyAnalysisCron {
         }
 
         // ====================================================================
+        // CARDS VALUE DETECTION
+        // ====================================================================
+        const cardsResult = this.scoringCardsService.scoreCards(
+          fixture,
+          teamAStats,
+          teamBStats,
+          h2h,
+          league.apiFootballId
+        )
+
+        this.logger.debug(
+          `Cards scoring: expected=${cardsResult.cardsExpected.toFixed(1)}, ` +
+            `1H=${cardsResult.cardsExpected1H.toFixed(1)}, quality=${cardsResult.dataQuality}`
+        )
+
+        // Detect value for cards (multiple lines: 3.5, 4.5, 5.5)
+        if (cardsResult.cardsExpected > 0 && odds) {
+          const cardLines = [3.5, 4.5, 5.5]
+          const timeWindow = this.determineTimeWindow(new Date(fixture.kickoff))
+
+          for (const line of cardLines) {
+            const cardsOdds = this.findCardsOdds(odds, line)
+
+            if (cardsOdds) {
+              const edgeResult = this.scoringCardsService.calculateEdge(
+                cardsResult,
+                line,
+                cardsOdds.over,
+                cardsOdds.under
+              )
+
+              if (edgeResult.direction !== 'SKIP' && edgeResult.edge >= 0.05) {
+                // FILTER: Minimum odds for cards (same as corners)
+                const MIN_ODDS_CARDS = 1.40
+                if (edgeResult.selectedOdds < MIN_ODDS_CARDS) {
+                  this.logger.debug(
+                    `Skip cards ${fixture.homeTeamName} vs ${fixture.awayTeamName}: odds ${edgeResult.selectedOdds} < ${MIN_ODDS_CARDS}`
+                  )
+                  continue
+                }
+
+                // FILTER: Minimum stars (exclude weak picks)
+                const MIN_STARS = 3
+                const stars = this.calculateStars(edgeResult.edge)
+                if (stars < MIN_STARS) {
+                  this.logger.debug(
+                    `Skip cards ${fixture.homeTeamName} vs ${fixture.awayTeamName}: ${stars} stars < ${MIN_STARS} required`
+                  )
+                  continue
+                }
+
+                // FILTER: Minimum sample size for cards
+                const MIN_GAMES_CARDS = 8
+                if (teamAStats.gamesPlayed < MIN_GAMES_CARDS || teamBStats.gamesPlayed < MIN_GAMES_CARDS) {
+                  this.logger.debug(
+                    `Skip cards ${fixture.homeTeamName} vs ${fixture.awayTeamName}: insufficient data ` +
+                    `(${teamAStats.gamesPlayed}+${teamBStats.gamesPlayed} games, need ${MIN_GAMES_CARDS}+ each)`
+                  )
+                  continue
+                }
+
+                const market = this.getCardsMarketType(line, edgeResult.direction)
+                const probOwn = this.scoringCardsService.getProbabilityForLine(
+                  cardsResult,
+                  line,
+                  edgeResult.direction
+                )
+                const probImplied = 1 / edgeResult.selectedOdds
+
+                // Check if pick already exists for this fixture+market
+                const alreadyExists = await this.pickExists(fixture.fixtureId, market)
+                if (alreadyExists) {
+                  this.logger.debug(`Skip duplicate: ${fixture.homeTeamName} vs ${fixture.awayTeamName} - ${market}`)
+                } else {
+                picks.push({
+                  leg: {
+                    fixtureId: fixture.fixtureId,
+                    leagueId: league.apiFootballId,
+                    homeTeam: fixture.homeTeamName,
+                    awayTeam: fixture.awayTeamName,
+                    market,
+                    direction: edgeResult.direction,
+                    line,
+                    odds: edgeResult.selectedOdds,
+                    probOwn,
+                    edge: edgeResult.edge,
+                    confidenceScore: Math.min(100, Math.round(edgeResult.edge * 500 + 40)),
+                    teamAStats,
+                    teamBStats,
+                  },
+                  document: {
+                    fixtureId: fixture.fixtureId,
+                    date: new Date(date),
+                    league: {
+                      id: league.apiFootballId,
+                      name: league.name,
+                      country: league.country,
+                      tier: league.tier,
+                    },
+                    teamHome: {
+                      id: fixture.homeTeamId,
+                      name: fixture.homeTeamName,
+                    },
+                    teamAway: {
+                      id: fixture.awayTeamId,
+                      name: fixture.awayTeamName,
+                    },
+                    kickoff: new Date(fixture.kickoff),
+                    timeWindow,
+                    market,
+                    direction:
+                      edgeResult.direction === 'OVER'
+                        ? MarketDirection.OVER
+                        : MarketDirection.UNDER,
+                    line,
+                    probOwn,
+                    probImplied,
+                    edge: edgeResult.edge,
+                    confidenceScore: Math.min(100, Math.round(edgeResult.edge * 500 + 40)),
+                    oddsAtDetection: edgeResult.selectedOdds,
+                    bestBookmaker: 'API-Football',
+                    status: PickStatus.PENDING,
+                    stars: this.calculateStars(edgeResult.edge),
+                    reasons: this.generateCardsReasons(
+                      line,
+                      edgeResult.direction,
+                      teamAStats,
+                      teamBStats,
+                      cardsResult
+                    ),
+                    modelInputs: {
+                      dataSource: 'API-Football',
+                      contextFlags: context.flags,
+                      cardsExpected: cardsResult.cardsExpected,
+                      teamAStats: {
+                        name: fixture.homeTeamName,
+                        avgCardsTotal: teamAStats.avg_cards_total,
+                        homeCardsTotal: teamAStats.home_cards_total,
+                        formCards5: teamAStats.form_cards_5,
+                        gamesPlayed: teamAStats.gamesPlayed,
+                      },
+                      teamBStats: {
+                        name: fixture.awayTeamName,
+                        avgCardsTotal: teamBStats.avg_cards_total,
+                        awayCardsTotal: teamBStats.away_cards_total,
+                        formCards5: teamBStats.form_cards_5,
+                        gamesPlayed: teamBStats.gamesPlayed,
+                      },
+                      calculationExplanation: `Tarjetas esperadas: ${cardsResult.cardsExpected.toFixed(1)} (Local: ${cardsResult.cardsAExpected.toFixed(1)} + Visitante: ${cardsResult.cardsBExpected.toFixed(1)}). Basado en promedios de ${teamAStats.gamesPlayed} y ${teamBStats.gamesPlayed} partidos.`,
+                      ...this.getWeatherFields(weather, context),
+                    },
+                  },
+                })
+                fixtureGeneratedPick = true
+                this.logger.log(
+                  `🟨 Cards pick: ${fixture.homeTeamName} vs ${fixture.awayTeamName} ` +
+                  `${edgeResult.direction} ${line} @${edgeResult.selectedOdds.toFixed(2)} ` +
+                  `(edge: ${(edgeResult.edge * 100).toFixed(1)}%)`
+                )
+              } // end else (not duplicate)
+              }
+            }
+          }
+
+          // First half cards (1.5 line)
+          const cards1HOdds = this.findCardsOdds(odds, 1.5, true)
+          if (cards1HOdds) {
+            const edge1HResult = this.scoringCardsService.calculateEdge1H(
+              cardsResult,
+              1.5,
+              cards1HOdds.over,
+              cards1HOdds.under
+            )
+
+            if (edge1HResult.direction !== 'SKIP' && edge1HResult.edge >= 0.05) {
+              const MIN_ODDS_CARDS = 1.40
+              if (edge1HResult.selectedOdds >= MIN_ODDS_CARDS) {
+                const market = MarketType.OVER_15_CARDS_1H
+                const probOwn1H = cardsResult.prob1HByLine.get(1.5)?.[edge1HResult.direction === 'OVER' ? 'over' : 'under'] || 0
+                const probImplied1H = 1 / edge1HResult.selectedOdds
+
+                const alreadyExists = await this.pickExists(fixture.fixtureId, market)
+                if (!alreadyExists) {
+                  picks.push({
+                    leg: {
+                      fixtureId: fixture.fixtureId,
+                      leagueId: league.apiFootballId,
+                      homeTeam: fixture.homeTeamName,
+                      awayTeam: fixture.awayTeamName,
+                      market,
+                      direction: edge1HResult.direction,
+                      line: 1.5,
+                      odds: edge1HResult.selectedOdds,
+                      probOwn: probOwn1H,
+                      edge: edge1HResult.edge,
+                      confidenceScore: Math.min(100, Math.round(edge1HResult.edge * 500 + 40)),
+                      teamAStats,
+                      teamBStats,
+                    },
+                    document: {
+                      fixtureId: fixture.fixtureId,
+                      date: new Date(date),
+                      league: {
+                        id: league.apiFootballId,
+                        name: league.name,
+                        country: league.country,
+                        tier: league.tier,
+                      },
+                      teamHome: { id: fixture.homeTeamId, name: fixture.homeTeamName },
+                      teamAway: { id: fixture.awayTeamId, name: fixture.awayTeamName },
+                      kickoff: new Date(fixture.kickoff),
+                      timeWindow,
+                      market,
+                      direction:
+                        edge1HResult.direction === 'OVER'
+                          ? MarketDirection.OVER
+                          : MarketDirection.UNDER,
+                      line: 1.5,
+                      probOwn: probOwn1H,
+                      probImplied: probImplied1H,
+                      edge: edge1HResult.edge,
+                      confidenceScore: Math.min(100, Math.round(edge1HResult.edge * 500 + 40)),
+                      oddsAtDetection: edge1HResult.selectedOdds,
+                      bestBookmaker: 'API-Football',
+                      status: PickStatus.PENDING,
+                      stars: this.calculateStars(edge1HResult.edge),
+                      reasons: [
+                        `Tarjetas 1H esperadas: ${cardsResult.cardsExpected1H.toFixed(1)}`,
+                        `~38% de tarjetas caen en primera mitad`,
+                      ],
+                      modelInputs: {
+                        dataSource: 'API-Football',
+                        contextFlags: context.flags,
+                        cardsExpected1H: cardsResult.cardsExpected1H,
+                        cardsExpected: cardsResult.cardsExpected,
+                        calculationExplanation: `Tarjetas 1H esperadas: ${cardsResult.cardsExpected1H.toFixed(1)} (38% del total ${cardsResult.cardsExpected.toFixed(1)}).`,
+                        ...this.getWeatherFields(weather, context),
+                      },
+                    },
+                  })
+                  fixtureGeneratedPick = true
+                  this.logger.log(
+                    `🟨 Cards 1H pick: ${fixture.homeTeamName} vs ${fixture.awayTeamName} ` +
+                    `${edge1HResult.direction} 1.5 @${edge1HResult.selectedOdds.toFixed(2)} ` +
+                    `(edge: ${(edge1HResult.edge * 100).toFixed(1)}%)`
+                  )
+                }
+              }
+            }
+          }
+        }
+
+        // ====================================================================
         // SMART SCANNING: Mark fixture as analyzed
         // ====================================================================
         await this.markAsAnalyzed(
@@ -2388,6 +2644,121 @@ export class NightlyAnalysisCron {
           return MarketType.UNDER_95_CORNERS
       }
     }
+  }
+
+  /**
+   * Find cards odds for a specific line
+   */
+  private findCardsOdds(
+    odds: any,
+    line: number,
+    isFirstHalf = false
+  ): { over: number; under: number } | null {
+    if (!odds?.bookmakers) return null
+
+    for (const bookmaker of odds.bookmakers) {
+      for (const market of bookmaker.markets) {
+        const marketName = market.marketName.toLowerCase()
+        const isCardMarket = marketName.includes('card') || marketName.includes('booking')
+        const is1HMarket = marketName.includes('half') || marketName.includes('1h')
+
+        // Match the right market type
+        if (isCardMarket && (isFirstHalf ? is1HMarket : !is1HMarket)) {
+          let overOdds = 0
+          let underOdds = 0
+
+          for (const value of market.values) {
+            const linePart = value.name.match(/[\d.]+/)
+            if (linePart && parseFloat(linePart[0]) === line) {
+              if (value.name.toLowerCase().includes('over')) {
+                overOdds = value.odds
+              } else if (value.name.toLowerCase().includes('under')) {
+                underOdds = value.odds
+              }
+            }
+          }
+
+          if (overOdds > 0 && underOdds > 0) {
+            return { over: overOdds, under: underOdds }
+          }
+        }
+      }
+    }
+
+    return null
+  }
+
+  /**
+   * Get the appropriate MarketType for cards based on line and direction
+   */
+  private getCardsMarketType(
+    line: number,
+    direction: 'OVER' | 'UNDER'
+  ): MarketType {
+    if (direction === 'OVER') {
+      switch (line) {
+        case 2.5:
+          return MarketType.OVER_25_CARDS
+        case 3.5:
+          return MarketType.OVER_35_CARDS
+        case 4.5:
+          return MarketType.OVER_45_CARDS
+        case 5.5:
+          return MarketType.OVER_55_CARDS
+        default:
+          return MarketType.OVER_35_CARDS
+      }
+    } else {
+      switch (line) {
+        case 3.5:
+          return MarketType.UNDER_35_CARDS
+        case 4.5:
+          return MarketType.UNDER_45_CARDS
+        case 5.5:
+          return MarketType.UNDER_55_CARDS
+        default:
+          return MarketType.UNDER_45_CARDS
+      }
+    }
+  }
+
+  /**
+   * Generate human-readable reasons for a cards pick
+   */
+  private generateCardsReasons(
+    line: number,
+    direction: 'OVER' | 'UNDER',
+    teamAStats: any,
+    teamBStats: any,
+    cardsResult: any
+  ): string[] {
+    const reasons: string[] = []
+
+    // Expected cards
+    reasons.push(`Tarjetas esperadas: ${cardsResult.cardsExpected.toFixed(1)}`)
+
+    // Team card averages
+    if (teamAStats?.avg_cards_total >= 2) {
+      reasons.push(`Local recibe ${teamAStats.avg_cards_total.toFixed(1)} tarjetas/partido`)
+    }
+    if (teamBStats?.avg_cards_total >= 2) {
+      reasons.push(`Visitante recibe ${teamBStats.avg_cards_total.toFixed(1)} tarjetas/partido`)
+    }
+
+    // Form cards
+    const avgFormCards = (teamAStats?.form_cards_5 || 0) + (teamBStats?.form_cards_5 || 0)
+    if (avgFormCards > cardsResult.cardsExpected) {
+      reasons.push(`Tendencia reciente: ${avgFormCards.toFixed(1)} tarjetas/partido`)
+    }
+
+    // Direction explanation
+    if (direction === 'OVER' && cardsResult.cardsExpected > line) {
+      reasons.push(`Modelo sugiere ${direction} ${line} tarjetas`)
+    } else if (direction === 'UNDER' && cardsResult.cardsExpected < line) {
+      reasons.push(`Modelo sugiere ${direction} ${line} tarjetas`)
+    }
+
+    return reasons.slice(0, 3)
   }
 
   /**
