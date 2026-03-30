@@ -444,6 +444,70 @@ type PlayerProfileDto {
   seasonStats: [PlayerSeasonStatDto!]!
 }
 
+type TopScorerDto {
+  rank: Int!
+  playerId: Int!
+  playerName: String!
+  playerPhoto: String
+  nationality: String
+  teamName: String!
+  teamLogo: String
+  teamId: Int!
+  goals: Int!
+  assists: Int!
+  appearances: Int!
+}
+
+type SquadPlayerDto {
+  id: Int!
+  name: String!
+  photo: String
+  position: String
+  number: Int
+  age: Int
+}
+
+type TeamSquadDto {
+  teamId: Int!
+  teamName: String!
+  teamLogo: String
+  players: [SquadPlayerDto!]!
+}
+
+type TeamInfoDto {
+  id: String!
+  name: String!
+  nameEn: String
+  code: String!
+  flag: String
+  logo: String
+}
+
+type StandingEntryDto {
+  position: Int!
+  teamId: String!
+  team: TeamInfoDto!
+  played: Int!
+  won: Int!
+  drawn: Int!
+  lost: Int!
+  goalsFor: Int!
+  goalsAgainst: Int!
+  goalDifference: Int!
+  points: Int!
+  form: [String!]
+  zone: String
+}
+
+type StandingsDto {
+  leagueId: String!
+  leagueName: String!
+  season: String
+  conference: String
+  entries: [StandingEntryDto!]!
+  lastUpdated: String
+}
+
 type Team {
   id: ID!
   name: String!
@@ -2257,40 +2321,6 @@ type SharePostResult {
   sharesCount: Int!
 }
 
-type TeamInfoDto {
-  id: String!
-  name: String!
-  nameEn: String
-  code: String!
-  flag: String
-  logo: String
-}
-
-type StandingEntryDto {
-  position: Int!
-  teamId: String!
-  team: TeamInfoDto!
-  played: Int!
-  won: Int!
-  drawn: Int!
-  lost: Int!
-  goalsFor: Int!
-  goalsAgainst: Int!
-  goalDifference: Int!
-  points: Int!
-  form: [String!]
-  zone: String
-}
-
-type StandingsDto {
-  leagueId: String!
-  leagueName: String!
-  season: String
-  conference: String
-  entries: [StandingEntryDto!]!
-  lastUpdated: String
-}
-
 type FootballChatResponseDto {
   success: Boolean!
   message: String!
@@ -3240,6 +3270,11 @@ type Query {
   fixturesByDate(date: String!, leagueId: String): [LiveMatchOutputDto!]!
   footballSearch(query: String!, limit: Int = 8): [FootballSearchResultDto!]!
   playerProfile(playerId: Int!, season: Int): PlayerProfileDto
+  topScorers(leagueId: String!, limit: Int = 25, season: Int): [TopScorerDto!]!
+  teamSquad(leagueId: String!, teamId: String!): TeamSquadDto
+  standings(leagueId: String!, season: String, conference: String): StandingsDto
+  mlsStandings(season: String): [StandingsDto!]!
+  teamStanding(leagueId: String!, teamId: String!): StandingEntryDto
   myTeams: [Team!]!
   team(id: ID!): TeamWithMembers!
   teamByCode(code: String!): Team!
@@ -3368,9 +3403,6 @@ type Query {
   feedContextualCard(cardId: String!, locale: String = "es"): FeedContextualCard
   postComments(postId: ID!, limit: Int = 20, offset: Int = 0): CommentsResponse!
   commentReplies(commentId: ID!, limit: Int = 10, offset: Int = 0): CommentsResponse!
-  standings(leagueId: String!, season: String, conference: String): StandingsDto
-  mlsStandings(season: String): [StandingsDto!]!
-  teamStanding(leagueId: String!, teamId: String!): StandingEntryDto
   getReportReasons: [ReportReasonOutput!]!
   adminGetReports(status: ReportStatus, reportType: ReportType, limit: Int! = 20, offset: Int! = 0): ReportsListResponse!
   bettingPicks(filters: PickFiltersInput): [BettingPickOutput!]!

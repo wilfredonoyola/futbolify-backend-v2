@@ -146,6 +146,36 @@ export interface MatchStatistics {
   fouls?: { home: number; away: number }
 }
 
+/** League top scorers row (API-Football topscorers). */
+export interface TopScorerRow {
+  rank: number
+  playerId: number
+  playerName: string
+  playerPhoto?: string
+  nationality?: string
+  teamName: string
+  teamLogo?: string
+  teamId: number
+  goals: number
+  assists: number
+  appearances: number
+}
+
+/** Team squad from API-Football players/squads. */
+export interface TeamSquadRow {
+  teamId: number
+  teamName: string
+  teamLogo?: string
+  players: Array<{
+    id: number
+    name: string
+    photo?: string
+    position?: string
+    number?: number
+    age?: number
+  }>
+}
+
 export interface TeamStanding {
   rank: number
   teamId: number | null
@@ -192,6 +222,14 @@ export class ApiFootballLiveService {
     if (!this.apiKey) {
       this.logger.warn('⚠️ API_FOOTBALL_KEY not configured')
     }
+  }
+
+  /** European-style season year for API-Football (Aug–May). */
+  private getDefaultSeasonYear(): number {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1
+    return currentMonth <= 7 ? currentYear - 1 : currentYear
   }
 
   /**
@@ -1339,6 +1377,182 @@ export class ApiFootballLiveService {
       return result
     } catch (error) {
       this.logger.error(`getPlayerProfile: ${error.message}`)
+      return null
+    }
+  }
+
+  /**
+   * Top scorers for a league (API-Football /players/topscorers).
+   */
+  async getTopScorers(
+    leagueId: string,
+    limit = 25,
+    season?: number
+  ): Promise<TopScorerRow[]> {
+    const leagueInfo = LEAGUE_MAP[leagueId]
+    if (!leagueInfo || !leagueInfo.isActive) {
+      this.logger.warn(`getTopScorers: unknown or inactive league ${leagueId}`)
+      return []
+    }
+
+    const targetSeason = season ?? this.getDefaultSeasonYear()
+    const safeLimit = Math.min(Math.max(limit, 1), 50)
+    const cacheKey = `api-football:top-scorers:${leagueId}:${targetSeason}:${safeLimit}`
+
+    const cached = await this.redisCache.get<TopScorerRow[]>(cacheKey)
+    if (cached != null) {
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return []
+    }
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/players/topscorers?league=${leagueInfo.apiId}&season=${targetSeason}`,
+        { headers: { 'x-apisports-key': this.apiKey } }
+      )
+
+      if (!response.ok) {
+        this.logger.error(`Top scorers API error: ${response.status}`)
+        return []
+      }
+
+      const data = await response.json()
+      const list = (data.response || []).slice(0, safeLimit)
+
+      const rows: TopScorerRow[] = list.map((scorer: any, index: number) => {
+        const st = scorer.statistics?.[0] || {}
+        const team = st.team || {}
+        const goals = st.goals || {}
+        const games = st.games || {}
+        return {
+          rank: index + 1,
+          playerId: scorer.player?.id ?? 0,
+          playerName: scorer.player?.name || '',
+          playerPhoto: scorer.player?.photo || undefined,
+          nationality: scorer.player?.nationality || undefined,
+          teamName: team.name || '',
+          teamLogo: team.logo || undefined,
+          teamId: team.id != null ? Number(team.id) : 0,
+          goals: goals.total ?? 0,
+          assists: goals.assists ?? 0,
+          appearances: games.appearences ?? games.appearances ?? 0,
+        }
+      })
+
+      await this.redisCache.set(cacheKey, rows, CACHE_TTL.STANDINGS)
+      return rows
+    } catch (error) {
+      this.logger.error(`getTopScorers: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
+   * Resolve API-Football team id via /teams?league=&season=&search=
+   */
+  async findTeamApiIdInLeague(leagueId: string, search: string): Promise<number | null> {
+    const leagueInfo = LEAGUE_MAP[leagueId]
+    const q = search?.trim()
+    if (!leagueInfo || !q) {
+      return null
+    }
+
+    const targetSeason = this.getDefaultSeasonYear()
+    const cacheKey = `api-football:team-lookup:${leagueId}:${targetSeason}:${q.toLowerCase().slice(0, 48)}`
+
+    const cached = await this.redisCache.get<number>(cacheKey)
+    if (cached !== undefined && cached !== null) {
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return null
+    }
+
+    try {
+      const url = `${this.baseUrl}/teams?league=${leagueInfo.apiId}&season=${targetSeason}&search=${encodeURIComponent(q)}`
+      const response = await fetch(url, {
+        headers: { 'x-apisports-key': this.apiKey },
+      })
+
+      if (!response.ok) {
+        return null
+      }
+
+      const data = await response.json()
+      const first = data.response?.[0]?.team
+      const id = first?.id != null ? Number(first.id) : null
+
+      if (id) {
+        await this.redisCache.set(cacheKey, id, CACHE_TTL.STANDINGS)
+      }
+
+      return id
+    } catch (error) {
+      this.logger.error(`findTeamApiIdInLeague: ${error.message}`)
+      return null
+    }
+  }
+
+  /**
+   * Full squad for a team (API-Football /players/squads).
+   */
+  async getTeamSquad(teamApiId: number): Promise<TeamSquadRow | null> {
+    if (!teamApiId) {
+      return null
+    }
+
+    const cacheKey = `api-football:squad:${teamApiId}`
+    const cached = await this.redisCache.get<TeamSquadRow>(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    if (!this.apiKey) {
+      return null
+    }
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/players/squads?team=${teamApiId}`,
+        { headers: { 'x-apisports-key': this.apiKey } }
+      )
+
+      if (!response.ok) {
+        this.logger.error(`Squad API error: ${response.status}`)
+        return null
+      }
+
+      const data = await response.json()
+      const block = data.response?.[0]
+      if (!block) {
+        return null
+      }
+
+      const team = block.team || {}
+      const players = (block.players || []).map((pl: any) => ({
+        id: pl.id,
+        name: pl.name || '',
+        photo: pl.photo || undefined,
+        position: pl.position || undefined,
+        number: pl.number != null ? Number(pl.number) : undefined,
+        age: pl.age != null ? Number(pl.age) : undefined,
+      }))
+
+      const result: TeamSquadRow = {
+        teamId: Number(team.id),
+        teamName: team.name || '',
+        teamLogo: team.logo || undefined,
+        players,
+      }
+
+      await this.redisCache.set(cacheKey, result, 21_600)
+      return result
+    } catch (error) {
+      this.logger.error(`getTeamSquad: ${error.message}`)
       return null
     }
   }

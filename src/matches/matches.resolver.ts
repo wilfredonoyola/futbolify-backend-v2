@@ -7,6 +7,8 @@ import {
   AvailableLeagueDto,
   FootballSearchResultDto,
   PlayerProfileDto,
+  TopScorerDto,
+  TeamSquadDto,
 } from './dto'
 
 @Resolver('Match')
@@ -79,5 +81,23 @@ export class MatchesResolver {
     @Args('season', { type: () => Int, nullable: true }) season?: number
   ) {
     return this.matchesService.getPlayerProfile(playerId, season)
+  }
+
+  @Query(() => [TopScorerDto])
+  async topScorers(
+    @Args('leagueId') leagueId: string,
+    @Args('limit', { type: () => Int, nullable: true, defaultValue: 25 })
+    limit?: number,
+    @Args('season', { type: () => Int, nullable: true }) season?: number
+  ) {
+    return this.matchesService.getTopScorers(leagueId, limit ?? 25, season)
+  }
+
+  @Query(() => TeamSquadDto, { nullable: true })
+  async teamSquad(
+    @Args('leagueId') leagueId: string,
+    @Args('teamId') teamId: string
+  ) {
+    return this.matchesService.getTeamSquadByLeagueTeam(leagueId, teamId)
   }
 }

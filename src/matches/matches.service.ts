@@ -12,6 +12,9 @@ import {
   MatchLineupsDto,
   TeamLineupDto,
   LineupPlayerDto,
+  TopScorerDto,
+  TeamSquadDto,
+  SquadPlayerDto,
 } from './dto'
 import {
   ApiFootballLiveService,
@@ -23,6 +26,8 @@ import {
 import { OpenAiAnalysisService } from './openai-analysis.service'
 import { shouldAnalyzeWithGPT } from './utils/match-relevance.util'
 import { ConfigService } from '@nestjs/config'
+import { StandingsService } from '../standings/standings.service'
+import { StandingEntryDto } from '../standings/dto/standing.dto'
 
 @Injectable()
 export class MatchesService {
@@ -31,7 +36,8 @@ export class MatchesService {
   constructor(
     private readonly apiFootballService: ApiFootballLiveService,
     private readonly openAiAnalysisService: OpenAiAnalysisService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly standingsService: StandingsService
   ) {}
 
   /**
@@ -533,5 +539,116 @@ export class MatchesService {
       this.logger.error(`getPlayerProfile: ${error.message}`)
       return null
     }
+  }
+
+  /**
+   * Tabla de goleadores de una liga (API-Football).
+   */
+  async getTopScorers(
+    leagueId: string,
+    limit = 25,
+    season?: number
+  ): Promise<TopScorerDto[]> {
+    try {
+      const rows = await this.apiFootballService.getTopScorers(
+        leagueId,
+        limit,
+        season
+      )
+      return rows.map((r) => {
+        const d = new TopScorerDto()
+        d.rank = r.rank
+        d.playerId = r.playerId
+        d.playerName = r.playerName
+        d.playerPhoto = r.playerPhoto
+        d.nationality = r.nationality
+        d.teamName = r.teamName
+        d.teamLogo = r.teamLogo
+        d.teamId = r.teamId
+        d.goals = r.goals
+        d.assists = r.assists
+        d.appearances = r.appearances
+        return d
+      })
+    } catch (error) {
+      this.logger.error(`getTopScorers: ${error.message}`)
+      return []
+    }
+  }
+
+  /**
+   * Plantilla del equipo: resuelve API team id desde standings + nombre.
+   */
+  async getTeamSquadByLeagueTeam(
+    leagueId: string,
+    teamSlug: string
+  ): Promise<TeamSquadDto | null> {
+    try {
+      const entry = await this.findStandingEntryForTeam(leagueId, teamSlug)
+      if (!entry) {
+        return null
+      }
+
+      const searchPrimary = entry.team.nameEn || entry.team.name
+      let apiTeamId = await this.apiFootballService.findTeamApiIdInLeague(
+        leagueId,
+        searchPrimary
+      )
+      if (!apiTeamId) {
+        apiTeamId = await this.apiFootballService.findTeamApiIdInLeague(
+          leagueId,
+          entry.team.name
+        )
+      }
+      if (!apiTeamId) {
+        return null
+      }
+
+      const raw = await this.apiFootballService.getTeamSquad(apiTeamId)
+      if (!raw) {
+        return null
+      }
+
+      const dto = new TeamSquadDto()
+      dto.teamId = raw.teamId
+      dto.teamName = raw.teamName
+      dto.teamLogo = raw.teamLogo
+      dto.players = raw.players.map((p) => {
+        const sp = new SquadPlayerDto()
+        sp.id = p.id
+        sp.name = p.name
+        sp.photo = p.photo
+        sp.position = p.position
+        sp.number = p.number
+        sp.age = p.age
+        return sp
+      })
+      return dto
+    } catch (error) {
+      this.logger.error(`getTeamSquadByLeagueTeam: ${error.message}`)
+      return null
+    }
+  }
+
+  private async findStandingEntryForTeam(
+    leagueId: string,
+    teamSlug: string
+  ): Promise<StandingEntryDto | null> {
+    if (leagueId === 'mls') {
+      for (const conference of ['eastern', 'western'] as const) {
+        const standings = await this.standingsService.getStandings(
+          'mls',
+          undefined,
+          conference
+        )
+        const hit = standings?.entries.find((e) => e.teamId === teamSlug)
+        if (hit) {
+          return hit
+        }
+      }
+      return null
+    }
+    const standings = await this.standingsService.getStandings(leagueId)
+    return standings?.entries.find((e) => e.teamId === teamSlug) ?? null
   }
 }
