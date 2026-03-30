@@ -13,6 +13,13 @@ const CACHE_TTL = {
 }
 
 /**
+ * Season type for leagues:
+ * - 'european': Aug-May season (Premier League, La Liga, Champions, etc.)
+ * - 'calendar': Jan-Dec or Feb-Nov season (MLS, Brasileirão, J-League, etc.)
+ */
+type SeasonType = 'european' | 'calendar'
+
+/**
  * League configuration for API-Football
  * Maps our frontend league IDs to API-Football league IDs with full metadata
  */
@@ -22,29 +29,30 @@ interface LeagueConfig {
   country: string | null // null for international competitions
   order: number // Display order (lower = higher priority)
   isActive: boolean
+  seasonType: SeasonType // How to calculate season year
 }
 
 const LEAGUE_MAP: Record<string, LeagueConfig> = {
   // World Cup - Top priority
-  'mundial-2026': { apiId: 1, name: 'Mundial 2026', country: null, order: 0, isActive: true },
+  'mundial-2026': { apiId: 1, name: 'Mundial 2026', country: null, order: 0, isActive: true, seasonType: 'calendar' },
   // UEFA Competitions
-  'champions-league': { apiId: 2, name: 'Champions League', country: null, order: 1, isActive: true },
-  'europa-league': { apiId: 3, name: 'Europa League', country: null, order: 2, isActive: true },
+  'champions-league': { apiId: 2, name: 'Champions League', country: null, order: 1, isActive: true, seasonType: 'european' },
+  'europa-league': { apiId: 3, name: 'Europa League', country: null, order: 2, isActive: true, seasonType: 'european' },
   // Top European Leagues
-  'la-liga': { apiId: 140, name: 'La Liga', country: 'España', order: 10, isActive: true },
-  'premier-league': { apiId: 39, name: 'Premier League', country: 'Inglaterra', order: 11, isActive: true },
-  'serie-a': { apiId: 135, name: 'Serie A', country: 'Italia', order: 12, isActive: true },
-  'bundesliga': { apiId: 78, name: 'Bundesliga', country: 'Alemania', order: 13, isActive: true },
-  'ligue-1': { apiId: 61, name: 'Ligue 1', country: 'Francia', order: 14, isActive: true },
+  'la-liga': { apiId: 140, name: 'La Liga', country: 'España', order: 10, isActive: true, seasonType: 'european' },
+  'premier-league': { apiId: 39, name: 'Premier League', country: 'Inglaterra', order: 11, isActive: true, seasonType: 'european' },
+  'serie-a': { apiId: 135, name: 'Serie A', country: 'Italia', order: 12, isActive: true, seasonType: 'european' },
+  'bundesliga': { apiId: 78, name: 'Bundesliga', country: 'Alemania', order: 13, isActive: true, seasonType: 'european' },
+  'ligue-1': { apiId: 61, name: 'Ligue 1', country: 'Francia', order: 14, isActive: true, seasonType: 'european' },
   // Americas
-  'liga-mx': { apiId: 262, name: 'Liga MX', country: 'México', order: 20, isActive: true },
-  'mls': { apiId: 253, name: 'MLS', country: 'USA', order: 21, isActive: true },
-  'copa-libertadores': { apiId: 13, name: 'Copa Libertadores', country: null, order: 22, isActive: true },
-  'copa-america': { apiId: 11, name: 'Copa América', country: null, order: 23, isActive: false }, // Not active yet
+  'liga-mx': { apiId: 262, name: 'Liga MX', country: 'México', order: 20, isActive: true, seasonType: 'european' }, // Liga MX runs Aug-May (Apertura/Clausura)
+  'mls': { apiId: 253, name: 'MLS', country: 'USA', order: 21, isActive: true, seasonType: 'calendar' }, // MLS runs Feb-Nov
+  'copa-libertadores': { apiId: 13, name: 'Copa Libertadores', country: null, order: 22, isActive: true, seasonType: 'calendar' },
+  'copa-america': { apiId: 11, name: 'Copa América', country: null, order: 23, isActive: false, seasonType: 'calendar' },
   // Other European
-  'eredivisie': { apiId: 88, name: 'Eredivisie', country: 'Países Bajos', order: 30, isActive: false },
-  'primeira-liga': { apiId: 94, name: 'Primeira Liga', country: 'Portugal', order: 31, isActive: false },
-  'conference-league': { apiId: 848, name: 'Conference League', country: null, order: 32, isActive: false },
+  'eredivisie': { apiId: 88, name: 'Eredivisie', country: 'Países Bajos', order: 30, isActive: false, seasonType: 'european' },
+  'primeira-liga': { apiId: 94, name: 'Primeira Liga', country: 'Portugal', order: 31, isActive: false, seasonType: 'european' },
+  'conference-league': { apiId: 848, name: 'Conference League', country: null, order: 32, isActive: false, seasonType: 'european' },
 }
 
 /**
@@ -57,16 +65,6 @@ const REVERSE_LEAGUE_MAP: Record<number, string> = Object.entries(LEAGUE_MAP).re
   },
   {} as Record<number, string>
 )
-
-/**
- * Leagues that use calendar year seasons (Jan-Dec / Feb-Nov)
- * MLS, Brasileirão, J-League, etc. run within a single calendar year
- */
-const CALENDAR_YEAR_LEAGUE_IDS: number[] = [
-  253,  // MLS (USA) - Feb to Nov
-  71,   // Brasileirão (Brazil) - Apr to Dec
-  // Add more as needed
-]
 
 /**
  * Allowed leagues for live matches display
@@ -235,17 +233,21 @@ export class ApiFootballLiveService {
   }
 
   /**
-   * Get season year for API-Football based on league type.
-   * - European leagues (Aug–May): Jan-Jul = previous year, Aug-Dec = current year
-   * - Calendar year leagues (MLS, Brasileirão): always current year
+   * Get season year for API-Football based on league's seasonType config.
+   * - 'european' (Aug–May): Jan-Jul = previous year, Aug-Dec = current year
+   * - 'calendar' (MLS, Copa Libertadores): always current year
    */
-  private getSeasonYear(leagueApiId?: number): number {
+  private getSeasonYear(leagueId?: string): number {
     const now = new Date()
     const currentYear = now.getFullYear()
     const currentMonth = now.getMonth() + 1
 
-    // Calendar year leagues (MLS, Brasileirão, etc.) use current year
-    if (leagueApiId && CALENDAR_YEAR_LEAGUE_IDS.includes(leagueApiId)) {
+    // Look up league config to get seasonType
+    const leagueConfig = leagueId ? LEAGUE_MAP[leagueId] : null
+    const seasonType = leagueConfig?.seasonType ?? 'european'
+
+    // Calendar year leagues use current year
+    if (seasonType === 'calendar') {
       return currentYear
     }
 
@@ -253,7 +255,7 @@ export class ApiFootballLiveService {
     return currentMonth <= 7 ? currentYear - 1 : currentYear
   }
 
-  /** @deprecated Use getSeasonYear(leagueApiId) instead */
+  /** @deprecated Use getSeasonYear(leagueId) instead */
   private getDefaultSeasonYear(): number {
     return this.getSeasonYear()
   }
@@ -490,7 +492,7 @@ export class ApiFootballLiveService {
       const toDate = futureDate.toISOString().split('T')[0]
 
       // Get correct season based on league type (European vs calendar year)
-      const season = this.getSeasonYear(leagueInfo.apiId)
+      const season = this.getSeasonYear(leagueId)
 
       this.logger.log(`🔍 Fetching matches for ${leagueId} (apiId: ${leagueInfo.apiId}, cup: ${isCupCompetition}) from ${fromDate} to ${toDate}, season ${season}`)
 
@@ -578,7 +580,7 @@ export class ApiFootballLiveService {
       const toStr = today.toISOString().split('T')[0]
 
       // Get correct season based on league type
-      const season = this.getSeasonYear(leagueInfo.apiId)
+      const season = this.getSeasonYear(leagueId)
 
       const response = await fetch(
         `${this.baseUrl}/fixtures?league=${leagueInfo.apiId}&season=${season}&from=${fromStr}&to=${toStr}&status=FT`,
@@ -987,7 +989,7 @@ export class ApiFootballLiveService {
     }
 
     // Determine season - use provided or calculate based on league type
-    const defaultSeason = this.getSeasonYear(leagueInfo.apiId)
+    const defaultSeason = this.getSeasonYear(leagueId)
     const targetSeason = season || defaultSeason
 
     const cacheKey = `api-football:standings:${leagueId}:${targetSeason}`
@@ -1413,7 +1415,7 @@ export class ApiFootballLiveService {
       return []
     }
 
-    const targetSeason = season ?? this.getSeasonYear(leagueInfo.apiId)
+    const targetSeason = season ?? this.getSeasonYear(leagueId)
     const safeLimit = Math.min(Math.max(limit, 1), 50)
     const cacheKey = `api-football:top-scorers:${leagueId}:${targetSeason}:${safeLimit}`
 
