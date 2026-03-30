@@ -20,39 +20,394 @@ const CACHE_TTL = {
 type SeasonType = 'european' | 'calendar'
 
 /**
- * League configuration for API-Football
- * Maps our frontend league IDs to API-Football league IDs with full metadata
+ * League type: domestic league or international tournament
+ */
+type LeagueType = 'league' | 'tournament'
+
+/**
+ * League status
+ */
+type LeagueStatus = 'active' | 'upcoming' | 'finished' | 'offseason'
+
+/**
+ * Features available per league
+ */
+type LeagueFeature =
+  | 'matches'
+  | 'standings'
+  | 'scorers'
+  | 'teams'
+  | 'news'
+  | 'donde-ver'
+  | 'quiniela'
+  | 'groups'
+  | 'bracket'
+  | 'venues'
+  | 'cities'
+  | 'faqs'
+
+/**
+ * Bilingual string for i18n
+ */
+interface BilingualString {
+  es: string
+  en: string
+}
+
+/**
+ * League metadata
+ */
+interface LeagueMetadata {
+  teams?: number
+  matches?: number
+  groups?: number
+  venues?: number
+}
+
+/**
+ * Full league configuration for API-Football and frontend
  */
 interface LeagueConfig {
   apiId: number
-  name: string
-  country: string | null // null for international competitions
-  order: number // Display order (lower = higher priority)
+  type: LeagueType
+  name: BilingualString
+  shortName: BilingualString
+  slug: BilingualString
+  country: string | null
+  confederation: string | null
+  order: number
   isActive: boolean
-  seasonType: SeasonType // How to calculate season year
+  status: LeagueStatus
+  season: string | null
+  startDate: string | null
+  endDate: string | null
+  seasonType: SeasonType
+  color: string
+  colorSecondary: string | null
+  features: LeagueFeature[]
+  metadata: LeagueMetadata | null
 }
 
 const LEAGUE_MAP: Record<string, LeagueConfig> = {
   // World Cup - Top priority
-  'mundial-2026': { apiId: 1, name: 'Mundial 2026', country: null, order: 0, isActive: true, seasonType: 'calendar' },
+  'mundial-2026': {
+    apiId: 1,
+    type: 'tournament',
+    name: { es: 'Copa Mundial FIFA 2026', en: 'FIFA World Cup 2026' },
+    shortName: { es: 'Mundial 2026', en: 'World Cup 2026' },
+    slug: { es: 'mundial-2026', en: 'world-cup-2026' },
+    country: null,
+    confederation: 'FIFA',
+    order: 0,
+    isActive: true,
+    status: 'upcoming',
+    season: null,
+    startDate: '2026-06-11',
+    endDate: '2026-07-19',
+    seasonType: 'calendar',
+    color: '#8B0A1A',
+    colorSecondary: '#006B3C',
+    features: ['matches', 'groups', 'teams', 'news', 'donde-ver', 'quiniela', 'bracket', 'venues', 'cities', 'faqs'],
+    metadata: { teams: 48, matches: 104, groups: 12, venues: 16 },
+  },
+
   // UEFA Competitions
-  'champions-league': { apiId: 2, name: 'Champions League', country: null, order: 1, isActive: true, seasonType: 'european' },
-  'europa-league': { apiId: 3, name: 'Europa League', country: null, order: 2, isActive: true, seasonType: 'european' },
+  'champions-league': {
+    apiId: 2,
+    type: 'tournament',
+    name: { es: 'UEFA Champions League', en: 'UEFA Champions League' },
+    shortName: { es: 'Champions', en: 'Champions League' },
+    slug: { es: 'champions-league', en: 'champions-league' },
+    country: null,
+    confederation: 'UEFA',
+    order: 1,
+    isActive: true,
+    status: 'active',
+    season: '2025-26',
+    startDate: '2025-09-16',
+    endDate: '2026-05-30',
+    seasonType: 'european',
+    color: '#0E1E5B',
+    colorSecondary: '#FFFFFF',
+    features: ['matches', 'standings', 'scorers', 'teams', 'news'],
+    metadata: { teams: 36, matches: 189 },
+  },
+
+  'europa-league': {
+    apiId: 3,
+    type: 'tournament',
+    name: { es: 'UEFA Europa League', en: 'UEFA Europa League' },
+    shortName: { es: 'Europa League', en: 'Europa League' },
+    slug: { es: 'europa-league', en: 'europa-league' },
+    country: null,
+    confederation: 'UEFA',
+    order: 2,
+    isActive: true,
+    status: 'active',
+    season: '2025-26',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#F68E1F',
+    colorSecondary: '#000000',
+    features: ['matches', 'standings', 'scorers', 'teams'],
+    metadata: { teams: 36 },
+  },
+
   // Top European Leagues
-  'la-liga': { apiId: 140, name: 'La Liga', country: 'España', order: 10, isActive: true, seasonType: 'european' },
-  'premier-league': { apiId: 39, name: 'Premier League', country: 'Inglaterra', order: 11, isActive: true, seasonType: 'european' },
-  'serie-a': { apiId: 135, name: 'Serie A', country: 'Italia', order: 12, isActive: true, seasonType: 'european' },
-  'bundesliga': { apiId: 78, name: 'Bundesliga', country: 'Alemania', order: 13, isActive: true, seasonType: 'european' },
-  'ligue-1': { apiId: 61, name: 'Ligue 1', country: 'Francia', order: 14, isActive: true, seasonType: 'european' },
+  'la-liga': {
+    apiId: 140,
+    type: 'league',
+    name: { es: 'LaLiga EA Sports', en: 'LaLiga EA Sports' },
+    shortName: { es: 'La Liga', en: 'La Liga' },
+    slug: { es: 'la-liga', en: 'la-liga' },
+    country: 'ES',
+    confederation: 'UEFA',
+    order: 10,
+    isActive: true,
+    status: 'active',
+    season: '2025-26',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#EE8707',
+    colorSecondary: '#1A1A1A',
+    features: ['matches', 'standings', 'scorers', 'teams', 'news'],
+    metadata: { teams: 20, matches: 380 },
+  },
+
+  'premier-league': {
+    apiId: 39,
+    type: 'league',
+    name: { es: 'Premier League', en: 'Premier League' },
+    shortName: { es: 'Premier', en: 'Premier League' },
+    slug: { es: 'premier-league', en: 'premier-league' },
+    country: 'GB',
+    confederation: 'UEFA',
+    order: 11,
+    isActive: true,
+    status: 'active',
+    season: '2025-26',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#38003C',
+    colorSecondary: '#00FF87',
+    features: ['matches', 'standings', 'scorers', 'teams', 'news'],
+    metadata: { teams: 20, matches: 380 },
+  },
+
+  'serie-a': {
+    apiId: 135,
+    type: 'league',
+    name: { es: 'Serie A', en: 'Serie A' },
+    shortName: { es: 'Serie A', en: 'Serie A' },
+    slug: { es: 'serie-a', en: 'serie-a' },
+    country: 'IT',
+    confederation: 'UEFA',
+    order: 12,
+    isActive: true,
+    status: 'active',
+    season: '2025-26',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#024494',
+    colorSecondary: '#008C45',
+    features: ['matches', 'standings', 'scorers', 'teams'],
+    metadata: { teams: 20, matches: 380 },
+  },
+
+  'bundesliga': {
+    apiId: 78,
+    type: 'league',
+    name: { es: 'Bundesliga', en: 'Bundesliga' },
+    shortName: { es: 'Bundesliga', en: 'Bundesliga' },
+    slug: { es: 'bundesliga', en: 'bundesliga' },
+    country: 'DE',
+    confederation: 'UEFA',
+    order: 13,
+    isActive: true,
+    status: 'active',
+    season: '2025-26',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#D20515',
+    colorSecondary: '#000000',
+    features: ['matches', 'standings', 'scorers', 'teams'],
+    metadata: { teams: 18, matches: 306 },
+  },
+
+  'ligue-1': {
+    apiId: 61,
+    type: 'league',
+    name: { es: 'Ligue 1', en: 'Ligue 1' },
+    shortName: { es: 'Ligue 1', en: 'Ligue 1' },
+    slug: { es: 'ligue-1', en: 'ligue-1' },
+    country: 'FR',
+    confederation: 'UEFA',
+    order: 14,
+    isActive: true,
+    status: 'active',
+    season: '2025-26',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#091C3E',
+    colorSecondary: '#CDFF00',
+    features: ['matches', 'standings', 'scorers', 'teams'],
+    metadata: { teams: 18, matches: 306 },
+  },
+
   // Americas
-  'liga-mx': { apiId: 262, name: 'Liga MX', country: 'México', order: 20, isActive: true, seasonType: 'european' }, // Liga MX runs Aug-May (Apertura/Clausura)
-  'mls': { apiId: 253, name: 'MLS', country: 'USA', order: 21, isActive: true, seasonType: 'calendar' }, // MLS runs Feb-Nov
-  'copa-libertadores': { apiId: 13, name: 'Copa Libertadores', country: null, order: 22, isActive: true, seasonType: 'calendar' },
-  'copa-america': { apiId: 11, name: 'Copa América', country: null, order: 23, isActive: false, seasonType: 'calendar' },
-  // Other European
-  'eredivisie': { apiId: 88, name: 'Eredivisie', country: 'Países Bajos', order: 30, isActive: false, seasonType: 'european' },
-  'primeira-liga': { apiId: 94, name: 'Primeira Liga', country: 'Portugal', order: 31, isActive: false, seasonType: 'european' },
-  'conference-league': { apiId: 848, name: 'Conference League', country: null, order: 32, isActive: false, seasonType: 'european' },
+  'liga-mx': {
+    apiId: 262,
+    type: 'league',
+    name: { es: 'Liga MX', en: 'Liga MX' },
+    shortName: { es: 'Liga MX', en: 'Liga MX' },
+    slug: { es: 'liga-mx', en: 'liga-mx' },
+    country: 'MX',
+    confederation: 'CONCACAF',
+    order: 20,
+    isActive: true,
+    status: 'active',
+    season: 'Clausura 2026',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#C8102E',
+    colorSecondary: '#0A5F38',
+    features: ['matches', 'standings', 'scorers', 'teams', 'news', 'donde-ver'],
+    metadata: { teams: 18 },
+  },
+
+  'mls': {
+    apiId: 253,
+    type: 'league',
+    name: { es: 'Major League Soccer', en: 'Major League Soccer' },
+    shortName: { es: 'MLS', en: 'MLS' },
+    slug: { es: 'mls', en: 'mls' },
+    country: 'US',
+    confederation: 'CONCACAF',
+    order: 21,
+    isActive: true,
+    status: 'active',
+    season: '2026',
+    startDate: null,
+    endDate: null,
+    seasonType: 'calendar',
+    color: '#000000',
+    colorSecondary: '#E41E31',
+    features: ['matches', 'standings', 'scorers', 'teams', 'news', 'donde-ver'],
+    metadata: { teams: 29 },
+  },
+
+  'copa-libertadores': {
+    apiId: 13,
+    type: 'tournament',
+    name: { es: 'Copa Libertadores', en: 'Copa Libertadores' },
+    shortName: { es: 'Libertadores', en: 'Libertadores' },
+    slug: { es: 'copa-libertadores', en: 'copa-libertadores' },
+    country: null,
+    confederation: 'CONMEBOL',
+    order: 22,
+    isActive: true,
+    status: 'active',
+    season: '2026',
+    startDate: null,
+    endDate: null,
+    seasonType: 'calendar',
+    color: '#1E1E1E',
+    colorSecondary: '#D4AF37',
+    features: ['matches', 'standings', 'scorers', 'teams'],
+    metadata: { teams: 47 },
+  },
+
+  'copa-america': {
+    apiId: 11,
+    type: 'tournament',
+    name: { es: 'Copa América', en: 'Copa America' },
+    shortName: { es: 'Copa América', en: 'Copa America' },
+    slug: { es: 'copa-america', en: 'copa-america' },
+    country: null,
+    confederation: 'CONMEBOL',
+    order: 23,
+    isActive: false,
+    status: 'finished',
+    season: '2024',
+    startDate: null,
+    endDate: null,
+    seasonType: 'calendar',
+    color: '#002776',
+    colorSecondary: '#FFC72C',
+    features: ['matches', 'groups', 'teams'],
+    metadata: { teams: 16 },
+  },
+
+  // Other European (inactive)
+  'eredivisie': {
+    apiId: 88,
+    type: 'league',
+    name: { es: 'Eredivisie', en: 'Eredivisie' },
+    shortName: { es: 'Eredivisie', en: 'Eredivisie' },
+    slug: { es: 'eredivisie', en: 'eredivisie' },
+    country: 'NL',
+    confederation: 'UEFA',
+    order: 30,
+    isActive: false,
+    status: 'active',
+    season: '2025-26',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#EC1C24',
+    colorSecondary: null,
+    features: ['matches', 'standings', 'scorers', 'teams'],
+    metadata: { teams: 18 },
+  },
+
+  'primeira-liga': {
+    apiId: 94,
+    type: 'league',
+    name: { es: 'Primeira Liga', en: 'Primeira Liga' },
+    shortName: { es: 'Liga Portugal', en: 'Liga Portugal' },
+    slug: { es: 'primeira-liga', en: 'primeira-liga' },
+    country: 'PT',
+    confederation: 'UEFA',
+    order: 31,
+    isActive: false,
+    status: 'active',
+    season: '2025-26',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#00529F',
+    colorSecondary: '#FCB514',
+    features: ['matches', 'standings', 'scorers', 'teams'],
+    metadata: { teams: 18 },
+  },
+
+  'conference-league': {
+    apiId: 848,
+    type: 'tournament',
+    name: { es: 'UEFA Conference League', en: 'UEFA Conference League' },
+    shortName: { es: 'Conference', en: 'Conference League' },
+    slug: { es: 'conference-league', en: 'conference-league' },
+    country: null,
+    confederation: 'UEFA',
+    order: 32,
+    isActive: false,
+    status: 'active',
+    season: '2025-26',
+    startDate: null,
+    endDate: null,
+    seasonType: 'european',
+    color: '#1DB954',
+    colorSecondary: '#000000',
+    features: ['matches', 'standings', 'teams'],
+    metadata: { teams: 36 },
+  },
 }
 
 /**
@@ -1583,23 +1938,47 @@ export class ApiFootballLiveService {
    */
   getAvailableLeagues(): Array<{
     id: string
-    name: string
+    name: { es: string; en: string }
+    shortName: { es: string; en: string }
+    slug: { es: string; en: string }
+    type: string
     apiId: number
     country: string | null
+    confederation: string | null
     logoUrl: string
     order: number
     isActive: boolean
+    status: string
+    season: string | null
+    startDate: string | null
+    endDate: string | null
+    color: string
+    colorSecondary: string | null
+    features: string[]
+    metadata: { teams?: number; matches?: number; groups?: number; venues?: number } | null
   }> {
     return Object.entries(LEAGUE_MAP)
       .filter(([_, info]) => info.isActive) // Only return active leagues
       .map(([id, info]) => ({
         id,
         name: info.name,
+        shortName: info.shortName,
+        slug: info.slug,
+        type: info.type,
         apiId: info.apiId,
         country: info.country,
+        confederation: info.confederation,
         logoUrl: `https://media.api-sports.io/football/leagues/${info.apiId}.png`,
         order: info.order,
         isActive: info.isActive,
+        status: info.status,
+        season: info.season,
+        startDate: info.startDate,
+        endDate: info.endDate,
+        color: info.color,
+        colorSecondary: info.colorSecondary,
+        features: info.features,
+        metadata: info.metadata,
       }))
       .sort((a, b) => a.order - b.order) // Sort by display order
   }

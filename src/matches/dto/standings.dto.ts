@@ -79,18 +79,54 @@ export class LeagueStandingsDto {
 }
 
 @ObjectType()
+export class BilingualStringDto {
+  @Field()
+  es: string
+
+  @Field()
+  en: string
+}
+
+@ObjectType()
+export class LeagueMetadataDto {
+  @Field(() => Int, { nullable: true })
+  teams?: number
+
+  @Field(() => Int, { nullable: true })
+  matches?: number
+
+  @Field(() => Int, { nullable: true })
+  groups?: number
+
+  @Field(() => Int, { nullable: true })
+  venues?: number
+}
+
+@ObjectType()
 export class AvailableLeagueDto {
   @Field()
   id: string
 
+  @Field(() => BilingualStringDto)
+  name: BilingualStringDto
+
+  @Field(() => BilingualStringDto)
+  shortName: BilingualStringDto
+
+  @Field(() => BilingualStringDto)
+  slug: BilingualStringDto
+
   @Field()
-  name: string
+  type: string // 'league' | 'tournament'
 
   @Field(() => Int)
   apiId: number
 
   @Field({ nullable: true })
   country: string | null
+
+  @Field({ nullable: true })
+  confederation: string | null
 
   @Field()
   logoUrl: string
@@ -100,4 +136,28 @@ export class AvailableLeagueDto {
 
   @Field()
   isActive: boolean
+
+  @Field()
+  status: string // 'active' | 'upcoming' | 'finished' | 'offseason'
+
+  @Field({ nullable: true })
+  season: string | null
+
+  @Field({ nullable: true })
+  startDate: string | null
+
+  @Field({ nullable: true })
+  endDate: string | null
+
+  @Field()
+  color: string
+
+  @Field({ nullable: true })
+  colorSecondary: string | null
+
+  @Field(() => [String])
+  features: string[]
+
+  @Field(() => LeagueMetadataDto, { nullable: true })
+  metadata: LeagueMetadataDto | null
 }
