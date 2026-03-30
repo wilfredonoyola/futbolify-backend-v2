@@ -59,6 +59,16 @@ const REVERSE_LEAGUE_MAP: Record<number, string> = Object.entries(LEAGUE_MAP).re
 )
 
 /**
+ * Leagues that use calendar year seasons (Jan-Dec / Feb-Nov)
+ * MLS, Brasileirão, J-League, etc. run within a single calendar year
+ */
+const CALENDAR_YEAR_LEAGUE_IDS: number[] = [
+  253,  // MLS (USA) - Feb to Nov
+  71,   // Brasileirão (Brazil) - Apr to Dec
+  // Add more as needed
+]
+
+/**
  * Allowed leagues for live matches display
  * Only matches from these leagues will be shown
  */
@@ -224,12 +234,28 @@ export class ApiFootballLiveService {
     }
   }
 
-  /** European-style season year for API-Football (Aug–May). */
-  private getDefaultSeasonYear(): number {
+  /**
+   * Get season year for API-Football based on league type.
+   * - European leagues (Aug–May): Jan-Jul = previous year, Aug-Dec = current year
+   * - Calendar year leagues (MLS, Brasileirão): always current year
+   */
+  private getSeasonYear(leagueApiId?: number): number {
     const now = new Date()
     const currentYear = now.getFullYear()
     const currentMonth = now.getMonth() + 1
+
+    // Calendar year leagues (MLS, Brasileirão, etc.) use current year
+    if (leagueApiId && CALENDAR_YEAR_LEAGUE_IDS.includes(leagueApiId)) {
+      return currentYear
+    }
+
+    // European-style leagues: Aug-May season
     return currentMonth <= 7 ? currentYear - 1 : currentYear
+  }
+
+  /** @deprecated Use getSeasonYear(leagueApiId) instead */
+  private getDefaultSeasonYear(): number {
+    return this.getSeasonYear()
   }
 
   /**
@@ -463,12 +489,10 @@ export class ApiFootballLiveService {
       const fromDate = today.toISOString().split('T')[0]
       const toDate = futureDate.toISOString().split('T')[0]
 
-      // European leagues run Aug-May, so Jan-Jul = previous year's season
-      const currentMonth = today.getMonth() + 1
-      const currentYear = today.getFullYear()
-      const season = currentMonth <= 7 ? currentYear - 1 : currentYear
+      // Get correct season based on league type (European vs calendar year)
+      const season = this.getSeasonYear(leagueInfo.apiId)
 
-      this.logger.log(`🔍 Fetching matches for ${leagueId} (cup: ${isCupCompetition}) from ${fromDate} to ${toDate}, season ${season}`)
+      this.logger.log(`🔍 Fetching matches for ${leagueId} (apiId: ${leagueInfo.apiId}, cup: ${isCupCompetition}) from ${fromDate} to ${toDate}, season ${season}`)
 
       const response = await fetch(
         `${this.baseUrl}/fixtures?league=${leagueInfo.apiId}&season=${season}&from=${fromDate}&to=${toDate}`,
@@ -553,9 +577,8 @@ export class ApiFootballLiveService {
       const fromStr = from.toISOString().split('T')[0]
       const toStr = today.toISOString().split('T')[0]
 
-      const currentMonth = today.getMonth() + 1
-      const currentYear = today.getFullYear()
-      const season = currentMonth <= 7 ? currentYear - 1 : currentYear
+      // Get correct season based on league type
+      const season = this.getSeasonYear(leagueInfo.apiId)
 
       const response = await fetch(
         `${this.baseUrl}/fixtures?league=${leagueInfo.apiId}&season=${season}&from=${fromStr}&to=${toStr}&status=FT`,
@@ -963,13 +986,8 @@ export class ApiFootballLiveService {
       return null
     }
 
-    // Determine season - use current year or provided
-    // European leagues run Aug-May, so Jan-Jul = previous year's season
-    const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth() + 1 // 1-12
-    // If we're in Jan-Jul, we're in the second half of season (started previous year)
-    const defaultSeason = currentMonth <= 7 ? currentYear - 1 : currentYear
+    // Determine season - use provided or calculate based on league type
+    const defaultSeason = this.getSeasonYear(leagueInfo.apiId)
     const targetSeason = season || defaultSeason
 
     const cacheKey = `api-football:standings:${leagueId}:${targetSeason}`
@@ -1395,7 +1413,7 @@ export class ApiFootballLiveService {
       return []
     }
 
-    const targetSeason = season ?? this.getDefaultSeasonYear()
+    const targetSeason = season ?? this.getSeasonYear(leagueInfo.apiId)
     const safeLimit = Math.min(Math.max(limit, 1), 50)
     const cacheKey = `api-football:top-scorers:${leagueId}:${targetSeason}:${safeLimit}`
 
