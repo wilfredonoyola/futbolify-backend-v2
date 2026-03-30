@@ -44,6 +44,8 @@ export class MatchesService {
     dto.awayTeam = match.awayTeam
     dto.homeTeamLogo = match.homeTeamLogo
     dto.awayTeamLogo = match.awayTeamLogo
+    dto.homeTeamId = match.homeTeamId ?? undefined
+    dto.awayTeamId = match.awayTeamId ?? undefined
     dto.kickoffTime = match.kickoffTime
     dto.leagueId = match.leagueId
     dto.leagueName = match.leagueName

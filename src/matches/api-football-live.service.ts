@@ -90,6 +90,8 @@ export interface LiveMatchData {
   awayTeam: string
   homeTeamLogo: string | null
   awayTeamLogo: string | null
+  homeTeamId?: number | null
+  awayTeamId?: number | null
   leagueId: string | null
   leagueName: string | null
   leagueLogo: string | null
@@ -700,6 +702,8 @@ export class ApiFootballLiveService {
       awayTeam: fixture.teams.away.name,
       homeTeamLogo: fixture.teams.home.logo || null,
       awayTeamLogo: fixture.teams.away.logo || null,
+      homeTeamId: fixture.teams.home.id || null,
+      awayTeamId: fixture.teams.away.id || null,
       leagueId,
       leagueName: fixture.league?.name || null,
       leagueLogo: fixture.league?.logo || null,

@@ -1,6 +1,6 @@
 import { Resolver, Query, Args } from '@nestjs/graphql';
 import { StandingsService } from './standings.service';
-import { StandingsDto } from './dto/standing.dto';
+import { StandingsDto, StandingEntryDto } from './dto/standing.dto';
 
 @Resolver()
 export class StandingsResolver {
@@ -26,5 +26,17 @@ export class StandingsResolver {
     @Args('season', { nullable: true }) season?: string,
   ): Promise<StandingsDto[]> {
     return this.standingsService.getMlsStandings(season);
+  }
+
+  /**
+   * Get standing entry for a single team within a league
+   */
+  @Query(() => StandingEntryDto, { name: 'teamStanding', nullable: true })
+  async getTeamStanding(
+    @Args('leagueId') leagueId: string,
+    @Args('teamId') teamId: string,
+  ): Promise<StandingEntryDto | null> {
+    const standings = await this.standingsService.getStandings(leagueId);
+    return standings?.entries.find((e) => e.teamId === teamId) ?? null;
   }
 }

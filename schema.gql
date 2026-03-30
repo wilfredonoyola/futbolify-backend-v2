@@ -307,6 +307,8 @@ type LiveMatchOutputDto {
   awayTeam: String!
   homeTeamLogo: String
   awayTeamLogo: String
+  homeTeamId: Int
+  awayTeamId: Int
   kickoffTime: String
   leagueId: String
   leagueName: String
@@ -3368,6 +3370,7 @@ type Query {
   commentReplies(commentId: ID!, limit: Int = 10, offset: Int = 0): CommentsResponse!
   standings(leagueId: String!, season: String, conference: String): StandingsDto
   mlsStandings(season: String): [StandingsDto!]!
+  teamStanding(leagueId: String!, teamId: String!): StandingEntryDto
   getReportReasons: [ReportReasonOutput!]!
   adminGetReports(status: ReportStatus, reportType: ReportType, limit: Int! = 20, offset: Int! = 0): ReportsListResponse!
   bettingPicks(filters: PickFiltersInput): [BettingPickOutput!]!
