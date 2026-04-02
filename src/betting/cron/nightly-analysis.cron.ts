@@ -96,21 +96,6 @@ export class NightlyAnalysisCron {
     MAX_FIXTURES_PER_SCAN: 50,
   }
 
-  /**
-   * Leagues to EXCLUDE from Goals 1H market
-   * These leagues have low first-half goal rates (<70% Over 0.5 1H)
-   * compared to the global average (~75%)
-   *
-   * Brazil leagues: Serie B has only 65% Over 0.5 1H rate
-   */
-  private readonly EXCLUDE_GOALS_1H_LEAGUES = [
-    71,   // Brazil Serie A
-    72,   // Brazil Serie B
-    73,   // Brazil Copa Do Brasil
-    75,   // Brazil Serie C
-    76,   // Brazil Serie D
-  ]
-
   constructor(
     @InjectModel(BettingLeague.name)
     private bettingLeagueModel: Model<BettingLeagueDocument>,
@@ -1395,9 +1380,9 @@ export class NightlyAnalysisCron {
         )
 
         // Detect value for Over 0.5 1H (or Over 1.5 1H if odds are too low)
-        // Skip leagues that are poor for first half goals (e.g., Brazil)
-        const isExcludedFromGoals1H = this.EXCLUDE_GOALS_1H_LEAGUES.includes(league.apiFootballId)
-        if (!isExcludedFromGoals1H && goalsResult.probOver05_1H > 0 && odds) {
+        // Only analyze if league has 'goals_1h' in marketStrengths
+        const supportsGoals1H = league.marketStrengths?.includes('goals_1h') ?? false
+        if (supportsGoals1H && goalsResult.probOver05_1H > 0 && odds) {
           const apiFootballOdds = this.findOddsForMarket(odds, 'over_05_1h')
 
           // Check The Odds API for better odds (totals_h1 for first half goals)
