@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
-import { ScheduleModule } from '@nestjs/schedule'
 
 import {
   BettingLeague,
@@ -63,7 +62,7 @@ import { BettingTestController } from './betting-test.controller'
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
+    // ScheduleModule ya está registrado globalmente en AppModule
     MongooseModule.forFeature([
       { name: BettingLeague.name, schema: BettingLeagueSchema },
       { name: BettingPick.name, schema: BettingPickSchema },

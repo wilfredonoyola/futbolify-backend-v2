@@ -34,7 +34,7 @@ import { PickStatus, ComboStatus } from '../enums/betting.enums'
  *   - Immediate notification when each bet is settled (if betPlaced=true)
  *   - Daily summary at 11 PM
  *
- * @schedule Every 30 minutes
+ * @schedule Every 4 hours (8 AM, 12 PM, 4 PM, 8 PM, midnight)
  * @timezone America/El_Salvador
  */
 @Injectable()
@@ -60,13 +60,13 @@ export class ResultCollectorCron {
    * SMART SETTLING:
    * - Early return if no picks need settling (saves API calls)
    * - Only checks matches that ended 2+ hours ago
-   * - Runs every 2 hours during match hours (8 AM - midnight)
+   * - Runs every 4 hours during match hours (8 AM - midnight)
    * - No need to run at 3 AM when no matches are finishing
    *
-   * @schedule Every 2 hours from 8 AM to midnight
+   * @schedule Every 4 hours from 8 AM to midnight
    * @timezone America/El_Salvador
    */
-  @Cron('0 8,10,12,14,16,18,20,22,0 * * *', {
+  @Cron('0 8,12,16,20,0 * * *', {
     name: 'pick-settler',
     timeZone: 'America/El_Salvador',
   })
