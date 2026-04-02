@@ -395,14 +395,38 @@ type LeagueStandingsDto {
   groups: [StandingsGroupDto!]!
 }
 
+type BilingualStringDto {
+  es: String!
+  en: String!
+}
+
+type LeagueMetadataDto {
+  teams: Int
+  matches: Int
+  groups: Int
+  venues: Int
+}
+
 type AvailableLeagueDto {
   id: String!
-  name: String!
+  name: BilingualStringDto!
+  shortName: BilingualStringDto!
+  slug: BilingualStringDto!
+  type: String!
   apiId: Int!
   country: String
+  confederation: String
   logoUrl: String!
   order: Int!
   isActive: Boolean!
+  status: String!
+  season: String
+  startDate: String
+  endDate: String
+  color: String!
+  colorSecondary: String
+  features: [String!]!
+  metadata: LeagueMetadataDto
 }
 
 type FootballSearchResultDto {
