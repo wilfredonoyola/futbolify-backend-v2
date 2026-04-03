@@ -62,7 +62,7 @@ export class BettingStakesConfig {
   @Field(() => Int)
   maxPicksPerDay: number
 
-  @Prop({ default: 3 })
+  @Prop({ default: 2 })
   @Field(() => Int)
   maxCombosPerDay: number
 }

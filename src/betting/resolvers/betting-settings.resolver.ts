@@ -69,7 +69,7 @@ export class BettingSettingsResolver {
           maxStakeComboPct: 0.02,
           maxDailyExposurePct: 0.15,
           maxPicksPerDay: 5,
-          maxCombosPerDay: 3,
+          maxCombosPerDay: 2,
         },
         antiTilt: {
           stopLossDailyPct: 0.1,
@@ -424,7 +424,7 @@ export class BettingSettingsResolver {
         maxStakeComboPct: settings.stakes?.maxStakeComboPct || 0.02,
         maxDailyExposurePct: settings.stakes?.maxDailyExposurePct || 0.15,
         maxPicksPerDay: settings.stakes?.maxPicksPerDay || 5,
-        maxCombosPerDay: settings.stakes?.maxCombosPerDay || 3,
+        maxCombosPerDay: settings.stakes?.maxCombosPerDay || 2,
       } as StakesConfig,
       antiTilt: {
         stopLossDailyPct: settings.antiTilt?.stopLossDailyPct || 0.1,

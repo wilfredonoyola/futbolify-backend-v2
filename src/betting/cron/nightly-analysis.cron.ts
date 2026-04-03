@@ -713,7 +713,7 @@ export class NightlyAnalysisCron {
       )
 
       // Optimize portfolio
-      const maxCombos = settings.stakes?.maxCombosPerDay || 3
+      const maxCombos = settings.stakes?.maxCombosPerDay || 2
       const optimizedPortfolio = this.portfolioOptimizerService.optimizePortfolio(
         allCombos,
         settings.bankroll

@@ -32,7 +32,7 @@ export interface PortfolioConstraints {
  * Default constraints
  */
 const DEFAULT_CONSTRAINTS: PortfolioConstraints = {
-  maxCombosPerDay: 5,
+  maxCombosPerDay: 2,
   maxExposurePercent: 0.15, // 15% of bankroll
   maxSameFixture: 1, // No fixture repeat
   maxSameLeague: 2,
@@ -345,7 +345,7 @@ export class PortfolioOptimizerService {
 
     if (bankroll < 200) {
       return {
-        maxCombosPerDay: 3,
+        maxCombosPerDay: 2,
         maxExposurePercent: 0.12,
         maxSameFixture: 1,
         maxSameLeague: 2,

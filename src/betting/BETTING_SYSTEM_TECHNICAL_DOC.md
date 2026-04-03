@@ -30,7 +30,9 @@ Los mercados nicho como **BTTS 1H**, **Corners** y **Tarjetas** son menos eficie
 
 | Setting | Valor Default | Descripción |
 |---------|---------------|-------------|
-| `maxPicksPerDay` | 8 | Máximo de picks generados por día (aumentado en v1.3.0) |
+| `maxPicksPerDay` | 5 | Máximo de picks individuales por día |
+| `maxCombosPerDay` | 2 | Máximo de combos por día |
+| `maxPicksPerMatch` | 2 | Máximo de picks por partido (diversificación) |
 | `timezone` | America/El_Salvador | Zona horaria para fechas y alertas |
 | `bankroll` | 100 | Bankroll inicial en USD |
 

@@ -9,6 +9,18 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [1.5.0] - 2026-04-03
 
+### Límites de Picks y Combos
+
+**Configuración actualizada:**
+- `maxPicksPerDay`: 5 (reducido de 8)
+- `maxCombosPerDay`: 2 (reducido de 3)
+- `maxPicksPerMatch`: 2 (sin cambio, para diversificación)
+
+**Razón del cambio:**
+- Evitar sobre-exposición (>100% bankroll)
+- Mantener calidad sobre cantidad
+- Máximo diario: 5 picks + 2 combos
+
 ### Mejoras Quirúrgicas al Modelo de Predicción
 
 **Cambio 1: Multiplicador de Favorito para Lambda (Goles)**
