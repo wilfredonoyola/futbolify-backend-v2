@@ -1871,4 +1871,40 @@ export class BettingTestController {
       }))
     }
   }
+
+  /**
+   * Update max picks and combos per day
+   * GET /betting/test/set-limits?maxPicks=5&maxCombos=2
+   */
+  @Get('set-limits')
+  async setLimits(
+    @Query('maxPicks') maxPicks?: string,
+    @Query('maxCombos') maxCombos?: string
+  ) {
+    const updateData: Record<string, unknown> = {}
+
+    if (maxPicks) {
+      updateData['stakes.maxPicksPerDay'] = parseInt(maxPicks)
+    }
+    if (maxCombos) {
+      updateData['stakes.maxCombosPerDay'] = parseInt(maxCombos)
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return { error: 'Provide maxPicks and/or maxCombos query params' }
+    }
+
+    const settings = await this.bettingSettingsModel
+      .findOneAndUpdate({}, { $set: updateData }, { new: true })
+      .exec()
+
+    return {
+      success: true,
+      message: 'Limits updated',
+      stakes: {
+        maxPicksPerDay: settings?.stakes?.maxPicksPerDay,
+        maxCombosPerDay: settings?.stakes?.maxCombosPerDay,
+      }
+    }
+  }
 }
