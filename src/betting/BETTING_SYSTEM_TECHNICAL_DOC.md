@@ -1,7 +1,7 @@
 # Sistema de Betting GolPicks - Documentación Técnica Completa
 
-> **Versión:** 1.3.0
-> **Última actualización:** 2026-03-29
+> **Versión:** 1.4.0
+> **Última actualización:** 2026-04-02
 > **Changelog:** [CHANGELOG.md](./CHANGELOG.md)
 
 ---
@@ -10,7 +10,7 @@
 
 | Mercado | Estado | Filtros | Eficiencia |
 |---------|--------|---------|------------|
-| **Goles 1H (Over 0.5/1.5)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=3 | Media |
+| **Goles 1H (Over 0.5/1.5)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=3, requiere `goals_1h` en marketStrengths | Media |
 | **BTTS 1H** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_EDGE=5%, MIN_STARS=3 | Baja (nicho) |
 | **Corners (Over/Under)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=5 | Baja (nicho) |
 | **Tarjetas (Over/Under)** | ✅ ACTIVO | MIN_ODDS=1.40, MIN_STARS=3, MIN_GAMES=8 | Baja (nicho) |
@@ -33,6 +33,73 @@ Los mercados nicho como **BTTS 1H**, **Corners** y **Tarjetas** son menos eficie
 | `maxPicksPerDay` | 8 | Máximo de picks generados por día (aumentado en v1.3.0) |
 | `timezone` | America/El_Salvador | Zona horaria para fechas y alertas |
 | `bankroll` | 100 | Bankroll inicial en USD |
+
+---
+
+## Filtrado de Mercados por Liga (marketStrengths)
+
+Cada liga tiene un campo `marketStrengths` que define qué mercados son aptos para esa liga. El sistema **solo genera picks para mercados configurados**.
+
+### Valores Disponibles
+
+| Valor | Descripción |
+|-------|-------------|
+| `goals_1h` | Goles primera mitad (Over 0.5/1.5 1H) |
+| `over25` | Over 2.5 goles partido completo |
+| `btts` | Ambos equipos marcan |
+| `corners` | Mercados de corners |
+| `sharps` | Usa líneas Pinnacle como referencia (The Odds API) |
+
+### Ejemplo de Configuración
+
+```typescript
+// Liga con todos los mercados habilitados
+{
+  name: "Bundesliga",
+  marketStrengths: ["sharps", "goals_1h", "over25", "btts"]
+}
+
+// Liga sin goles 1H (ej: Brasil Serie B - solo 65% Over 0.5 1H)
+{
+  name: "Série B",
+  marketStrengths: ["over25", "btts"]  // SIN goals_1h
+}
+```
+
+### Ligas Excluidas de Goles 1H
+
+Las siguientes ligas tienen tasas de Over 0.5 1H por debajo del promedio global (~75%):
+
+| Liga | País | Over 0.5 1H % | marketStrengths |
+|------|------|---------------|-----------------|
+| Série B | Brasil | ~65% | `["over25", "btts"]` |
+
+> **Nota:** Para excluir una liga de un mercado, simplemente quita el valor de su array `marketStrengths` desde el UI de administración.
+
+### Código de Filtrado
+
+```typescript
+// En nightly-analysis.cron.ts
+const supportsGoals1H = league.marketStrengths?.includes('goals_1h') ?? false
+if (supportsGoals1H && goalsResult.probOver05_1H > 0 && odds) {
+  // Analizar mercado de goles 1H
+}
+```
+
+---
+
+## Cambios v1.4.0 (2026-04-02)
+
+### Filtrado por marketStrengths
+- Solo genera picks de goles 1H si la liga tiene `goals_1h` en marketStrengths
+- Brasil Serie B excluida de goles 1H (65% vs 75% promedio global)
+
+### Result Collector Optimizado
+- Frecuencia: cada 4 horas (8, 12, 16, 20, 0) en lugar de cada 2 horas
+- Reduce carga de API manteniendo liquidación oportuna
+
+### Fix ScheduleModule
+- Corregido `ScheduleModule.forRoot()` duplicado que impedía ejecución de crons
 
 ---
 
@@ -1300,11 +1367,11 @@ function applyAntiPatternAdjustments(
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 9.3 Result Collector (cada 2h, 8 AM - 12 AM)
+### 9.3 Result Collector (cada 4h, 8 AM - 12 AM)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  RESULT COLLECTOR - @Cron('0 8,10,12,...,22,0 * * *')       │
+│  RESULT COLLECTOR - @Cron('0 8,12,16,20,0 * * *')           │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  1. OBTENER PICKS PENDIENTES FINALIZADOS                    │

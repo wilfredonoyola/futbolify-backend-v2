@@ -7,6 +7,49 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [1.4.0] - 2026-04-02
+
+### Filtrado de Mercados por Liga (marketStrengths)
+
+**Nueva funcionalidad:**
+- Cada liga ahora tiene un campo `marketStrengths` que define qué mercados son aptos para esa liga
+- El sistema solo genera picks para mercados que la liga tiene configurados
+- Valores posibles: `goals_1h`, `over25`, `btts`, `corners`, `sharps`
+
+**Ligas Brasileñas Excluidas de Goles 1H:**
+- Brasil tiene solo ~65% de Over 0.5 1H (vs promedio global ~75%)
+- Serie B (ID: 72) ya no tiene `goals_1h` en sus marketStrengths
+- Esto evita picks de baja calidad en ligas con pocos goles en primera mitad
+
+**Archivos modificados:**
+- `src/betting/cron/nightly-analysis.cron.ts` (filtro por marketStrengths)
+- `src/betting/schemas/betting-league.schema.ts` (campo marketStrengths)
+
+### Result Collector Optimizado
+
+**Cambios:**
+- Frecuencia cambiada de cada 2 horas a cada 4 horas (8, 12, 16, 20, 0)
+- Reduce carga de API sin afectar la liquidación de picks
+- Los partidos se liquidan cuando kickoff fue hace 2+ horas
+
+**Archivos modificados:**
+- `src/betting/cron/result-collector.cron.ts`
+
+### Fix: ScheduleModule Duplicado
+
+**Problema:**
+- `ScheduleModule.forRoot()` estaba en `app.module.ts` Y `betting.module.ts`
+- Esto causaba que algunos cron jobs no se ejecutaran correctamente
+
+**Solución:**
+- Removido `ScheduleModule.forRoot()` de `betting.module.ts`
+- Solo debe estar en el módulo raíz (`AppModule`)
+
+**Archivos modificados:**
+- `src/betting/betting.module.ts`
+
+---
+
 ## [1.3.0] - 2026-03-29
 
 ### Nuevos Mercados: Tarjetas y BTTS 1H
