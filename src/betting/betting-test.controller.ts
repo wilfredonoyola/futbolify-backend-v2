@@ -701,10 +701,10 @@ export class BettingTestController {
         .sort({ confidenceScore: -1 })
         .exec()
 
-      // Get combos for target date
+      // Get combos for target date (use date field, not legs.kickoff)
       const combos = await this.bettingComboModel
         .find({
-          'legs.kickoff': { $gte: targetDateStart, $lte: targetDateEnd },
+          date: { $gte: targetDateStart, $lte: targetDateEnd },
         })
         .exec()
 
