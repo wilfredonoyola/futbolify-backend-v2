@@ -14,6 +14,9 @@ export interface GoalsScoringResult {
   expectedGoals1H: number
   expectedGoalsHome1H: number
   expectedGoalsAway1H: number
+  // v1.5.0: Adjusted goals with favorite multiplier
+  adjustedGoals1H: number
+  favoriteMultiplier: FavoriteMultiplierResult
   // Form factors
   formScore: number
   h2hScore: number
@@ -22,6 +25,14 @@ export interface GoalsScoringResult {
   dataQuality: 'high' | 'medium' | 'low'
   // Warnings
   warnings: string[]
+}
+
+/**
+ * v1.5.0: Result of favorite multiplier calculation
+ */
+export interface FavoriteMultiplierResult {
+  multiplier: number
+  reason: 'EXTREME_FAVORITE' | 'STRONG_FAVORITE' | 'MODERATE_FAVORITE' | null
 }
 
 /**
@@ -38,6 +49,53 @@ const LEAGUE_TIER_BONUS: Record<number, number> = {
  * Minimum games required for reliable stats
  */
 const MIN_GAMES_PLAYED = 8
+
+/**
+ * v1.5.0: Poisson independence discount for Over 1.5
+ * Dixon-Coles model shows Poisson overestimates P(2+) by ~6-10%
+ * because it assumes goal independence (which isn't true - a goal changes game dynamics)
+ */
+const POISSON_INDEPENDENCE_DISCOUNT = 0.92
+
+/**
+ * v1.5.0: Maximum lambda inflation from favorite multiplier
+ * Cap to prevent over-inflating in extreme cases
+ */
+const MAX_LAMBDA_INFLATION = 1.35
+
+/**
+ * v1.5.0: Calculate multiplier for expected goals based on match favorite status
+ *
+ * When a heavy favorite plays, the dynamic changes:
+ * - Weak team parks the bus
+ * - Favorite attacks constantly
+ * - Early goal opens up the game
+ * - Weak team chases, favorite counter-attacks
+ *
+ * This should increase expected goals beyond historical averages
+ */
+function calculateFavoriteMultiplier(
+  homeOdds1X2: number | null,
+): FavoriteMultiplierResult {
+  if (!homeOdds1X2 || homeOdds1X2 <= 0) {
+    return { multiplier: 1.0, reason: null }
+  }
+
+  // Extreme favorite: home odds < 1.20
+  if (homeOdds1X2 < 1.20) {
+    return { multiplier: 1.15, reason: 'EXTREME_FAVORITE' }
+  }
+  // Strong favorite: 1.20 - 1.35
+  if (homeOdds1X2 < 1.35) {
+    return { multiplier: 1.10, reason: 'STRONG_FAVORITE' }
+  }
+  // Moderate favorite: 1.35 - 1.55
+  if (homeOdds1X2 < 1.55) {
+    return { multiplier: 1.05, reason: 'MODERATE_FAVORITE' }
+  }
+  // Even match or underdog home
+  return { multiplier: 1.0, reason: null }
+}
 
 /**
  * Poisson probability calculation
@@ -74,13 +132,18 @@ export class ScoringGoalsService {
   /**
    * Score a fixture for first half goals markets
    * Implements EXACT formulas from ALGORITMOS doc section 2
+   *
+   * v1.5.0 Updates:
+   * - homeOdds1X2 parameter for favorite multiplier
+   * - Poisson independence discount for Over 1.5
    */
   scoreGoals1H(
     fixture: BettingFixture,
     teamAStats: BettingTeamStats,
     teamBStats: BettingTeamStats,
     h2h: BettingH2H | null,
-    leagueTier: number = 2
+    leagueTier: number = 2,
+    homeOdds1X2: number | null = null, // v1.5.0: Match winner odds for home team
   ): GoalsScoringResult {
     const warnings: string[] = []
 
@@ -144,11 +207,40 @@ export class ScoringGoalsService {
     const expectedGoalsAway1H = (teamBStats.avg_goals_1h + teamAStats.avg_conceded_1h) / 2
     const expectedGoals1H = expectedGoalsHome1H + expectedGoalsAway1H
 
+    // ================================================
+    // v1.5.0: FAVORITE MULTIPLIER
+    // ================================================
+    // When a heavy favorite plays (odds < 1.55), the game dynamic changes:
+    // - Weak team parks the bus initially
+    // - Favorite attacks constantly, generating more shots/corners
+    // - Early goal opens up the game (weak team must chase)
+    // - Counter-attacks lead to more goals
+    // This increases expected goals beyond simple historical averages
+    const favoriteMultiplier = calculateFavoriteMultiplier(homeOdds1X2)
+
+    // Apply multiplier with CAP to prevent over-inflation
+    const adjustedGoals1H = Math.min(
+      expectedGoals1H * favoriteMultiplier.multiplier,
+      expectedGoals1H * MAX_LAMBDA_INFLATION
+    )
+
+    if (favoriteMultiplier.reason) {
+      this.logger.debug(
+        `Favorite multiplier: ${favoriteMultiplier.reason} (${favoriteMultiplier.multiplier}x) - ` +
+        `λ: ${expectedGoals1H.toFixed(2)} → ${adjustedGoals1H.toFixed(2)}`
+      )
+    }
+
     // Poisson: P(X >= 2) = 1 - P(X=0) - P(X=1)
-    const lambda = expectedGoals1H
+    // v1.5.0: Use adjustedGoals1H instead of expectedGoals1H for lambda
+    const lambda = adjustedGoals1H
     const p0 = Math.exp(-lambda)
     const p1 = lambda * Math.exp(-lambda)
-    let probOver15_1H = 1 - p0 - p1
+
+    // v1.5.0: Apply Poisson independence discount
+    // Dixon-Coles shows Poisson overestimates P(2+) because it assumes independence
+    // In reality, a goal changes game dynamics (trailing team opens up or parks bus harder)
+    let probOver15_1H = (1 - p0 - p1) * POISSON_INDEPENDENCE_DISCOUNT
 
     // Apply form and H2H adjustments (reduced weight for Over 1.5)
     const formAdj15 = (formScore - 0.6) * 0.1
@@ -246,6 +338,9 @@ export class ScoringGoalsService {
       expectedGoals1H,
       expectedGoalsHome1H,
       expectedGoalsAway1H,
+      // v1.5.0: New fields for favorite adjustment
+      adjustedGoals1H,
+      favoriteMultiplier,
       formScore,
       h2hScore,
       sampleSize: minGames,

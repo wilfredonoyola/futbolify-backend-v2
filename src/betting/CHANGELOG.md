@@ -7,6 +7,73 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [1.5.0] - 2026-04-03
+
+### Mejoras Quirúrgicas al Modelo de Predicción
+
+**Cambio 1: Multiplicador de Favorito para Lambda (Goles)**
+- Nuevo: `calculateFavoriteMultiplier()` en `scoring-goals.service.ts`
+- Basado en odds 1X2 del equipo local:
+  - Odds < 1.20: +15% lambda (EXTREME_FAVORITE)
+  - Odds < 1.35: +10% lambda (STRONG_FAVORITE)
+  - Odds < 1.55: +5% lambda (MODERATE_FAVORITE)
+- Máximo de inflación: 35% (MAX_LAMBDA_INFLATION = 1.35)
+- Razón: Equipos muy favoritos tienden a atacar más y generar más goles
+
+**Cambio 2: Descuento de Independencia Dixon-Coles (Over 1.5)**
+- Constante: `POISSON_INDEPENDENCE_DISCOUNT = 0.92`
+- Aplicado solo a Over 1.5 1H (no a Over 0.5)
+- Razón: Poisson asume independencia entre equipos, pero en realidad hay correlación
+- El modelo Dixon-Coles sugiere 8% de descuento para múltiples goles
+
+**Cambio 3: Peso del Árbitro en Modelo de Tarjetas (45%)**
+- Nuevo schema: `referee-stats.schema.ts`
+- Nuevo interface: `RefereeDataForScoring`
+- Pesos actualizados en `scoring-cards.service.ts`:
+  - CON árbitro: Árbitro (45%), Team cards (30%), Form (10%), Locality (8%), H2H (7%)
+  - SIN árbitro: Team cards (65%), Form (15%), Locality (10%), H2H (10%)
+- El árbitro es el predictor más fuerte de tarjetas totales
+- Pendiente: Cron para poblar estadísticas de árbitros
+
+**Cambio 4: Ajuste Táctico por Posesión (Corners)**
+- Nuevo: `calculateMatchupAdjustment()` en `scoring-corners.service.ts`
+- Basado en patrones de posesión:
+  - Dominancia local (>60% vs <42%): +15% corners
+  - Gap de posesión (>15 puntos): +8% corners
+  - Posesión equilibrada (45-55% ambos): -5% corners
+  - Dominancia visitante: +12% corners (más contraataques)
+- Se combina con multiplicador de favorito para corners
+
+**Cambio 5: Tier 5 y Umbrales Dinámicos por Liga**
+- Schema actualizado: tier ahora permite valores 1-5
+- Tier 5 para ligas femeninas y ultra-menores
+- Nuevas funciones en `value-detection.service.ts`:
+  - `getMinEdgeForTier()`: Tier 1=7%, Tier 2=6%, Tier 3=5%, Tier 4=4%, Tier 5=3%
+  - `getMinGamesForTier()`: Tier 5 requiere solo 3 partidos mínimo
+- Razón: Mercados menos eficientes necesitan menor edge para ser rentables
+
+**Cambio 6: Detección de Correlación Cross-Market**
+- Nuevo: Detección automática en `odds-monitor.cron.ts`
+- Tipos de correlación:
+  - ATTACKING_GAME: Goals Over + Corners Over (ambos equipos empujan)
+  - DEFENSIVE_GAME: Goals Under + Corners Under (partido táctico)
+  - CHAOTIC_GAME: Goals Over + Cards Over (partido intenso)
+- Confidence: HIGH si avgEdge >= 8%, MEDIUM si < 8%
+- Se guarda en picks: `crossMarket.detected`, `crossMarket.type`
+
+**Archivos modificados:**
+- `src/betting/services/scoring-goals.service.ts`
+- `src/betting/services/scoring-corners.service.ts`
+- `src/betting/services/scoring-cards.service.ts`
+- `src/betting/services/value-detection.service.ts`
+- `src/betting/cron/nightly-analysis.cron.ts`
+- `src/betting/cron/odds-monitor.cron.ts`
+- `src/betting/schemas/betting-league.schema.ts`
+- `src/betting/schemas/referee-stats.schema.ts` (NUEVO)
+- `src/betting/schemas/index.ts`
+
+---
+
 ## [1.4.0] - 2026-04-02
 
 ### Filtrado de Mercados por Liga (marketStrengths)

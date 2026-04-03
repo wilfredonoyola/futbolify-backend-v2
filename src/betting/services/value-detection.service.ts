@@ -54,7 +54,7 @@ export interface BestOddsResult {
 }
 
 /**
- * Minimum edge thresholds
+ * Minimum edge thresholds (default for Tier 3)
  * UPDATED: Adjusted for VIG-extracted probabilities (real edges, not inflated)
  * These are REAL edges after removing bookmaker margin
  */
@@ -69,6 +69,53 @@ const EDGE_THRESHOLDS = {
  * Edges below this are likely within margin of error
  */
 const MIN_SIGNIFICANT_EDGE = 0.02
+
+/**
+ * v1.5.0: Dynamic edge thresholds by league tier
+ *
+ * In inefficient markets (women's leagues, lower tiers), bookmakers
+ * have higher margins (12-18% vs 3-5% in top leagues), meaning they
+ * are guessing more. Our edge potential is higher there.
+ *
+ * Tier 5: Women's leagues, ultra-minor leagues
+ */
+function getMinEdgeForTier(tier: number): number {
+  switch (tier) {
+    case 1: return 0.07   // 7% - efficient market, need more margin
+    case 2: return 0.06   // 6%
+    case 3: return 0.05   // 5% - default
+    case 4: return 0.04   // 4%
+    case 5: return 0.03   // 3% - very inefficient, lower edge is still real value
+    default: return 0.05
+  }
+}
+
+/**
+ * v1.5.0: Minimum games by tier for sample size validation
+ * Women's leagues have fewer matches, so we need MORE data to trust
+ */
+function getMinGamesForTier(tier: number): number {
+  switch (tier) {
+    case 1: return 3
+    case 2: return 3
+    case 3: return 5
+    case 4: return 5
+    case 5: return 8   // More strict: need more data in less tracked leagues
+    default: return 3
+  }
+}
+
+/**
+ * v1.5.0: League tier bonus for probability adjustment
+ * Tier 5 added for women's/ultra-minor leagues
+ */
+const LEAGUE_TIER_BONUS: Record<number, number> = {
+  1: 0,        // Premier, La Liga, Bundesliga, Serie A, Ligue 1
+  2: 0.02,     // Championship, Serie B, Liga 2, etc.
+  3: 0.03,     // League One, third divisions
+  4: 0.04,     // Minor men's leagues
+  5: 0.06,     // Women's leagues, ultra-minor (highest potential edge)
+}
 
 /**
  * Minimum probability thresholds
@@ -150,7 +197,9 @@ export class ValueDetectionService {
    * @param oddsDecimal Decimal odds for Over
    * @param bookmaker Bookmaker name
    * @param oddsOpposite Optional: Under odds for VIG calculation
-   * @param sampleSize Optional: Sample size for significance testing
+   * @param teamAGames Optional: Team A games for validation
+   * @param teamBGames Optional: Team B games for validation
+   * @param leagueTier Optional: League tier for dynamic thresholds (v1.5.0)
    */
   detectValueGoals(
     scoringResult: GoalsScoringResult,
@@ -159,7 +208,8 @@ export class ValueDetectionService {
     bookmaker: string = 'unknown',
     oddsOpposite?: number,
     teamAGames?: number,
-    teamBGames?: number
+    teamBGames?: number,
+    leagueTier?: number, // v1.5.0: For dynamic edge thresholds
   ): ValueResult {
     const probOwn =
       market === 'over_05_1h'
@@ -167,10 +217,11 @@ export class ValueDetectionService {
         : scoringResult.probOver15_1H
 
     // MINIMUM SAMPLE SIZE CHECK
-    // Reject if EITHER team has insufficient data (< 3 games)
+    // Reject if EITHER team has insufficient data
     // Both teams need real historical data for reliable probability calculation
     // This prevents false value from invented/default probabilities
-    const MIN_GAMES_FOR_VALUE = 3
+    // v1.5.0: Dynamic minimum based on tier (women's leagues need more data)
+    const MIN_GAMES_FOR_VALUE = leagueTier ? getMinGamesForTier(leagueTier) : 3
     const eitherTeamLacksData =
       teamAGames !== undefined &&
       teamBGames !== undefined &&
@@ -222,6 +273,10 @@ export class ValueDetectionService {
     // Calculate edge using VIG-adjusted probability
     const edge = probOwn - probImplied
 
+    // v1.5.0: Dynamic minimum edge based on tier
+    // In inefficient markets (tier 5), even 3% edge is valuable
+    const minEdge = leagueTier ? getMinEdgeForTier(leagueTier) : EDGE_THRESHOLDS.BAJA
+
     // Classify confidence
     let confidence: 'ALTA' | 'MEDIA' | 'BAJA' | 'SIN_VALUE' = 'SIN_VALUE'
     let hasValue = false
@@ -232,7 +287,8 @@ export class ValueDetectionService {
     } else if (edge >= EDGE_THRESHOLDS.MEDIA) {
       confidence = 'MEDIA'
       hasValue = true
-    } else if (edge >= EDGE_THRESHOLDS.BAJA) {
+    } else if (edge >= minEdge) {
+      // v1.5.0: Use dynamic threshold for BAJA
       confidence = 'BAJA'
       hasValue = true
     }

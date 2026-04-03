@@ -1357,12 +1357,15 @@ export class NightlyAnalysisCron {
         )
 
         // Score goals 1H
+        // v1.5.0: Pass homeOdds1X2 for favorite multiplier calculation
+        const homeOdds1X2 = this.findHomeOdds1X2(odds)
         const goalsResult = this.scoringGoalsService.scoreGoals1H(
           fixture,
           teamAStats,
           teamBStats,
           h2h,
-          league.tier as 1 | 2 | 3 | 4
+          league.tier as 1 | 2 | 3 | 4 | 5,
+          homeOdds1X2, // v1.5.0: For favorite multiplier
         )
 
         this.logger.debug(
@@ -1371,12 +1374,14 @@ export class NightlyAnalysisCron {
         )
 
         // Score corners
+        // v1.5.0: Pass homeOdds1X2 for favorite and matchup adjustments
         const cornersResult = this.scoringCornersService.scoreCorners(
           fixture,
           teamAStats,
           teamBStats,
           h2h,
-          league.apiFootballId
+          league.apiFootballId,
+          homeOdds1X2, // v1.5.0
         )
 
         // Detect value for Over 0.5 1H (or Over 1.5 1H if odds are too low)
@@ -2632,6 +2637,37 @@ export class NightlyAnalysisCron {
     )
 
     return 0
+  }
+
+  /**
+   * v1.5.0: Find Match Winner (1X2) home odds
+   * Used to calculate favorite multiplier for expected goals
+   */
+  private findHomeOdds1X2(odds: any): number | null {
+    if (!odds?.bookmakers) return null
+
+    for (const bookmaker of odds.bookmakers) {
+      for (const market of bookmaker.markets) {
+        const marketName = market.marketName.toLowerCase()
+
+        // Match "Match Winner" or "1X2" market
+        if (
+          marketName === 'match winner' ||
+          marketName === '1x2' ||
+          marketName.includes('match winner')
+        ) {
+          for (const value of market.values) {
+            const valueName = String(value.name).toLowerCase()
+            if (valueName === 'home' || valueName === '1') {
+              this.logger.debug(`Found 1X2 home odds: ${value.odds}`)
+              return value.odds
+            }
+          }
+        }
+      }
+    }
+
+    return null
   }
 
   /**

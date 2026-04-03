@@ -12,6 +12,31 @@ import { BettingTelegramService } from '../telegram/betting-telegram.service'
 import { PickStatus, SteamMoveDirection } from '../enums/betting.enums'
 
 /**
+ * v1.5.0: Cross-market correlation types
+ * When multiple markets align on the same fixture, it indicates higher confidence
+ */
+interface CrossMarketCorrelation {
+  fixtureId: number
+  markets: string[]
+  direction: 'OVER' | 'UNDER'
+  avgEdge: number
+  correlationType: 'ATTACKING_GAME' | 'DEFENSIVE_GAME' | 'CHAOTIC_GAME'
+  confidence: 'HIGH' | 'MEDIUM'
+}
+
+/**
+ * Correlation patterns:
+ * - ATTACKING_GAME: Goals Over + Corners Over align (teams push forward)
+ * - DEFENSIVE_GAME: Goals Under + Corners Under align (tight tactical game)
+ * - CHAOTIC_GAME: Goals Over + Cards Over align (intense, aggressive match)
+ */
+const CORRELATION_PATTERNS = {
+  ATTACKING_GAME: ['GOALS_1H', 'CORNERS'],
+  DEFENSIVE_GAME: ['GOALS_1H', 'CORNERS'],
+  CHAOTIC_GAME: ['GOALS_1H', 'CARDS'],
+}
+
+/**
  * Odds Monitor Cron Job
  * Runs every 30 minutes during match windows
  *
@@ -245,6 +270,123 @@ export class OddsMonitorCron {
       await this.checkOddsForPick(pick)
     }
 
+    // v1.5.0: Check for cross-market correlations
+    const correlations = await this.detectCrossMarketCorrelations(picks)
+    if (correlations.length > 0) {
+      this.logger.log(`Detected ${correlations.length} cross-market correlations`)
+    }
+
     return { monitored: picks.length }
+  }
+
+  /**
+   * v1.5.0: Detect cross-market correlations
+   * When multiple markets align on the same fixture, it indicates higher confidence
+   */
+  private async detectCrossMarketCorrelations(
+    picks: BettingPickDocument[]
+  ): Promise<CrossMarketCorrelation[]> {
+    const correlations: CrossMarketCorrelation[] = []
+
+    // Group picks by fixtureId
+    const picksByFixture = new Map<number, BettingPickDocument[]>()
+    for (const pick of picks) {
+      const existing = picksByFixture.get(pick.fixtureId) || []
+      existing.push(pick)
+      picksByFixture.set(pick.fixtureId, existing)
+    }
+
+    // Check each fixture for correlations
+    for (const [fixtureId, fixturePicks] of picksByFixture.entries()) {
+      if (fixturePicks.length < 2) continue
+
+      const correlation = this.analyzeFixtureCorrelation(fixtureId, fixturePicks)
+      if (correlation) {
+        correlations.push(correlation)
+
+        // Update picks with correlation info
+        await this.bettingPickModel.updateMany(
+          { fixtureId, _id: { $in: fixturePicks.map((p) => p._id) } },
+          {
+            $set: {
+              'crossMarket.detected': true,
+              'crossMarket.type': correlation.correlationType,
+              'crossMarket.confidence': correlation.confidence,
+              'crossMarket.markets': correlation.markets,
+            },
+          }
+        )
+
+        this.logger.log(
+          `Cross-market correlation: Fixture ${fixtureId} - ${correlation.correlationType} ` +
+            `(${correlation.markets.join(', ')}) - ${correlation.confidence} confidence`
+        )
+      }
+    }
+
+    return correlations
+  }
+
+  /**
+   * Analyze a single fixture for market correlations
+   */
+  private analyzeFixtureCorrelation(
+    fixtureId: number,
+    picks: BettingPickDocument[]
+  ): CrossMarketCorrelation | null {
+    const marketMap = new Map<string, { direction: string; edge: number }>()
+
+    for (const pick of picks) {
+      const marketStr = String(pick.market).toUpperCase()
+      let marketType = 'OTHER'
+
+      if (marketStr.includes('GOAL') || marketStr.includes('1H')) {
+        marketType = 'GOALS_1H'
+      } else if (marketStr.includes('CORNER')) {
+        marketType = 'CORNERS'
+      } else if (marketStr.includes('CARD')) {
+        marketType = 'CARDS'
+      }
+
+      marketMap.set(marketType, {
+        direction: pick.direction,
+        edge: pick.edge,
+      })
+    }
+
+    // Check for ATTACKING_GAME: Goals Over + Corners Over
+    const goalsData = marketMap.get('GOALS_1H')
+    const cornersData = marketMap.get('CORNERS')
+    const cardsData = marketMap.get('CARDS')
+
+    if (goalsData && cornersData && goalsData.direction === cornersData.direction) {
+      const avgEdge = (goalsData.edge + cornersData.edge) / 2
+      const isOver = goalsData.direction === 'OVER'
+
+      return {
+        fixtureId,
+        markets: ['GOALS_1H', 'CORNERS'],
+        direction: goalsData.direction as 'OVER' | 'UNDER',
+        avgEdge,
+        correlationType: isOver ? 'ATTACKING_GAME' : 'DEFENSIVE_GAME',
+        confidence: avgEdge >= 0.08 ? 'HIGH' : 'MEDIUM',
+      }
+    }
+
+    // Check for CHAOTIC_GAME: Goals Over + Cards Over
+    if (goalsData && cardsData && goalsData.direction === 'OVER' && cardsData.direction === 'OVER') {
+      const avgEdge = (goalsData.edge + cardsData.edge) / 2
+
+      return {
+        fixtureId,
+        markets: ['GOALS_1H', 'CARDS'],
+        direction: 'OVER',
+        avgEdge,
+        correlationType: 'CHAOTIC_GAME',
+        confidence: avgEdge >= 0.08 ? 'HIGH' : 'MEDIUM',
+      }
+    }
+
+    return null
   }
 }

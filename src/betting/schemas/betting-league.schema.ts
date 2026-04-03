@@ -178,7 +178,8 @@ export class BettingLeague {
   @Field(() => Int)
   division: number
 
-  @Prop({ required: true, enum: [1, 2, 3, 4] })
+  // v1.5.0: Added tier 5 for women's and ultra-minor leagues
+  @Prop({ required: true, enum: [1, 2, 3, 4, 5] })
   @Field(() => Int)
   tier: number
 

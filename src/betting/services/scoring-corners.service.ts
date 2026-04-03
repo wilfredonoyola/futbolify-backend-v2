@@ -26,11 +26,23 @@ export interface CornersScoringResult {
     form: number
     shots: number
     h2h: number
+    matchup?: number      // v1.5.0
+    favorite?: number     // v1.5.0
   }
+  // v1.5.0: Matchup analysis
+  matchupReason?: string | null
   // Quality metrics
   sampleSize: number
   dataQuality: 'high' | 'medium' | 'low'
   warnings: string[]
+}
+
+/**
+ * v1.5.0: Matchup adjustment result
+ */
+interface MatchupAdjustmentResult {
+  multiplier: number
+  reason: string | null
 }
 
 /**
@@ -81,6 +93,51 @@ function factorial(n: number): number {
 }
 
 /**
+ * v1.5.0: Calculate matchup tactical adjustment based on possession patterns
+ *
+ * - High possession team vs low block: MANY corners (constant attacking, clearances)
+ * - Two pressing teams: FEWER corners (quick transitions, less siege)
+ * - Balanced possession: neutral
+ */
+function calculateMatchupAdjustment(
+  homePossession: number,
+  awayPossession: number,
+): MatchupAdjustmentResult {
+  const possessionGap = homePossession - awayPossession
+
+  // Case 1: Home dominates possession (>60%) vs low possession away (<42%)
+  // = Home attacks constantly, away defends and clears → MANY corners
+  if (homePossession > 60 && awayPossession < 42) {
+    return { multiplier: 1.15, reason: 'POSSESSION_DOMINANCE' }
+  }
+
+  // Case 2: Possession gap > 15 points
+  // = Clear dominance but less extreme
+  if (possessionGap > 15) {
+    return { multiplier: 1.08, reason: 'POSSESSION_GAP' }
+  }
+
+  // Case 3: Both teams with balanced possession 45-55%
+  // = Even match, less siege-based corners
+  if (homePossession > 45 && homePossession < 55 &&
+      awayPossession > 45 && awayPossession < 55) {
+    return { multiplier: 0.95, reason: 'BALANCED_POSSESSION' }
+  }
+
+  // Case 4: Away dominates possession (rare - top team visiting)
+  if (awayPossession > 58 && homePossession < 44) {
+    return { multiplier: 1.12, reason: 'AWAY_DOMINANCE' }
+  }
+
+  return { multiplier: 1.0, reason: null }
+}
+
+/**
+ * v1.5.0: Maximum corners inflation from adjustments
+ */
+const MAX_CORNERS_INFLATION = 1.35
+
+/**
  * Calculate probability of Over X.5 using Poisson
  */
 function probOver(line: number, expected: number): number {
@@ -100,13 +157,18 @@ export class ScoringCornersService {
   /**
    * Score a fixture for corners markets
    * Implements EXACT formulas from ALGORITMOS doc section 3
+   *
+   * v1.5.0 Updates:
+   * - homeOdds1X2 for favorite multiplier
+   * - Matchup tactical adjustment based on possession
    */
   scoreCorners(
     fixture: BettingFixture,
     teamAStats: BettingTeamStats,
     teamBStats: BettingTeamStats,
     h2h: BettingH2H | null,
-    leagueId: number
+    leagueId: number,
+    homeOdds1X2: number | null = null, // v1.5.0
   ): CornersScoringResult {
     const warnings: string[] = []
 
@@ -167,9 +229,41 @@ export class ScoringCornersService {
     }
 
     // ================================================
+    // STEP 6 (v1.5.0): Matchup tactical adjustment
+    // ================================================
+    // Possession-based adjustment for corners
+    const homePossession = teamAStats.avg_possession || 50
+    const awayPossession = teamBStats.avg_possession || 50
+    const matchupAdj = calculateMatchupAdjustment(homePossession, awayPossession)
+
+    // ================================================
+    // STEP 7 (v1.5.0): Favorite adjustment
+    // ================================================
+    // Heavy favorites generate more corners due to constant pressure
+    let favoriteMultiplier = 1.0
+    if (homeOdds1X2 && homeOdds1X2 > 0 && homeOdds1X2 < 1.35) {
+      favoriteMultiplier = 1.10
+    }
+
+    // ================================================
     // FINAL: Expected corners
     // ================================================
-    cornersExpected = cornersExpected + localityAdj + formAdj + shotsAdj + h2hAdj
+    const baseCorners = cornersExpected + localityAdj + formAdj + shotsAdj + h2hAdj
+
+    // Apply v1.5.0 multipliers with CAP
+    const adjustedCorners = Math.min(
+      baseCorners * matchupAdj.multiplier * favoriteMultiplier,
+      baseCorners * MAX_CORNERS_INFLATION
+    )
+    cornersExpected = adjustedCorners
+
+    // Log v1.5.0 adjustments
+    if (matchupAdj.reason || favoriteMultiplier > 1.0) {
+      this.logger.debug(
+        `Corners v1.5.0 adjustments: matchup=${matchupAdj.reason || 'none'} (${matchupAdj.multiplier}x), ` +
+        `favorite=${favoriteMultiplier}x - base ${baseCorners.toFixed(1)} → ${cornersExpected.toFixed(1)}`
+      )
+    }
 
     // Clamp between 6 and 16
     cornersExpected = Math.max(6.0, Math.min(16.0, cornersExpected))
@@ -257,7 +351,12 @@ export class ScoringCornersService {
         form: Math.round(formAdj * 100) / 100,
         shots: Math.round(shotsAdj * 100) / 100,
         h2h: Math.round(h2hAdj * 100) / 100,
+        // v1.5.0: New adjustments
+        matchup: Math.round((matchupAdj.multiplier - 1) * cornersExpected * 100) / 100,
+        favorite: Math.round((favoriteMultiplier - 1) * cornersExpected * 100) / 100,
       },
+      // v1.5.0: Matchup reason for logging
+      matchupReason: matchupAdj.reason,
       sampleSize: minGames,
       dataQuality,
       warnings,

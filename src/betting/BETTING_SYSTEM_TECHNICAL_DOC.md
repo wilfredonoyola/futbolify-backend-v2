@@ -1,7 +1,7 @@
 # Sistema de Betting GolPicks - Documentación Técnica Completa
 
-> **Versión:** 1.4.0
-> **Última actualización:** 2026-04-02
+> **Versión:** 1.5.0
+> **Última actualización:** 2026-04-03
 > **Changelog:** [CHANGELOG.md](./CHANGELOG.md)
 
 ---
@@ -83,6 +83,93 @@ Las siguientes ligas tienen tasas de Over 0.5 1H por debajo del promedio global 
 const supportsGoals1H = league.marketStrengths?.includes('goals_1h') ?? false
 if (supportsGoals1H && goalsResult.probOver05_1H > 0 && odds) {
   // Analizar mercado de goles 1H
+}
+```
+
+---
+
+## Cambios v1.5.0 (2026-04-03)
+
+### Multiplicador de Favorito (Goles)
+
+Equipos muy favoritos (según odds 1X2) tienden a atacar más:
+
+```typescript
+function calculateFavoriteMultiplier(homeOdds1X2: number | null): {
+  multiplier: number
+  reason: string | null
+} {
+  if (!homeOdds1X2 || homeOdds1X2 <= 0) return { multiplier: 1.0, reason: null }
+  if (homeOdds1X2 < 1.20) return { multiplier: 1.15, reason: 'EXTREME_FAVORITE' }
+  if (homeOdds1X2 < 1.35) return { multiplier: 1.10, reason: 'STRONG_FAVORITE' }
+  if (homeOdds1X2 < 1.55) return { multiplier: 1.05, reason: 'MODERATE_FAVORITE' }
+  return { multiplier: 1.0, reason: null }
+}
+```
+
+### Descuento Dixon-Coles (Over 1.5)
+
+```typescript
+const POISSON_INDEPENDENCE_DISCOUNT = 0.92  // 8% descuento
+
+// Aplicado solo a Over 1.5 1H
+probOver15_1H = probOver15_1H * POISSON_INDEPENDENCE_DISCOUNT
+```
+
+### Peso del Árbitro (Tarjetas)
+
+El árbitro es el predictor más fuerte de tarjetas. Nuevo schema `referee-stats.schema.ts`:
+
+| Peso (con árbitro) | Variable |
+|-------------------|----------|
+| 45% | Estilo del árbitro |
+| 30% | Promedio tarjetas equipos |
+| 10% | Forma reciente |
+| 8% | Localía |
+| 7% | H2H |
+
+### Ajuste Táctico por Posesión (Corners)
+
+```typescript
+function calculateMatchupAdjustment(homePoss: number, awayPoss: number) {
+  // Dominancia local (mucha posesión vs muy poca)
+  if (homePoss > 60 && awayPoss < 42) return { multiplier: 1.15, reason: 'POSSESSION_DOMINANCE' }
+
+  // Gap de posesión significativo
+  if ((homePoss - awayPoss) > 15) return { multiplier: 1.08, reason: 'POSSESSION_GAP' }
+
+  // Posesión equilibrada (menos corners esperados)
+  if (homePoss > 45 && homePoss < 55 && awayPoss > 45 && awayPoss < 55)
+    return { multiplier: 0.95, reason: 'BALANCED_POSSESSION' }
+
+  // Dominancia visitante (más contraataques)
+  if (awayPoss > 58 && homePoss < 44) return { multiplier: 1.12, reason: 'AWAY_DOMINANCE' }
+
+  return { multiplier: 1.0, reason: null }
+}
+```
+
+### Tier 5 y Umbrales Dinámicos
+
+| Tier | Min Edge | Min Games | Bonus |
+|------|----------|-----------|-------|
+| 1 | 7% | 5 | 0% |
+| 2 | 6% | 4 | 2% |
+| 3 | 5% | 4 | 3% |
+| 4 | 4% | 3 | 4% |
+| 5 | 3% | 3 | 6% |
+
+### Detección Cross-Market
+
+```typescript
+// Correlación detectada automáticamente cuando múltiples mercados
+// coinciden en dirección para el mismo partido
+interface CrossMarketCorrelation {
+  fixtureId: number
+  markets: string[]              // ['GOALS_1H', 'CORNERS']
+  direction: 'OVER' | 'UNDER'
+  correlationType: 'ATTACKING_GAME' | 'DEFENSIVE_GAME' | 'CHAOTIC_GAME'
+  confidence: 'HIGH' | 'MEDIUM'  // HIGH si avgEdge >= 8%
 }
 ```
 
@@ -632,28 +719,55 @@ P(X = k) = (λ^k × e^(-λ)) / k!
 
 Donde λ = tarjetas esperadas totales
 
+**v1.5.0: Sistema de Pesos Dinámico**
+
+El árbitro es el predictor más importante. Cuando tenemos datos del árbitro:
+
+| Variable | Peso (con árbitro) | Peso (sin árbitro) |
+|----------|-------------------|-------------------|
+| Árbitro | 45% | - |
+| Team cards avg | 30% | 65% |
+| Forma (últimos 5) | 10% | 15% |
+| Localía | 8% | 10% |
+| H2H | 7% | 10% |
+
 **Cálculo de tarjetas esperadas:**
 
 ```typescript
 // Base: suma de promedios de ambos equipos
-let cardsExpected = teamAStats.avg_cards_total + teamBStats.avg_cards_total
+const baseCardsExpected = teamAStats.avg_cards_total + teamBStats.avg_cards_total
 
-// Ajuste por localía (10%)
-const localityAdj = ((homeCardFactor + awayCardFactor) / 2 - 1.0) * cardsExpected * 0.1
+// Ajuste por árbitro (45% cuando disponible)
+let refereeAdj = 0
+if (refereeData && refereeData.seasonMatches >= 5) {
+  const refereeDiff = refereeData.avgCardsPerMatch - leagueAvgCards
+  refereeAdj = refereeDiff * 0.45  // 45% weight
+}
 
-// Ajuste por forma reciente (15%)
+// Ajuste por localía
+const localityAdj = ((homeCardFactor + awayCardFactor) / 2 - 1.0) * baseCardsExpected * localityWeight
+
+// Ajuste por forma reciente
 const avgFormCards = teamAStats.form_cards_5 + teamBStats.form_cards_5
-const formAdj = (avgFormCards - cardsExpected) * 0.15
+const formAdj = (avgFormCards - baseCardsExpected) * formWeight
 
-// Ajuste por H2H (10%)
+// Ajuste por H2H
 let h2hAdj = 0
 if (h2h?.avg_cards > 0) {
-  h2hAdj = (h2h.avg_cards - cardsExpected) * 0.1
+  h2hAdj = (h2h.avg_cards - baseCardsExpected) * h2hWeight
 }
 
 // Final
-cardsExpected = cardsExpected + localityAdj + formAdj + h2hAdj
+cardsExpected = baseCardsExpected + refereeAdj + localityAdj + formAdj + h2hAdj
 ```
+
+**Clasificación de estilo del árbitro:**
+
+| Estilo | Tarjetas/partido | Descripción |
+|--------|------------------|-------------|
+| STRICT | >4.5 | Árbitro estricto, muchas tarjetas |
+| MODERATE | 3.5-4.5 | Árbitro neutral |
+| LENIENT | <3.5 | Árbitro permisivo |
 
 **Promedios por liga (tarjetas amarillas/partido):**
 
@@ -1532,12 +1646,21 @@ const MAX_DAILY_EXPOSURE = 0.15     // 15% max por día
 const MAX_DRAWDOWN_PCT = 0.15       // 15% para pausar
 const MAX_CONSECUTIVE_LOSSES = 7    // 7 para pausar
 
-// League tiers
+// League tiers (v1.5.0: added tier 5)
 const LEAGUE_TIER_BONUS = {
   1: 0,      // Premier, La Liga, etc.
   2: 0.02,   // Championship, Serie B, etc.
   3: 0.03,   // League One, etc.
   4: 0.04,   // Leagues menores
+  5: 0.06,   // Women's leagues, ultra-minor
+
+// Dynamic edge thresholds by tier
+const MIN_EDGE_BY_TIER = {
+  1: 0.07,   // 7% min edge
+  2: 0.06,   // 6% min edge
+  3: 0.05,   // 5% min edge
+  4: 0.04,   // 4% min edge
+  5: 0.03,   // 3% min edge (less efficient markets)
 }
 ```
 
@@ -1676,5 +1799,5 @@ const LEAGUE_TIER_BONUS = {
 ---
 
 *Documento generado: 26 de Marzo 2026*
-*Sistema: GolPicks v1.3.0*
-*Última actualización: 29 de Marzo 2026 - Tarjetas y BTTS 1H*
+*Sistema: GolPicks v1.5.0*
+*Última actualización: 03 de Abril 2026 - Mejoras quirúrgicas al modelo*
