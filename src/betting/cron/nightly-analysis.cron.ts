@@ -802,6 +802,10 @@ export class NightlyAnalysisCron {
       })
       this.logger.log(`Saved ${savedPickResults.length} picks to database`)
 
+      // Calculate UTC date for combo assignment
+      // Use the start of the local day in UTC to ensure combos fall within the correct query range
+      const { start: comboDateUTC } = this.getLocalDateRangeInUTC(tomorrowDate, timezone)
+
       // Build combo documents, but filter out combos where any leg has no saved pickId
       const comboDocuments = optimizedPortfolio.selectedCombos
         .map((combo) => {
@@ -834,7 +838,7 @@ export class NightlyAnalysisCron {
           }
 
           return {
-            date: new Date(tomorrowDate),
+            date: comboDateUTC,
             type: combo.type,
             legs,
             combinedOdds: combo.combinedOdds,
