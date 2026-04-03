@@ -10,9 +10,19 @@ import { PickStatus, ComboStatus, MarketType, MarketDirection, TimeWindow } from
  * @param unitValue - Value of 1 unit in dollars (default: $10)
  */
 function formatStakeUnits(stakeDollars: number, unitValue: number = 10): string {
+  // Handle zero or negative stakes
+  if (stakeDollars <= 0) {
+    return '0u ($0)'
+  }
+
   const units = stakeDollars / unitValue
   // Round to nearest 0.25 for clean display
-  const roundedUnits = Math.round(units * 4) / 4
+  let roundedUnits = Math.round(units * 4) / 4
+
+  // Never show 0u if there's actually a stake - show minimum 0.05u with actual dollars
+  if (roundedUnits === 0 && stakeDollars > 0) {
+    return `<0.25u ($${stakeDollars.toFixed(0)})`
+  }
 
   // Format units: whole number if integer, otherwise show decimals
   let unitsStr: string

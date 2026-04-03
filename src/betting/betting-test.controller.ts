@@ -1833,7 +1833,7 @@ export class BettingTestController {
   }
 
   /**
-   * Debug combos - show all recent combos with their dates
+   * Debug combos - show all recent combos with their dates and stake info
    * GET /betting/test/debug-combos
    */
   @Get('debug-combos')
@@ -1853,6 +1853,21 @@ export class BettingTestController {
         createdAt: c.createdAt?.toISOString(),
         legs: c.legs?.length,
         status: c.status,
+        // Stake debug info
+        stake: c.stake,
+        combinedOdds: c.combinedOdds,
+        pReal: c.pReal,
+        pCasa: c.pCasa,
+        evReal: c.evReal,
+        hiddenEdge: c.hiddenEdge,
+        score: c.score,
+        // Calculated Kelly
+        kellyDebug: c.pReal && c.combinedOdds ? {
+          p: c.pReal,
+          b: c.combinedOdds - 1,
+          q: 1 - c.pReal,
+          kellyFull: ((c.combinedOdds - 1) * c.pReal - (1 - c.pReal)) / (c.combinedOdds - 1),
+        } : null,
       }))
     }
   }
