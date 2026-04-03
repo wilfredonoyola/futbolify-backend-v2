@@ -94,7 +94,21 @@
       "WebFetch(domain:help.bet365.com)",
       "WebFetch(domain:www.pinnacle.com)",
       "WebFetch(domain:www.pinnacleoddsdropper.com)",
-      "WebFetch(domain:www.thepunterspage.com)"
+      "WebFetch(domain:www.thepunterspage.com)",
+      "Bash(git -C /Users/wilfredonoyola/workspace/futbolify/futbolify-backend-v2 status)",
+      "Bash(git -C /Users/wilfredonoyola/workspace/futbolify/futbolify-backend-v2 diff --stat)",
+      "Bash(git -C /Users/wilfredonoyola/workspace/futbolify/futbolify-backend-v2 add src/betting/cron/nightly-analysis.cron.ts)",
+      "Bash(git -C /Users/wilfredonoyola/workspace/futbolify/futbolify-backend-v2 commit -m \"$\\(cat <<''EOF''\nfix\\(betting\\): correct Telegram alert date display for negative UTC offsets\n\nThe nightly analysis alert was showing the wrong date \\(e.g., \"SAT, 28 MAR\" \ninstead of \"SUN, 29 MAR\"\\) because new Date\\(\"2026-03-29\"\\) creates midnight UTC,\nwhich is 6 PM the previous day in America/El_Salvador \\(UTC-6\\).\n\nFix: Use T12:00:00Z \\(noon UTC\\) so the date displays correctly in any timezone.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C /Users/wilfredonoyola/workspace/futbolify/futbolify-backend-v2 push)",
+      "Bash(git fetch:*)",
+      "Bash(__NEW_LINE_692669828fe06a89__ echo \"portfolio-optimizer:\")",
+      "Bash(__NEW_LINE_692669828fe06a89__ echo \"stake-calculator:\")",
+      "Bash(__NEW_LINE_692669828fe06a89__ echo \"correlation:\")",
+      "Bash(__NEW_LINE_692669828fe06a89__ echo \"context:\")",
+      "Bash(__NEW_LINE_692669828fe06a89__ echo \"combo-engine:\")",
+      "Bash(git restore:*)",
+      "WebFetch(domain:www.windrawwin.com)",
+      "Bash(kill:*)"
     ]
   }
 }

@@ -1831,4 +1831,29 @@ export class BettingTestController {
       rawSample: cardsMarkets.length > 0 ? cardsMarkets[0] : null,
     }
   }
+
+  /**
+   * Debug combos - show all recent combos with their dates
+   * GET /betting/test/debug-combos
+   */
+  @Get('debug-combos')
+  async debugCombos() {
+    const combos = await this.bettingComboModel
+      .find({})
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .exec()
+
+    return {
+      total: combos.length,
+      combos: combos.map(c => ({
+        id: c._id,
+        type: c.type,
+        date: c.date?.toISOString(),
+        createdAt: c.createdAt?.toISOString(),
+        legs: c.legs?.length,
+        status: c.status,
+      }))
+    }
+  }
 }

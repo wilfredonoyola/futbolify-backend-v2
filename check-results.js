@@ -6,13 +6,13 @@ async function checkResults() {
 
   const picks = await mongoose.connection.db.collection("betting_picks").find({
     kickoff: {
-      $gte: new Date("2026-03-27T00:00:00Z"),
-      $lt: new Date("2026-03-28T00:00:00Z")
+      $gte: new Date("2026-03-28T00:00:00Z"),
+      $lt: new Date("2026-03-29T00:00:00Z")
     }
   }).sort({ kickoff: 1 }).toArray();
 
   console.log("╔═══════════════════════════════════════════════════════════════╗");
-  console.log("║         📊 RESULTADOS PICKS - 27 MARZO 2026                  ║");
+  console.log("║         📊 RESULTADOS PICKS - 28 MARZO 2026                  ║");
   console.log("╚═══════════════════════════════════════════════════════════════╝\n");
 
   let wins = 0, losses = 0, pending = 0, totalProfit = 0;
