@@ -1907,4 +1907,49 @@ export class BettingTestController {
       }
     }
   }
+
+  /**
+   * Clear picks and combos for a specific date
+   * GET /betting/test/clear-picks?date=2026-04-03
+   */
+  @Get('clear-picks')
+  async clearPicks(@Query('date') date?: string) {
+    if (!date) {
+      return { error: 'Provide date query param (YYYY-MM-DD)' }
+    }
+
+    // Parse date - picks are stored with date field as Date object of midnight UTC
+    const targetDate = new Date(date)
+    const nextDay = new Date(targetDate)
+    nextDay.setDate(nextDay.getDate() + 1)
+
+    // Also handle timezone-aware kickoff range (El Salvador UTC-6)
+    // Local midnight = UTC+6 hours
+    const kickoffStart = new Date(`${date}T06:00:00.000Z`)
+    const kickoffEnd = new Date(kickoffStart)
+    kickoffEnd.setDate(kickoffEnd.getDate() + 1)
+
+    // Delete picks by date field OR kickoff range
+    const picksDeleted = await this.bettingPickModel.deleteMany({
+      $or: [
+        { date: { $gte: targetDate, $lt: nextDay } },
+        { kickoff: { $gte: kickoffStart, $lt: kickoffEnd } }
+      ]
+    })
+
+    // Delete combos by date field
+    const combosDeleted = await this.bettingComboModel.deleteMany({
+      $or: [
+        { date: { $gte: targetDate, $lt: nextDay } },
+        { date: { $gte: kickoffStart, $lt: kickoffEnd } }
+      ]
+    })
+
+    return {
+      success: true,
+      message: `Cleared picks and combos for ${date}`,
+      picksDeleted: picksDeleted.deletedCount,
+      combosDeleted: combosDeleted.deletedCount,
+    }
+  }
 }

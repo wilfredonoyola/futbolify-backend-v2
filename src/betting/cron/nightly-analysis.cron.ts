@@ -726,10 +726,17 @@ export class NightlyAnalysisCron {
         `Portfolio optimized: ${optimizedPortfolio.selectedCombos.length} combos selected`
       )
 
-      // REMOVED: Don't delete existing picks - they may have been notified
-      // The duplicate detection (`pickExists`) prevents creating duplicates
-      // Only delete picks that haven't been notified yet (fresh picks from failed runs)
-      // This preserves picks that users have already been alerted about
+      // Delete unnotified picks for the target date before saving new ones
+      // This allows pick limits to take effect when re-scanning
+      // ONLY deletes picks that haven't been sent to Telegram yet
+      const { start: pickDateStart, end: pickDateEnd } = this.getLocalDateRangeInUTC(tomorrowDate, timezone)
+      const deleteResult = await this.bettingPickModel.deleteMany({
+        kickoff: { $gte: pickDateStart, $lte: pickDateEnd },
+        telegramAlertSent: { $ne: true }
+      })
+      if (deleteResult.deletedCount > 0) {
+        this.logger.log(`Cleared ${deleteResult.deletedCount} unnotified picks for ${tomorrowDate} (enforcing limits)`)
+      }
 
       // Calculate stakes for individual picks (in 0.25u increments)
       const unitValue = settings.stakes?.fixedStake || 10  // 1u = fixedStake or $10
@@ -865,6 +872,15 @@ export class NightlyAnalysisCron {
       this.logger.log(
         `Combo filtering: ${optimizedPortfolio.selectedCombos.length} candidates → ${comboDocuments.length} valid (all legs have saved picks)`
       )
+
+      // Delete unnotified combos for the target date before saving new ones
+      const deleteComboResult = await this.bettingComboModel.deleteMany({
+        date: { $gte: pickDateStart, $lte: pickDateEnd },
+        telegramAlertSent: { $ne: true }
+      })
+      if (deleteComboResult.deletedCount > 0) {
+        this.logger.log(`Cleared ${deleteComboResult.deletedCount} unnotified combos for ${tomorrowDate} (enforcing limits)`)
+      }
 
       // Save combos to database
       let savedComboCount = 0

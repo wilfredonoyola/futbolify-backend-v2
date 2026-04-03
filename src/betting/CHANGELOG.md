@@ -84,6 +84,27 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 - `src/betting/schemas/referee-stats.schema.ts` (NUEVO)
 - `src/betting/schemas/index.ts`
 
+### Fix: Aplicación de Límites de Picks
+
+**Problema detectado:**
+- Los límites de picks (5/día, 2/partido) no se aplicaban correctamente
+- Picks existentes de scans anteriores permanecían en la base de datos
+- El sistema enviaba 19+ picks en lugar de máximo 5
+
+**Solución implementada:**
+- Antes de guardar nuevos picks, se eliminan picks NO notificados del día
+- Esto permite que los límites se apliquen correctamente en re-scans
+- Picks ya enviados por Telegram se preservan (no se borran)
+
+**Nuevo endpoint de testing:**
+- `GET /betting/test/clear-picks?date=YYYY-MM-DD`
+- Elimina todos los picks y combos de una fecha específica
+- Útil para testing y re-generación de picks
+
+**Archivos modificados:**
+- `src/betting/cron/nightly-analysis.cron.ts` (delete antes de insert)
+- `src/betting/betting-test.controller.ts` (endpoint clear-picks)
+
 ---
 
 ## [1.4.0] - 2026-04-02
